@@ -1,0 +1,168 @@
+import { Document } from 'mongoose'
+
+export interface WalletInfo {
+  address: string
+  seed: string
+  publicKey: string
+  privateKey: string
+}
+
+export interface TransactionResult {
+  success: boolean
+  hash: string
+  amount: string
+  from: string
+  to: string
+  message: string
+}
+
+export interface BalanceInfo {
+  address: string
+  balance: string
+  currency: string
+}
+
+export interface TransactionHistory {
+  hash: string
+  date: Date
+  amount: string
+  from: string
+  to: string
+  direction: 'sent' | 'received'
+}
+
+// WhatsApp Types
+export interface WhatsAppMessage {
+  from: string
+  id: string
+  timestamp: string
+  text: {
+    body: string
+  }
+  type: 'text' | 'button' | 'interactive'
+}
+
+export interface WhatsAppWebhookPayload {
+  object: string
+  entry: Array<{
+    id: string
+    changes: Array<{
+      value: {
+        messaging_product: string
+        metadata: {
+          display_phone_number: string
+          phone_number_id: string
+        }
+        contacts?: Array<{
+          profile: {
+            name: string
+          }
+          wa_id: string
+        }>
+        messages?: WhatsAppMessage[]
+        statuses?: Array<{
+          id: string
+          status: string
+          timestamp: string
+          recipient_id: string
+        }>
+      }
+      field: string
+    }>
+  }>
+}
+
+export interface WhatsAppTextMessage {
+  messaging_product: 'whatsapp'
+  recipient_type: 'individual'
+  to: string
+  type: 'text'
+  text: {
+    preview_url: boolean
+    body: string
+  }
+}
+
+export interface WhatsAppInteractiveMessage {
+  messaging_product: 'whatsapp'
+  recipient_type: 'individual'
+  to: string
+  type: 'interactive'
+  interactive: {
+    type: 'button'
+    body: {
+      text: string
+    }
+    action: {
+      buttons: Array<{
+        type: 'reply'
+        reply: {
+          id: string
+          title: string
+        }
+      }>
+    }
+  }
+}
+
+// Command Types
+export type CommandType =
+  | 'balance'
+  | 'send'
+  | 'request'
+  | 'history'
+  | 'address'
+  | 'help'
+  | 'requests'
+  | 'unknown'
+
+export interface ParsedCommand {
+  type: CommandType
+  amount?: number
+  recipient?: string
+  message?: string
+}
+
+// Database Document Interfaces
+export interface IUser extends Document {
+  whatsappId: string
+  phoneNumber: string
+  xrplAddress: string
+  encryptedSeed: string
+  createdAt: Date
+  lastActive: Date
+}
+
+export interface ITransaction extends Document {
+  txHash: string
+  fromAddress: string
+  toAddress: string
+  fromPhone?: string
+  toPhone?: string
+  amount: number
+  status: 'pending' | 'success' | 'failed'
+  timestamp: Date
+}
+
+export interface IPaymentRequest extends Document {
+  requestId: string
+  requesterAddress: string
+  requesterPhone: string
+  payerAddress: string
+  payerPhone: string
+  amount: number
+  message?: string
+  status: 'pending' | 'approved' | 'rejected' | 'expired' | 'failed'
+  txHash?: string
+  createdAt: Date
+  expiresAt: Date
+  completedAt?: Date
+}
+
+export interface IMessageLog extends Document {
+  whatsappId: string
+  direction: 'incoming' | 'outgoing'
+  messageType: 'text' | 'interactive' | 'button'
+  message: string
+  timestamp: Date
+}

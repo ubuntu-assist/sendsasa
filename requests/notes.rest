@@ -1,0 +1,89 @@
+### Variables
+@baseUrl = http://localhost:3000
+@noteId = {{createNote.response.body.id}}
+
+### Get all notes
+GET {{baseUrl}}/api/notes
+
+### Get a specific note by ID
+GET {{baseUrl}}/api/notes/{{noteId}}
+
+### Get a non-existent note (should return 404)
+GET {{baseUrl}}/api/notes/507f1f77bcf86cd799439011
+
+### Create a new note
+# @name createNote
+POST {{baseUrl}}/api/notes
+Content-Type: application/json
+
+{
+  "content": "This is a test note with sufficient length",
+  "important": true
+}
+
+### Create a note with minimal content (5 chars)
+POST {{baseUrl}}/api/notes
+Content-Type: application/json
+
+{
+  "content": "Hello",
+  "important": false
+}
+
+### Create a note without important field (should default to undefined/false)
+POST {{baseUrl}}/api/notes
+Content-Type: application/json
+
+{
+  "content": "Note without important field"
+}
+
+### Create invalid note - content too short (should fail validation)
+POST {{baseUrl}}/api/notes
+Content-Type: application/json
+
+{
+  "content": "Hi",
+  "important": true
+}
+
+### Create invalid note - missing content (should fail validation)
+POST {{baseUrl}}/api/notes
+Content-Type: application/json
+
+{
+  "important": true
+}
+
+### Update an existing note
+PUT {{baseUrl}}/api/notes/{{noteId}}
+Content-Type: application/json
+
+{
+  "content": "Updated content with sufficient length",
+  "important": false
+}
+
+### Update a non-existent note (should return 404)
+PUT {{baseUrl}}/api/notes/507f1f77bcf86cd799439011
+Content-Type: application/json
+
+{
+  "content": "This should not work",
+  "important": true
+}
+
+### Update with invalid data - content too short (should fail validation)
+PUT {{baseUrl}}/api/notes/{{noteId}}
+Content-Type: application/json
+
+{
+  "content": "Bad",
+  "important": true
+}
+
+### Delete a note
+DELETE {{baseUrl}}/api/notes/{{noteId}}
+
+### Delete a non-existent note (should still return 204)
+DELETE {{baseUrl}}/api/notes/507f1f77bcf86cd799439011
