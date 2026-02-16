@@ -29,6 +29,7 @@ import {
   InsufficientFundsError,
 } from '../middleware/error-handler'
 import { pendingTransactionService } from './pending-transaction.service'
+import { IUser } from '../types'
 
 export async function handleMessage(
   whatsappId: string,
@@ -221,7 +222,7 @@ async function handleBalanceCommand(
 async function handleAddressCommand(
   whatsappId: string,
   phoneNumber: string,
-  user: any,
+  user: IUser,
 ): Promise<void> {
   const msg =
     `Your Details\n\n` +
@@ -267,7 +268,7 @@ async function handleHistoryCommand(
 async function handleSendCommand(
   whatsappId: string,
   phoneNumber: string,
-  user: any,
+  user: IUser,
   recipient: string,
   amount: number,
 ): Promise<void> {
@@ -336,7 +337,7 @@ async function handleSendCommand(
 async function handleRequestCommand(
   whatsappId: string,
   phoneNumber: string,
-  user: any,
+  user: IUser,
   recipient: string,
   amount: number,
   message?: string,
@@ -360,7 +361,6 @@ async function handleRequestCommand(
     payerAddress = payerUser.xrplAddress
     payerPhone = recipient
   } else if (isXRPLAddress(recipient)) {
-    // Look up user by address
     const payerUser = await UserService.getUserByAddress(recipient)
     if (!payerUser) {
       throw new NotFoundError(
@@ -433,7 +433,7 @@ async function handleViewRequestsCommand(
 async function handleApproveRequest(
   whatsappId: string,
   phoneNumber: string,
-  user: any,
+  user: IUser,
   requestId: string,
 ): Promise<void> {
   const request = await PaymentRequestService.getPaymentRequestById(requestId)
@@ -548,7 +548,7 @@ async function handleHelpCommand(
 async function handleConfirmSend(
   whatsappId: string,
   phoneNumber: string,
-  user: any,
+  user: IUser,
   transactionId: string,
 ): Promise<void> {
   const pendingTx = pendingTransactionService.get(transactionId)

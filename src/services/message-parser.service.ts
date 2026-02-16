@@ -1,4 +1,4 @@
-import { ParsedCommand, CommandType } from '../types'
+import { ParsedCommand } from '../types'
 import {
   validatePhoneNumber,
   validateXRPLAddress,

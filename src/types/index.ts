@@ -32,6 +32,32 @@ export interface TransactionHistory {
 }
 
 // WhatsApp Types
+
+export interface InteractiveMessage {
+  type: 'interactive'
+  from: string
+  id: string
+  timestamp: string
+  interactive: {
+    type: string
+    button_reply?: {
+      id: string
+      title: string
+    }
+  }
+}
+
+export interface ButtonMessage {
+  type: 'button'
+  from: string
+  id: string
+  timestamp: string
+  button: {
+    payload: string
+    text: string
+  }
+}
+
 export interface WhatsAppMessage {
   from: string
   id: string
