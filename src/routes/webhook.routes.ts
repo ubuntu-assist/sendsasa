@@ -12,16 +12,19 @@ import {
 import { markMessageAsRead } from '../services/whatsapp.service'
 import { asyncHandler } from '../middleware/error-handler'
 import { webhookLimiter } from '../middleware/rate-limiter'
-import config from '../utils/config'
 
 const router = Router()
+
+function formatWhatsAppIdToPhone(whatsappId: string): string {
+  return whatsappId.startsWith('+') ? whatsappId : `+${whatsappId}`
+}
 
 router.get('/whatsapp', (req: Request, res: Response) => {
   const mode = req.query['hub.mode']
   const token = req.query['hub.verify_token']
   const challenge = req.query['hub.challenge']
 
-  const VERIFY_TOKEN = config.VERIFY_TOKEN
+  const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN
 
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
     console.log('Webhook verified')
@@ -34,7 +37,7 @@ router.get('/whatsapp', (req: Request, res: Response) => {
 
 async function processSingleMessage(message: WhatsAppMessage): Promise<void> {
   const whatsappId = message.from
-  const phoneNumber = `+${message.from}`
+  const phoneNumber = formatWhatsAppIdToPhone(whatsappId)
 
   await markMessageAsRead(message.id)
 
@@ -82,9 +85,20 @@ async function handleButtonMessage(
   }
 }
 
-function processStatusUpdates(statuses: any[]): void {
+function processStatusUpdates(
+  statuses: Array<{
+    id: string
+    status: string
+    timestamp: string
+    recipient_id: string
+  }>,
+): void {
   for (const status of statuses) {
-    console.log(`Message ${status.id} status: ${status.status}`)
+    console.log(`Message ${status.id}: ${status.status}`)
+
+    if (status.status === 'failed') {
+      console.error(`Message delivery failed: ${status.id}`)
+    }
   }
 }
 
@@ -101,7 +115,6 @@ async function processWebhookMessages(
         }
       }
 
-      // Process status updates
       if (value.statuses && value.statuses.length > 0) {
         processStatusUpdates(value.statuses)
       }
@@ -115,7 +128,7 @@ router.post(
   asyncHandler(async (req: Request, res: Response) => {
     const payload: WhatsAppWebhookPayload = req.body
 
-    console.log('\nWebhook received')
+    console.log('\n📨 Webhook received')
 
     res.sendStatus(200)
 

@@ -32,32 +32,6 @@ export interface TransactionHistory {
 }
 
 // WhatsApp Types
-
-export interface InteractiveMessage {
-  type: 'interactive'
-  from: string
-  id: string
-  timestamp: string
-  interactive: {
-    type: string
-    button_reply?: {
-      id: string
-      title: string
-    }
-  }
-}
-
-export interface ButtonMessage {
-  type: 'button'
-  from: string
-  id: string
-  timestamp: string
-  button: {
-    payload: string
-    text: string
-  }
-}
-
 export interface WhatsAppMessage {
   from: string
   id: string
@@ -139,7 +113,9 @@ export type CommandType =
   | 'history'
   | 'address'
   | 'help'
-  | 'requests'
+  | 'requests' // View pending requests
+  | 'menu' // Main menu
+  | 'get_started' // Welcome flow
   | 'unknown'
 
 export interface ParsedCommand {
@@ -147,6 +123,61 @@ export interface ParsedCommand {
   amount?: number
   recipient?: string
   message?: string
+}
+
+// User States
+export type UserState = 'new' | 'registered'
+
+// Menu Action Types
+export type MenuAction =
+  | 'send_money'
+  | 'request_money'
+  | 'my_wallet'
+  | 'help'
+  | 'transaction_history'
+  | 'pending_requests'
+  | 'share_address'
+  | 'main_menu'
+
+// Flow Types
+export interface SendMoneyFlowData {
+  amount: number
+  recipient: string
+  recipientType: 'phone' | 'address'
+  message?: string
+}
+
+export interface RequestMoneyFlowData {
+  amount: number
+  from: string
+  fromType: 'phone' | 'address'
+  reason?: string
+}
+
+// Interactive Message Types
+export interface InteractiveMessage {
+  type: 'interactive'
+  from: string
+  id: string
+  timestamp: string
+  interactive: {
+    type: string
+    button_reply?: {
+      id: string
+      title: string
+    }
+  }
+}
+
+export interface ButtonMessage {
+  type: 'button'
+  from: string
+  id: string
+  timestamp: string
+  button: {
+    payload: string
+    text: string
+  }
 }
 
 // Database Document Interfaces

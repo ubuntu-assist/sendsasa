@@ -15,7 +15,6 @@ import {
   BalanceInfo,
   TransactionHistory,
 } from '../types'
-import { TransactionService } from './database.service'
 
 export async function generateWallet(): Promise<WalletInfo> {
   console.log('\nGenerating new wallet...')
@@ -83,55 +82,35 @@ export async function sendXRP(
     Amount: xrpToDrops(amount.toString()),
   }
 
-  await TransactionService.logTransaction(
-    'pending',
-    senderWallet.classicAddress,
-    destinationAddress,
-    amount,
-    'pending',
-  )
+  try {
+    const result = await client.submitAndWait(tx, {
+      autofill: true,
+      wallet: senderWallet,
+    })
 
-  console.log('Preparing transaction...')
-
-  const result = await client.submitAndWait(tx, {
-    autofill: true,
-    wallet: senderWallet,
-  })
-
-  if (!result.result.meta || typeof result.result.meta === 'string') {
-    throw new Error('Transaction metadata is missing or invalid')
-  }
-
-  const txResult = result.result.meta.TransactionResult
-
-  if (txResult === 'tesSUCCESS') {
-    console.log(`Transaction successful: ${result.result.hash}`)
-
-    await TransactionService.logTransaction(
-      result.result.hash,
-      senderWallet.classicAddress,
-      destinationAddress,
-      amount,
-      'success',
-    )
-
-    return {
-      success: true,
-      hash: result.result.hash,
-      amount: amount.toString(),
-      from: senderWallet.classicAddress,
-      to: destinationAddress,
-      message: `Sent ${amount} XRP to ${destinationAddress}`,
+    if (!result.result.meta || typeof result.result.meta === 'string') {
+      throw new Error('Transaction metadata is missing or invalid')
     }
-  } else {
-    await TransactionService.logTransaction(
-      result.result.hash,
-      senderWallet.classicAddress,
-      destinationAddress,
-      amount,
-      'failed',
-    )
-    throw new Error(`Transaction failed: ${txResult}`)
+
+    const txResult = result.result.meta.TransactionResult
+
+    if (txResult === 'tesSUCCESS') {
+      console.log(`Transaction successful: ${result.result.hash}`)
+
+      return {
+        success: true,
+        hash: result.result.hash,
+        amount: amount.toString(),
+        from: senderWallet.classicAddress,
+        to: destinationAddress,
+        message: `Sent ${amount} XRP to ${destinationAddress}`,
+      }
+    } else {
+      throw new Error(`Transaction failed: ${txResult}`)
+    }
+  } catch (error) {
+    console.error('Transaction error:', error)
+    throw error
   }
 }
 
