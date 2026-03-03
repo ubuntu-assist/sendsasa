@@ -4,6 +4,7 @@ import {
   sendMainMenu,
   sendWalletMenu,
   sendBackToMenuButton,
+  sendWalletSettingsMenu,
 } from './whatsapp-menu.service'
 import {
   parseButtonInteraction,
@@ -87,26 +88,6 @@ export async function handleMessage(
     await MessageLogService.logIncomingMessage(whatsappId, messageText)
 
     const user = await UserService.getUserByWhatsAppId(whatsappId)
-
-    // Check for PIN/username management commands first (for existing users)
-    if (user) {
-      const lowerMessage = messageText.toLowerCase().trim()
-
-      if (lowerMessage === 'change pin' || lowerMessage === 'update pin') {
-        await handleChangePIN(whatsappId, phoneNumber)
-        return
-      }
-
-      if (lowerMessage === 'forgot pin' || lowerMessage === 'reset pin') {
-        await handleForgotPIN(whatsappId, phoneNumber)
-        return
-      }
-
-      if (lowerMessage === 'change username') {
-        await handleChangeUsername(whatsappId, phoneNumber, user)
-        return
-      }
-    }
 
     // Check if in approve request flow (waiting for PIN)
     if (approveRequestFlows.has(whatsappId)) {
@@ -327,6 +308,20 @@ export async function handleButtonClick(
           user.xrplAddress,
         )
         break
+
+      // NEW CASES - ADD HERE
+      case 'wallet_settings':
+        await handleWalletSettingsAction(whatsappId, phoneNumber)
+        break
+
+      case 'change_pin':
+        await handleChangePIN(whatsappId, phoneNumber)
+        break
+
+      case 'change_username':
+        await handleChangeUsernameAction(whatsappId, phoneNumber, user)
+        break
+      // END NEW CASES
 
       case 'approve':
         await handleApproveRequest(
@@ -1343,7 +1338,7 @@ async function handleForgotPINFlow(
 /**
  * Handle change username command
  */
-async function handleChangeUsername(
+async function handleChangeUsernameAction(
   whatsappId: string,
   phoneNumber: string,
   user: IUser,
@@ -1363,4 +1358,18 @@ async function handleChangeUsername(
 
   // Set a temporary flag to expect username input
   // (In production, you'd want a proper flow state for this)
+}
+
+/**
+ * Handle Wallet Settings button
+ */
+async function handleWalletSettingsAction(
+  whatsappId: string,
+  phoneNumber: string,
+): Promise<void> {
+  await sendWalletSettingsMenu(phoneNumber)
+  await MessageLogService.logOutgoingMessage(
+    whatsappId,
+    'Wallet settings menu sent',
+  )
 }

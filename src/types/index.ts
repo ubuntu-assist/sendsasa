@@ -139,6 +139,9 @@ export type MenuAction =
   | 'pending_requests'
   | 'share_address'
   | 'main_menu'
+  | 'wallet_settings'
+  | 'change_pin_button'
+  | 'change_username_button'
 
 // Flow Types
 export interface SendMoneyFlowData {

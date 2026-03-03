@@ -40,6 +40,9 @@ export function parseButtonInteraction(buttonId: string): {
   if (buttonId === 'transaction_history')
     return { action: 'transaction_history' }
   if (buttonId === 'pending_requests') return { action: 'pending_requests' }
+  if (buttonId === 'wallet_settings') return { action: 'wallet_settings' }
+  if (buttonId === 'change_pin') return { action: 'change_pin' }
+  if (buttonId === 'change_username') return { action: 'change_username' }
 
   if (buttonId.startsWith('amount_')) {
     const amount = Number.parseInt(buttonId.replace('amount_', ''))
