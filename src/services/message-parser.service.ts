@@ -43,6 +43,12 @@ export function parseButtonInteraction(buttonId: string): {
   if (buttonId === 'wallet_settings') return { action: 'wallet_settings' }
   if (buttonId === 'change_pin') return { action: 'change_pin' }
   if (buttonId === 'change_username') return { action: 'change_username' }
+  if (buttonId === 'confirm_username_yes')
+    return { action: 'confirm_username_yes' }
+  if (buttonId === 'confirm_username_no')
+    return { action: 'confirm_username_no' }
+  if (buttonId === 'confirm_username_cancel')
+    return { action: 'confirm_username_cancel' }
 
   if (buttonId.startsWith('amount_')) {
     const amount = Number.parseInt(buttonId.replace('amount_', ''))

@@ -5,6 +5,7 @@ import {
   sendWalletMenu,
   sendBackToMenuButton,
   sendWalletSettingsMenu,
+  sendUsernameConfirmationMenu,
 } from './whatsapp-menu.service'
 import {
   parseButtonInteraction,
@@ -63,6 +64,14 @@ interface ForgotPINFlow {
 
 const forgotPINFlows = new Map<string, ForgotPINFlow>()
 
+interface ChangeUsernameFlow {
+  step: 'enter_new' | 'confirm_new'
+  currentUsername: string
+  newUsername?: string
+}
+
+const changeUsernameFlows = new Map<string, ChangeUsernameFlow>()
+
 // Transaction PIN Verification State
 interface TransactionPINData {
   amount: number
@@ -104,6 +113,16 @@ export async function handleMessage(
     // Check if in forgot PIN flow
     if (forgotPINFlows.has(whatsappId)) {
       await handleForgotPINFlow(whatsappId, phoneNumber, messageText)
+      return
+    }
+
+    if (changeUsernameFlows.has(whatsappId)) {
+      await handleChangeUsernameFlow(
+        whatsappId,
+        phoneNumber,
+        user!,
+        messageText,
+      )
       return
     }
 
@@ -322,6 +341,18 @@ export async function handleButtonClick(
         await handleChangeUsernameAction(whatsappId, phoneNumber, user)
         break
       // END NEW CASES
+
+      case 'confirm_username_yes':
+        await handleConfirmUsernameYes(whatsappId, phoneNumber, user)
+        break
+
+      case 'confirm_username_no':
+        await handleConfirmUsernameNo(whatsappId, phoneNumber)
+        break
+
+      case 'confirm_username_cancel':
+        await handleConfirmUsernameCancel(whatsappId, phoneNumber)
+        break
 
       case 'approve':
         await handleApproveRequest(
@@ -1336,31 +1367,6 @@ async function handleForgotPINFlow(
 }
 
 /**
- * Handle change username command
- */
-async function handleChangeUsernameAction(
-  whatsappId: string,
-  phoneNumber: string,
-  user: IUser,
-): Promise<void> {
-  const msg =
-    `✏️ Change Username\n\n` +
-    `Current username: ${user.username}\n\n` +
-    `Enter your new username (without @):\n\n` +
-    `Example: marie_dschang.sasa\n\n` +
-    `Rules:\n` +
-    `• Must end with .sasa\n` +
-    `• 3-20 characters before .sasa\n` +
-    `• Can change once every 30 days`
-
-  await sendTextMessage(phoneNumber, msg)
-  await MessageLogService.logOutgoingMessage(whatsappId, msg)
-
-  // Set a temporary flag to expect username input
-  // (In production, you'd want a proper flow state for this)
-}
-
-/**
  * Handle Wallet Settings button
  */
 async function handleWalletSettingsAction(
@@ -1372,4 +1378,287 @@ async function handleWalletSettingsAction(
     whatsappId,
     'Wallet settings menu sent',
   )
+}
+
+/**
+ * Handle username change flow - MULTI-STEP PROCESS
+ */
+async function handleChangeUsernameFlow(
+  whatsappId: string,
+  phoneNumber: string,
+  user: IUser,
+  messageText: string,
+): Promise<void> {
+  const flow = changeUsernameFlows.get(whatsappId)
+  if (!flow) return
+
+  // Allow cancel at any step
+  if (messageText.toLowerCase().trim() === 'cancel') {
+    changeUsernameFlows.delete(whatsappId)
+    const msg = '❌ Username change cancelled.'
+    await sendBackToMenuButton(phoneNumber, msg)
+    await MessageLogService.logOutgoingMessage(whatsappId, msg)
+    return
+  }
+
+  if (flow.step === 'enter_new') {
+    // STEP 1: User enters new username
+    let newUsername = messageText.trim()
+
+    // Remove @ if present
+    if (newUsername.startsWith('@')) {
+      newUsername = newUsername.substring(1)
+    }
+
+    // Validate format
+    try {
+      usernameService.validateUsername(newUsername)
+    } catch (error) {
+      const errorMsg =
+        error instanceof Error ? error.message : 'Invalid username'
+
+      const msg =
+        `❌ ${errorMsg}\n\n` +
+        `Please try again.\n\n` +
+        `Example: marie_douala.sasa\n\n` +
+        `Or type "cancel" to go back.`
+
+      await sendTextMessage(phoneNumber, msg)
+      await MessageLogService.logOutgoingMessage(whatsappId, msg)
+      return // Stay in enter_new step
+    }
+
+    // Check if username is available
+    const exists = await usernameService.usernameExists(newUsername)
+
+    if (exists) {
+      // Username taken - show suggestions
+      const baseName = newUsername.replace('.sasa', '')
+      const suggestions = [
+        `${baseName}123.sasa`,
+        `${baseName}_cm.sasa`,
+        `${baseName}_douala.sasa`,
+      ]
+
+      const msg =
+        `❌ Username Not Available\n\n` +
+        `@${newUsername} is already taken.\n\n` +
+        `💡 Try these:\n` +
+        `• ${suggestions[0]}\n` +
+        `• ${suggestions[1]}\n` +
+        `• ${suggestions[2]}\n\n` +
+        `Or choose your own.\n\n` +
+        `Type "cancel" to go back.`
+
+      await sendTextMessage(phoneNumber, msg)
+      await MessageLogService.logOutgoingMessage(whatsappId, msg)
+      return // Stay in enter_new step
+    }
+
+    // Check if same as current
+    const normalized = newUsername.toLowerCase()
+    const current = flow.currentUsername.toLowerCase().replace('@', '')
+
+    if (normalized === current) {
+      const msg =
+        `❌ Same Username\n\n` +
+        `This is already your username.\n\n` +
+        `Please enter a different username or type "cancel".`
+
+      await sendTextMessage(phoneNumber, msg)
+      await MessageLogService.logOutgoingMessage(whatsappId, msg)
+      return // Stay in enter_new step
+    }
+
+    // Check cooldown period
+    if (user.usernameLastChanged) {
+      const daysSinceChange =
+        (Date.now() - user.usernameLastChanged.getTime()) /
+        (1000 * 60 * 60 * 24)
+
+      if (daysSinceChange < 30) {
+        const daysRemaining = Math.ceil(30 - daysSinceChange)
+
+        changeUsernameFlows.delete(whatsappId)
+
+        const msg =
+          `⏳ Username Change Cooldown\n\n` +
+          `You can change your username again in ${daysRemaining} day${daysRemaining > 1 ? 's' : ''}`
+
+        await sendBackToMenuButton(phoneNumber, msg)
+        await MessageLogService.logOutgoingMessage(whatsappId, msg)
+        return
+      }
+    }
+
+    // ALL CHECKS PASSED - Move to confirmation step
+    flow.newUsername = newUsername
+    flow.step = 'confirm_new'
+    changeUsernameFlows.set(whatsappId, flow)
+
+    // Send confirmation menu with BUTTONS ✅
+    await sendUsernameConfirmationMenu(
+      phoneNumber,
+      flow.currentUsername,
+      newUsername,
+    )
+    await MessageLogService.logOutgoingMessage(
+      whatsappId,
+      'Username confirmation menu sent',
+    )
+  } else if (flow.step === 'confirm_new') {
+    // STEP 2: Confirmation is now handled by BUTTONS
+    // This code only runs if user types instead of clicking buttons
+
+    const msg =
+      `Please use the buttons above:\n\n` +
+      `• [✅ Yes, Change] to confirm\n` +
+      `• [↩️ Choose Different] to try another\n` +
+      `• [❌ Cancel] to go back`
+
+    await sendTextMessage(phoneNumber, msg)
+    await MessageLogService.logOutgoingMessage(whatsappId, msg)
+  }
+}
+
+/**
+ * Handle Change Username button (starts the flow)
+ */
+async function handleChangeUsernameAction(
+  whatsappId: string,
+  phoneNumber: string,
+  user: IUser,
+): Promise<void> {
+  await handleChangeUsername(whatsappId, phoneNumber, user)
+}
+
+/**
+ * Handle change username command - START FLOW
+ */
+async function handleChangeUsername(
+  whatsappId: string,
+  phoneNumber: string,
+  user: IUser,
+): Promise<void> {
+  // Start username change flow
+  changeUsernameFlows.set(whatsappId, {
+    step: 'enter_new',
+    currentUsername: user.username,
+  })
+
+  const msg =
+    `✏️ Change Username\n\n` +
+    `Current username: ${user.username}\n\n` +
+    `Enter your new username:\n\n` +
+    `Example: marie_douala.sasa\n\n` +
+    `Rules:\n` +
+    `• Must end with .sasa\n` +
+    `• 3-20 characters before .sasa\n` +
+    `• Letters, numbers, dots, underscores only\n` +
+    `• Can change once every 30 days\n\n` +
+    `Type "cancel" to go back.`
+
+  await sendTextMessage(phoneNumber, msg)
+  await MessageLogService.logOutgoingMessage(whatsappId, msg)
+}
+
+/**
+ * Handle username confirmation - YES button
+ */
+async function handleConfirmUsernameYes(
+  whatsappId: string,
+  phoneNumber: string,
+  user: IUser,
+): Promise<void> {
+  const flow = changeUsernameFlows.get(whatsappId)
+
+  if (flow?.step !== 'confirm_new' || !flow.newUsername) {
+    const msg = '❌ No username change in progress.'
+    await sendTextMessage(phoneNumber, msg)
+    await MessageLogService.logOutgoingMessage(whatsappId, msg)
+    return
+  }
+
+  try {
+    // Make the change
+    await usernameService.changeUsername(whatsappId, flow.newUsername)
+
+    // Clear flow
+    changeUsernameFlows.delete(whatsappId)
+
+    // Success message
+    const successMsg =
+      `✅ Username Changed Successfully!\n\n` +
+      `Old username: ${flow.currentUsername}\n` +
+      `New username: @${flow.newUsername}\n\n` +
+      `Your new username is now active!\n` +
+      `You can use it to receive payments.`
+
+    await sendBackToMenuButton(phoneNumber, successMsg)
+    await MessageLogService.logOutgoingMessage(whatsappId, successMsg)
+  } catch (error) {
+    // Error - clear flow
+    changeUsernameFlows.delete(whatsappId)
+
+    const errorMsg =
+      error instanceof Error ? error.message : 'Failed to change username'
+    const msg = `❌ Error\n\n${errorMsg}\n\nPlease try again later.`
+
+    await sendBackToMenuButton(phoneNumber, msg)
+    await MessageLogService.logOutgoingMessage(whatsappId, msg)
+  }
+}
+
+/**
+ * Handle username confirmation - NO button (choose different)
+ */
+async function handleConfirmUsernameNo(
+  whatsappId: string,
+  phoneNumber: string,
+): Promise<void> {
+  const flow = changeUsernameFlows.get(whatsappId)
+
+  if (flow?.step !== 'confirm_new') {
+    const msg = '❌ No username change in progress.'
+    await sendTextMessage(phoneNumber, msg)
+    await MessageLogService.logOutgoingMessage(whatsappId, msg)
+    return
+  }
+
+  // Go back to enter_new step
+  flow.step = 'enter_new'
+  flow.newUsername = undefined
+  changeUsernameFlows.set(whatsappId, flow)
+
+  const msg =
+    `Enter a different username:\n\n` +
+    `Example: marie_douala.sasa\n\n` +
+    `Type "cancel" to go back.`
+
+  await sendTextMessage(phoneNumber, msg)
+  await MessageLogService.logOutgoingMessage(whatsappId, msg)
+}
+
+/**
+ * Handle username confirmation - CANCEL button
+ */
+async function handleConfirmUsernameCancel(
+  whatsappId: string,
+  phoneNumber: string,
+): Promise<void> {
+  const flow = changeUsernameFlows.get(whatsappId)
+
+  if (!flow) {
+    const msg = '❌ No username change in progress.'
+    await sendTextMessage(phoneNumber, msg)
+    await MessageLogService.logOutgoingMessage(whatsappId, msg)
+    return
+  }
+
+  // Clear flow
+  changeUsernameFlows.delete(whatsappId)
+
+  const msg = '❌ Username change cancelled.'
+  await sendBackToMenuButton(phoneNumber, msg)
+  await MessageLogService.logOutgoingMessage(whatsappId, msg)
 }

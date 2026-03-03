@@ -245,6 +245,70 @@ export async function sendWalletSettingsMenu(to: string): Promise<void> {
 }
 
 /**
+ * Send username change confirmation menu
+ */
+export async function sendUsernameConfirmationMenu(
+  to: string,
+  currentUsername: string,
+  newUsername: string,
+): Promise<void> {
+  const url = `${WHATSAPP_API_URL}/${PHONE_NUMBER_ID}/messages`
+
+  const payload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: to,
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: {
+        text: `✅ Username Available!\n\nCurrent: ${currentUsername}\nNew: @${newUsername}\n\nConfirm this change?`,
+      },
+      action: {
+        buttons: [
+          {
+            type: 'reply',
+            reply: {
+              id: 'confirm_username_yes',
+              title: '✅ Yes, Change',
+            },
+          },
+          {
+            type: 'reply',
+            reply: {
+              id: 'confirm_username_no',
+              title: '↩️ Choose Different',
+            },
+          },
+          {
+            type: 'reply',
+            reply: {
+              id: 'confirm_username_cancel',
+              title: '❌ Cancel',
+            },
+          },
+        ],
+      },
+    },
+  }
+
+  try {
+    await axios.post(url, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ACCESS_TOKEN}`,
+      },
+      timeout: 10000,
+    })
+
+    console.log(`✅ Username confirmation menu sent to ${to}`)
+  } catch (error) {
+    console.error('❌ Error sending username confirmation menu:', error)
+    throw new AppError('Failed to send username confirmation menu', 503)
+  }
+}
+
+/**
  * Send back to menu button
  */
 export async function sendBackToMenuButton(
