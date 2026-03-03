@@ -1,6 +1,8 @@
 import { User, Transaction, PaymentRequest, MessageLog } from '../models'
 import { IUser, ITransaction, IPaymentRequest, IMessageLog } from '../types'
 import { generateWallet, getEncryptedSeed } from './xrpl.service'
+import { pinVerificationService } from './pin-verification.service'
+import { usernameService } from './username.service'
 
 export class UserService {
   static async getUserByWhatsAppId(whatsappId: string): Promise<IUser | null> {
@@ -15,9 +17,15 @@ export class UserService {
     return await User.findOne({ xrplAddress })
   }
 
+  static async getUserByUsername(username: string): Promise<IUser | null> {
+    return await usernameService.getUserByUsername(username)
+  }
+
   static async createUser(
     whatsappId: string,
     phoneNumber: string,
+    pin: string,
+    whatsappName?: string,
   ): Promise<IUser> {
     const existingUser = await this.getUserByWhatsAppId(whatsappId)
     if (existingUser) {
@@ -26,6 +34,12 @@ export class UserService {
 
     const wallet = await generateWallet()
 
+    const pinHash = await pinVerificationService.hashPIN(pin)
+
+    const username = await usernameService.generateUsername(
+      whatsappName || phoneNumber,
+    )
+
     const user = new User({
       whatsappId,
       phoneNumber,
@@ -33,11 +47,17 @@ export class UserService {
       encryptedSeed: getEncryptedSeed(wallet.seed),
       createdAt: new Date(),
       lastActive: new Date(),
+
+      pinHash,
+      pinAttempts: 0,
+      pinLastChanged: new Date(),
+
+      username,
     })
 
     await user.save()
 
-    console.log(`User created: ${whatsappId} → ${wallet.address}`)
+    console.log(`User created: ${username} → ${wallet.address}`)
 
     return user
   }
@@ -65,7 +85,7 @@ export class TransactionService {
     fromAddress: string,
     toAddress: string,
     amount: number,
-    status: 'pending' | 'success' | 'failed' = 'success',
+    status: 'pending' | 'success' | 'failed',
     fromPhone?: string,
     toPhone?: string,
   ): Promise<ITransaction> {
@@ -73,21 +93,21 @@ export class TransactionService {
       txHash,
       fromAddress,
       toAddress,
-      amount,
-      status,
       fromPhone,
       toPhone,
+      amount,
+      status,
       timestamp: new Date(),
     })
 
     await transaction.save()
 
-    console.log(`Transaction logged: ${txHash}`)
+    console.log(`📝 Transaction logged: ${txHash} (${status})`)
 
     return transaction
   }
 
-  static async getTransactionsByAddress(
+  static async getTransactionsForAddress(
     address: string,
     limit: number = 10,
   ): Promise<ITransaction[]> {
@@ -104,19 +124,10 @@ export class TransactionService {
     return await Transaction.findOne({ txHash })
   }
 
-  static async updateTransactionStatus(
-    txHash: string,
-    status: 'pending' | 'success' | 'failed',
-  ): Promise<void> {
-    await Transaction.updateOne({ txHash }, { $set: { status } })
-  }
-
-  static async getTransactionCount(): Promise<number> {
-    return await Transaction.countDocuments()
-  }
-
-  static async getSuccessfulTransactionCount(): Promise<number> {
-    return await Transaction.countDocuments({ status: 'success' })
+  static async getAllTransactions(
+    limit: number = 100,
+  ): Promise<ITransaction[]> {
+    return await Transaction.find().sort({ timestamp: -1 }).limit(limit)
   }
 }
 
@@ -129,9 +140,8 @@ export class PaymentRequestService {
     amount: number,
     message?: string,
   ): Promise<IPaymentRequest> {
-    const requestId = `PR-${Date.now()}-${Math.random()
-      .toString(36)
-      .substring(7)}`
+    const requestId = `REQ_${Date.now()}_${Math.random().toString(36).substring(7)}`
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
 
     const request = new PaymentRequest({
       requestId,
@@ -143,7 +153,7 @@ export class PaymentRequestService {
       message,
       status: 'pending',
       createdAt: new Date(),
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      expiresAt,
     })
 
     await request.save()
@@ -169,22 +179,12 @@ export class PaymentRequestService {
     }).sort({ createdAt: -1 })
   }
 
-  static async getPendingRequestsFromRequester(
-    requesterAddress: string,
-  ): Promise<IPaymentRequest[]> {
-    return await PaymentRequest.find({
-      requesterAddress,
-      status: 'pending',
-      expiresAt: { $gt: new Date() },
-    }).sort({ createdAt: -1 })
-  }
-
   static async approvePaymentRequest(
     requestId: string,
     txHash: string,
-  ): Promise<void> {
-    await PaymentRequest.updateOne(
-      { requestId },
+  ): Promise<IPaymentRequest | null> {
+    const request = await PaymentRequest.findOneAndUpdate(
+      { requestId, status: 'pending' },
       {
         $set: {
           status: 'approved',
@@ -192,23 +192,41 @@ export class PaymentRequestService {
           completedAt: new Date(),
         },
       },
+      { new: true },
     )
+
+    if (request) {
+      console.log(`✅ Payment request approved: ${requestId}`)
+    }
+
+    return request
   }
 
-  static async rejectPaymentRequest(requestId: string): Promise<void> {
-    await PaymentRequest.updateOne(
-      { requestId },
+  static async rejectPaymentRequest(
+    requestId: string,
+  ): Promise<IPaymentRequest | null> {
+    const request = await PaymentRequest.findOneAndUpdate(
+      { requestId, status: 'pending' },
       {
         $set: {
           status: 'rejected',
           completedAt: new Date(),
         },
       },
+      { new: true },
     )
+
+    if (request) {
+      console.log(`❌ Payment request rejected: ${requestId}`)
+    }
+
+    return request
   }
 
-  static async failPaymentRequest(requestId: string): Promise<void> {
-    await PaymentRequest.updateOne(
+  static async failPaymentRequest(
+    requestId: string,
+  ): Promise<IPaymentRequest | null> {
+    return await PaymentRequest.findOneAndUpdate(
       { requestId },
       {
         $set: {
@@ -216,10 +234,11 @@ export class PaymentRequestService {
           completedAt: new Date(),
         },
       },
+      { new: true },
     )
   }
 
-  static async expireOldRequests(): Promise<number> {
+  static async cleanupExpiredRequests(): Promise<number> {
     const result = await PaymentRequest.updateMany(
       {
         status: 'pending',
@@ -230,7 +249,9 @@ export class PaymentRequestService {
       },
     )
 
-    return result.modifiedCount
+    console.log(`Cleaned up ${result.modifiedCount} expired requests`)
+
+    return result.modifiedCount || 0
   }
 }
 
@@ -238,33 +259,35 @@ export class MessageLogService {
   static async logIncomingMessage(
     whatsappId: string,
     message: string,
-    messageType: 'text' | 'interactive' | 'button' = 'text',
-  ): Promise<void> {
+  ): Promise<IMessageLog> {
     const log = new MessageLog({
       whatsappId,
       direction: 'incoming',
-      messageType,
+      messageType: 'text',
       message,
       timestamp: new Date(),
     })
 
     await log.save()
+
+    return log
   }
 
   static async logOutgoingMessage(
     whatsappId: string,
     message: string,
-    messageType: 'text' | 'interactive' | 'button' = 'text',
-  ): Promise<void> {
+  ): Promise<IMessageLog> {
     const log = new MessageLog({
       whatsappId,
       direction: 'outgoing',
-      messageType,
+      messageType: 'text',
       message,
       timestamp: new Date(),
     })
 
     await log.save()
+
+    return log
   }
 
   static async getMessageHistory(
@@ -276,7 +299,19 @@ export class MessageLogService {
       .limit(limit)
   }
 
-  static async getMessageCount(): Promise<number> {
-    return await MessageLog.countDocuments()
+  static async getAllMessageLogs(limit: number = 100): Promise<IMessageLog[]> {
+    return await MessageLog.find().sort({ timestamp: -1 }).limit(limit)
+  }
+
+  static async cleanupOldLogs(): Promise<number> {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+
+    const result = await MessageLog.deleteMany({
+      timestamp: { $lt: thirtyDaysAgo },
+    })
+
+    console.log(`Cleaned up ${result.deletedCount} old message logs`)
+
+    return result.deletedCount || 0
   }
 }

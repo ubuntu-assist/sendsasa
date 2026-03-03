@@ -1,5 +1,6 @@
 import { Document } from 'mongoose'
 
+// XRPL Types
 export interface WalletInfo {
   address: string
   seed: string
@@ -188,6 +189,20 @@ export interface IUser extends Document {
   encryptedSeed: string
   createdAt: Date
   lastActive: Date
+
+  // Security fields (PIN)
+  pinHash: string
+  pinAttempts: number
+  pinLockedUntil?: Date
+  pinLastChanged: Date
+
+  // Username fields
+  username: string // @marie.sasa
+  usernameLastChanged?: Date
+
+  // Recovery
+  recoveryCodeHash?: string
+  recoveryCodeExpiry?: Date
 }
 
 export interface ITransaction extends Document {

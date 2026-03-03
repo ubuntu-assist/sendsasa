@@ -1,21 +1,15 @@
-import express, { Express, Request, Response } from 'express'
+import express, { Express } from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import webhookRoutes from './routes/webhook.routes'
 import { xrplClient } from './config/xrpl'
-import {
-  connectDatabase,
-  disconnectDatabase,
-  getDatabaseStats,
-} from './config/database'
+import { connectDatabase, disconnectDatabase } from './config/database'
 import {
   errorHandler,
   notFoundHandler,
-  asyncHandler,
   requestLogger,
 } from './middleware/error-handler'
 import { apiLimiter } from './middleware/rate-limiter'
-import { UserService, TransactionService } from './services/database.service'
 import config from './utils/config'
 
 const app: Express = express()
@@ -33,35 +27,6 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
 app.use(requestLogger)
-
-app.get(
-  '/',
-  asyncHandler(async (_req: Request, res: Response) => {
-    const dbStats = await getDatabaseStats()
-    const userCount = await UserService.getUserCount()
-    const txCount = await TransactionService.getTransactionCount()
-
-    res.json({
-      status: 'ok',
-      message: 'SendSasa WhatsApp API',
-      version: '4.0.0',
-      environment: NODE_ENV,
-      timestamp: new Date().toISOString(),
-      database: {
-        status: 'connected',
-        name: dbStats.database,
-        collections: dbStats.collections,
-        objects: dbStats.objects,
-        users: userCount,
-        transactions: txCount,
-      },
-      xrpl: {
-        status: 'connected',
-        network: xrplClient.getNetwork(),
-      },
-    })
-  }),
-)
 
 app.use('/webhook', webhookRoutes)
 
