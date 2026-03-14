@@ -6,9 +6,6 @@ const WHATSAPP_API_URL = config.WHATSAPP_API_URL!
 const PHONE_NUMBER_ID = config.PHONE_NUMBER_ID!
 const ACCESS_TOKEN = config.ACCESS_TOKEN!
 
-/**
- * Send welcome message with Get Started button
- */
 export async function sendWelcomeMessage(
   to: string,
   userName?: string,
@@ -27,7 +24,7 @@ export async function sendWelcomeMessage(
     interactive: {
       type: 'button',
       body: {
-        text: `${greeting}\n\nSendSasa lets you send and receive XRP instantly via WhatsApp.\n\nGet started to create your secure XRP wallet.`,
+        text: `${greeting}\n\nSendSasa lets you send and receive XRP, RLUSD, and USDC instantly via WhatsApp.\n\nGet started to create your secure wallet.`,
       },
       action: {
         buttons: [
@@ -35,7 +32,7 @@ export async function sendWelcomeMessage(
             type: 'reply',
             reply: {
               id: 'get_started',
-              title: '🚀 Get Started',
+              title: 'Get Started 🚀',
             },
           },
         ],
@@ -59,16 +56,13 @@ export async function sendWelcomeMessage(
   }
 }
 
-/**
- * Send main menu
- */
 export async function sendMainMenu(
   to: string,
-  balance?: string,
+  xrpBalance: string,
+  rlusdBalance: string,
+  usdcBalance: string,
 ): Promise<void> {
   const url = `${WHATSAPP_API_URL}/${PHONE_NUMBER_ID}/messages`
-
-  const balanceText = balance ? `\n\nBalance: ${balance} XRP` : ''
 
   const payload = {
     messaging_product: 'whatsapp',
@@ -78,7 +72,12 @@ export async function sendMainMenu(
     interactive: {
       type: 'button',
       body: {
-        text: `Welcome back! 👋${balanceText}\n\nWhat would you like to do?`,
+        text:
+          `💰 Your SendSasa Wallet\n\n` +
+          `🔷 XRP: ${xrpBalance} XRP\n` +
+          `💵 RLUSD: ${rlusdBalance} RLUSD\n` +
+          `🔵 USDC: ${usdcBalance} USDC\n\n` +
+          `What would you like to do?`,
       },
       action: {
         buttons: [
@@ -93,14 +92,14 @@ export async function sendMainMenu(
             type: 'reply',
             reply: {
               id: 'request_money',
-              title: '💰 Request Money',
+              title: '📥 Request Money',
             },
           },
           {
             type: 'reply',
             reply: {
               id: 'my_wallet',
-              title: '📊 My Wallet',
+              title: '💼 My Wallet',
             },
           },
         ],
@@ -124,9 +123,6 @@ export async function sendMainMenu(
   }
 }
 
-/**
- * Send wallet menu
- */
 export async function sendWalletMenu(to: string): Promise<void> {
   const url = `${WHATSAPP_API_URL}/${PHONE_NUMBER_ID}/messages`
 
@@ -138,7 +134,7 @@ export async function sendWalletMenu(to: string): Promise<void> {
     interactive: {
       type: 'button',
       body: {
-        text: '💼 Your Wallet\n\nWhat would you like to do?',
+        text: `💼 Wallet Options\n\nWhat would you like to do?`,
       },
       action: {
         buttons: [
@@ -146,7 +142,7 @@ export async function sendWalletMenu(to: string): Promise<void> {
             type: 'reply',
             reply: {
               id: 'transaction_history',
-              title: '📜 History',
+              title: '📊 History',
             },
           },
           {
@@ -159,8 +155,8 @@ export async function sendWalletMenu(to: string): Promise<void> {
           {
             type: 'reply',
             reply: {
-              id: 'wallet_settings',
-              title: '⚙️ Settings',
+              id: 'main_menu',
+              title: '⬅️  Back',
             },
           },
         ],
@@ -184,133 +180,6 @@ export async function sendWalletMenu(to: string): Promise<void> {
   }
 }
 
-/**
- * Send wallet settings menu
- */
-export async function sendWalletSettingsMenu(to: string): Promise<void> {
-  const url = `${WHATSAPP_API_URL}/${PHONE_NUMBER_ID}/messages`
-
-  const payload = {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to: to,
-    type: 'interactive',
-    interactive: {
-      type: 'button',
-      body: {
-        text: '⚙️ Wallet Settings\n\nManage your security and preferences:',
-      },
-      action: {
-        buttons: [
-          {
-            type: 'reply',
-            reply: {
-              id: 'change_pin',
-              title: '🔐 Change PIN',
-            },
-          },
-          {
-            type: 'reply',
-            reply: {
-              id: 'change_username',
-              title: '✏️ Change Username',
-            },
-          },
-          {
-            type: 'reply',
-            reply: {
-              id: 'my_wallet',
-              title: '◀️ Back',
-            },
-          },
-        ],
-      },
-    },
-  }
-
-  try {
-    await axios.post(url, payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ACCESS_TOKEN}`,
-      },
-      timeout: 10000,
-    })
-
-    console.log(`✅ Wallet settings menu sent to ${to}`)
-  } catch (error) {
-    console.error('❌ Error sending wallet settings menu:', error)
-    throw new AppError('Failed to send wallet settings menu', 503)
-  }
-}
-
-/**
- * Send username change confirmation menu
- */
-export async function sendUsernameConfirmationMenu(
-  to: string,
-  currentUsername: string,
-  newUsername: string,
-): Promise<void> {
-  const url = `${WHATSAPP_API_URL}/${PHONE_NUMBER_ID}/messages`
-
-  const payload = {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to: to,
-    type: 'interactive',
-    interactive: {
-      type: 'button',
-      body: {
-        text: `✅ Username Available!\n\nCurrent: ${currentUsername}\nNew: @${newUsername}\n\nConfirm this change?`,
-      },
-      action: {
-        buttons: [
-          {
-            type: 'reply',
-            reply: {
-              id: 'confirm_username_yes',
-              title: '✅ Yes, Change',
-            },
-          },
-          {
-            type: 'reply',
-            reply: {
-              id: 'confirm_username_no',
-              title: '↩️ Choose Different',
-            },
-          },
-          {
-            type: 'reply',
-            reply: {
-              id: 'confirm_username_cancel',
-              title: '❌ Cancel',
-            },
-          },
-        ],
-      },
-    },
-  }
-
-  try {
-    await axios.post(url, payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ACCESS_TOKEN}`,
-      },
-      timeout: 10000,
-    })
-
-    console.log(`✅ Username confirmation menu sent to ${to}`)
-  } catch (error) {
-    console.error('❌ Error sending username confirmation menu:', error)
-    throw new AppError('Failed to send username confirmation menu', 503)
-  }
-}
-
-/**
- * Send back to menu button
- */
 export async function sendBackToMenuButton(
   to: string,
   message: string,
@@ -333,7 +202,7 @@ export async function sendBackToMenuButton(
             type: 'reply',
             reply: {
               id: 'main_menu',
-              title: '🏠 Main Menu',
+              title: '⬅️  Main Menu',
             },
           },
         ],
@@ -354,5 +223,168 @@ export async function sendBackToMenuButton(
   } catch (error) {
     console.error('❌ Error sending back button:', error)
     throw new AppError('Failed to send back button', 503)
+  }
+}
+
+export async function sendAmountSelectionMenu(to: string): Promise<void> {
+  const url = `${WHATSAPP_API_URL}/${PHONE_NUMBER_ID}/messages`
+
+  const payload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: to,
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: {
+        text: `How much do you want to send?\n\nPlease type the amount (e.g., 50)`,
+      },
+      action: {
+        buttons: [
+          {
+            type: 'reply',
+            reply: {
+              id: 'main_menu',
+              title: '❌ Cancel',
+            },
+          },
+        ],
+      },
+    },
+  }
+
+  try {
+    await axios.post(url, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ACCESS_TOKEN}`,
+      },
+      timeout: 10000,
+    })
+
+    console.log(`✅ Amount selection menu sent to ${to}`)
+  } catch (error) {
+    console.error('❌ Error sending amount menu:', error)
+    throw new AppError('Failed to send amount menu', 503)
+  }
+}
+
+export async function sendRecipientTypeMenu(
+  to: string,
+  amount: number,
+): Promise<void> {
+  const url = `${WHATSAPP_API_URL}/${PHONE_NUMBER_ID}/messages`
+
+  const payload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: to,
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: {
+        text: `Who do you want to send ${amount} to?`,
+      },
+      action: {
+        buttons: [
+          {
+            type: 'reply',
+            reply: {
+              id: `recipient_phone_${amount}`,
+              title: '📱 Phone Number',
+            },
+          },
+          {
+            type: 'reply',
+            reply: {
+              id: `recipient_address_${amount}`,
+              title: '🔗 XRP Address',
+            },
+          },
+          {
+            type: 'reply',
+            reply: {
+              id: 'main_menu',
+              title: '❌ Cancel',
+            },
+          },
+        ],
+      },
+    },
+  }
+
+  try {
+    await axios.post(url, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ACCESS_TOKEN}`,
+      },
+      timeout: 10000,
+    })
+
+    console.log(`✅ Recipient type menu sent to ${to}`)
+  } catch (error) {
+    console.error('❌ Error sending recipient menu:', error)
+    throw new AppError('Failed to send recipient menu', 503)
+  }
+}
+
+export async function sendCurrencySelectionMenu(
+  to: string,
+  action: 'send' | 'request',
+): Promise<void> {
+  const url = `${WHATSAPP_API_URL}/${PHONE_NUMBER_ID}/messages`
+
+  const payload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: to,
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: {
+        text: `Which currency do you want to ${action}?`,
+      },
+      action: {
+        buttons: [
+          {
+            type: 'reply',
+            reply: {
+              id: `currency_xrp_${action}`,
+              title: '🔷 XRP',
+            },
+          },
+          {
+            type: 'reply',
+            reply: {
+              id: `currency_rlusd_${action}`,
+              title: '💵 RLUSD',
+            },
+          },
+          {
+            type: 'reply',
+            reply: {
+              id: `currency_usdc_${action}`,
+              title: '🔵 USDC',
+            },
+          },
+        ],
+      },
+    },
+  }
+
+  try {
+    await axios.post(url, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ACCESS_TOKEN}`,
+      },
+      timeout: 10000,
+    })
+
+    console.log(`✅ Currency selection menu sent to ${to}`)
+  } catch (error) {
+    console.error('❌ Error sending currency selection menu:', error)
+    throw new AppError('Failed to send currency selection menu', 503)
   }
 }

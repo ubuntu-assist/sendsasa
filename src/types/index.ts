@@ -1,6 +1,5 @@
 import { Document } from 'mongoose'
 
-// XRPL Types
 export interface WalletInfo {
   address: string
   seed: string
@@ -32,7 +31,6 @@ export interface TransactionHistory {
   direction: 'sent' | 'received'
 }
 
-// WhatsApp Types
 export interface WhatsAppMessage {
   from: string
   id: string
@@ -106,7 +104,6 @@ export interface WhatsAppInteractiveMessage {
   }
 }
 
-// Command Types
 export type CommandType =
   | 'balance'
   | 'send'
@@ -114,9 +111,9 @@ export type CommandType =
   | 'history'
   | 'address'
   | 'help'
-  | 'requests' // View pending requests
-  | 'menu' // Main menu
-  | 'get_started' // Welcome flow
+  | 'requests'
+  | 'menu'
+  | 'get_started'
   | 'unknown'
 
 export interface ParsedCommand {
@@ -126,10 +123,8 @@ export interface ParsedCommand {
   message?: string
 }
 
-// User States
 export type UserState = 'new' | 'registered'
 
-// Menu Action Types
 export type MenuAction =
   | 'send_money'
   | 'request_money'
@@ -139,11 +134,7 @@ export type MenuAction =
   | 'pending_requests'
   | 'share_address'
   | 'main_menu'
-  | 'wallet_settings'
-  | 'change_pin_button'
-  | 'change_username_button'
 
-// Flow Types
 export interface SendMoneyFlowData {
   amount: number
   recipient: string
@@ -158,7 +149,6 @@ export interface RequestMoneyFlowData {
   reason?: string
 }
 
-// Interactive Message Types
 export interface InteractiveMessage {
   type: 'interactive'
   from: string
@@ -184,7 +174,6 @@ export interface ButtonMessage {
   }
 }
 
-// Database Document Interfaces
 export interface IUser extends Document {
   whatsappId: string
   phoneNumber: string
@@ -206,6 +195,17 @@ export interface IUser extends Document {
   // Recovery
   recoveryCodeHash?: string
   recoveryCodeExpiry?: Date
+
+  // Preferred currency for transactions
+  preferredCurrency: 'XRP' | 'RLUSD' | 'USDC'
+
+  // RLUSD trust line tracking
+  rlusdTrustLineCreated: boolean
+  rlusdTrustLineHash?: string
+
+  // USDC trust line tracking
+  usdcTrustLineCreated: boolean
+  usdcTrustLineHash?: string
 }
 
 export interface ITransaction extends Document {
@@ -215,6 +215,9 @@ export interface ITransaction extends Document {
   fromPhone?: string
   toPhone?: string
   amount: number
+
+  currency: 'XRP' | 'RLUSD' | 'USDC'
+
   status: 'pending' | 'success' | 'failed'
   timestamp: Date
 }
@@ -226,6 +229,9 @@ export interface IPaymentRequest extends Document {
   payerAddress: string
   payerPhone: string
   amount: number
+
+  currency: 'XRP' | 'RLUSD' | 'USDC'
+
   message?: string
   status: 'pending' | 'approved' | 'rejected' | 'expired' | 'failed'
   txHash?: string

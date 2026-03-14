@@ -9,7 +9,52 @@ export function parseButtonInteraction(buttonId: string): {
   transactionId?: string
   amount?: number
   recipientType?: 'phone' | 'address'
+  currency?: 'XRP' | 'RLUSD' | 'USDC'
+  subAction?: string
 } {
+  if (buttonId === 'currency_xrp_send') {
+    return { action: 'currency_send', currency: 'XRP' }
+  }
+  if (buttonId === 'currency_rlusd_send') {
+    return { action: 'currency_send', currency: 'RLUSD' }
+  }
+  if (buttonId === 'currency_usdc_send') {
+    return { action: 'currency_send', currency: 'USDC' }
+  }
+
+  if (buttonId === 'currency_xrp_request') {
+    return { action: 'currency_request', currency: 'XRP' }
+  }
+  if (buttonId === 'currency_rlusd_request') {
+    return { action: 'currency_request', currency: 'RLUSD' }
+  }
+  if (buttonId === 'currency_usdc_request') {
+    return { action: 'currency_request', currency: 'USDC' }
+  }
+
+  if (buttonId === 'confirm_username_yes') {
+    return { action: 'confirm_username', subAction: 'yes' }
+  }
+  if (buttonId === 'confirm_username_no') {
+    return { action: 'confirm_username', subAction: 'no' }
+  }
+  if (buttonId === 'confirm_username_cancel') {
+    return { action: 'confirm_username', subAction: 'cancel' }
+  }
+
+  if (buttonId === 'wallet_settings') {
+    return { action: 'wallet_settings' }
+  }
+  if (buttonId === 'change_pin') {
+    return { action: 'change_pin' }
+  }
+  if (buttonId === 'change_username') {
+    return { action: 'change_username' }
+  }
+  if (buttonId === 'back_to_menu') {
+    return { action: 'back_to_menu' }
+  }
+
   if (buttonId.startsWith('approve_')) {
     return { action: 'approve', requestId: buttonId.replace('approve_', '') }
   }
@@ -40,15 +85,6 @@ export function parseButtonInteraction(buttonId: string): {
   if (buttonId === 'transaction_history')
     return { action: 'transaction_history' }
   if (buttonId === 'pending_requests') return { action: 'pending_requests' }
-  if (buttonId === 'wallet_settings') return { action: 'wallet_settings' }
-  if (buttonId === 'change_pin') return { action: 'change_pin' }
-  if (buttonId === 'change_username') return { action: 'change_username' }
-  if (buttonId === 'confirm_username_yes')
-    return { action: 'confirm_username_yes' }
-  if (buttonId === 'confirm_username_no')
-    return { action: 'confirm_username_no' }
-  if (buttonId === 'confirm_username_cancel')
-    return { action: 'confirm_username_cancel' }
 
   if (buttonId.startsWith('amount_')) {
     const amount = Number.parseInt(buttonId.replace('amount_', ''))
@@ -82,4 +118,25 @@ export function isXRPLAddress(address: string): boolean {
 
 export function isPhoneNumber(number: string): boolean {
   return validatePhoneNumber(number)
+}
+
+export function getCurrencyEmoji(currency: 'XRP' | 'RLUSD' | 'USDC'): string {
+  switch (currency) {
+    case 'XRP':
+      return '🔷'
+    case 'RLUSD':
+      return '💵'
+    case 'USDC':
+      return '🔵'
+    default:
+      return '💰'
+  }
+}
+
+export function formatCurrencyAmount(
+  amount: string | number,
+  currency: 'XRP' | 'RLUSD' | 'USDC',
+): string {
+  const emoji = getCurrencyEmoji(currency)
+  return `${emoji} ${amount} ${currency}`
 }

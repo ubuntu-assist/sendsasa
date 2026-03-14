@@ -36,6 +36,15 @@ const TransactionSchema = new Schema<ITransaction>({
     required: true,
     min: 0,
   },
+
+  currency: {
+    type: String,
+    enum: ['XRP', 'RLUSD', 'USDC'],
+    default: 'XRP',
+    required: true,
+    index: true,
+  },
+
   status: {
     type: String,
     enum: ['pending', 'success', 'failed'],
@@ -48,6 +57,14 @@ const TransactionSchema = new Schema<ITransaction>({
     index: true,
   },
 })
+
+TransactionSchema.index({ fromAddress: 1, timestamp: -1 })
+TransactionSchema.index({ toAddress: 1, timestamp: -1 })
+TransactionSchema.index({ status: 1, timestamp: -1 })
+TransactionSchema.index({ txHash: 1, status: 1 })
+TransactionSchema.index({ currency: 1, timestamp: -1 })
+
+TransactionSchema.index({ fromPhone: 1, toPhone: 1 })
 
 export const Transaction = mongoose.model<ITransaction>(
   'Transaction',

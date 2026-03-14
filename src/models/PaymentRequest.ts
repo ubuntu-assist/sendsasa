@@ -38,6 +38,15 @@ const PaymentRequestSchema = new Schema<IPaymentRequest>({
     required: true,
     min: 0,
   },
+
+  currency: {
+    type: String,
+    enum: ['XRP', 'RLUSD', 'USDC'],
+    default: 'XRP',
+    required: true,
+    index: true,
+  },
+
   message: {
     type: String,
     trim: true,
@@ -62,7 +71,6 @@ const PaymentRequestSchema = new Schema<IPaymentRequest>({
   expiresAt: {
     type: Date,
     required: true,
-    index: true,
     default: function () {
       return new Date(Date.now() + 24 * 60 * 60 * 1000)
     },
@@ -71,6 +79,14 @@ const PaymentRequestSchema = new Schema<IPaymentRequest>({
     type: Date,
   },
 })
+
+PaymentRequestSchema.index({ requesterAddress: 1, status: 1, createdAt: -1 })
+PaymentRequestSchema.index({ payerAddress: 1, status: 1, createdAt: -1 })
+PaymentRequestSchema.index({ status: 1, expiresAt: 1 })
+PaymentRequestSchema.index({ requestId: 1, status: 1 })
+PaymentRequestSchema.index({ currency: 1, status: 1 })
+
+PaymentRequestSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 604800 })
 
 PaymentRequestSchema.pre('save', async function () {
   if (this.status === 'pending' && this.expiresAt < new Date()) {

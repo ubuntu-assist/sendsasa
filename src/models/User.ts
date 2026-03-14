@@ -26,7 +26,6 @@ const UserSchema = new Schema<IUser>({
   encryptedSeed: {
     type: String,
     required: true,
-    // AES-256 encrypted seed
   },
   createdAt: {
     type: Date,
@@ -59,10 +58,8 @@ const UserSchema = new Schema<IUser>({
     type: String,
     required: true,
     unique: true,
-    index: true,
     trim: true,
     lowercase: true,
-    // Format: @name.sasa
   },
   usernameLastChanged: {
     type: Date,
@@ -74,7 +71,34 @@ const UserSchema = new Schema<IUser>({
   recoveryCodeExpiry: {
     type: Date,
   },
+
+  preferredCurrency: {
+    type: String,
+    enum: ['XRP', 'RLUSD', 'USDC'],
+    default: 'XRP',
+  },
+
+  rlusdTrustLineCreated: {
+    type: Boolean,
+    default: false,
+  },
+  rlusdTrustLineHash: {
+    type: String,
+  },
+
+  usdcTrustLineCreated: {
+    type: Boolean,
+    default: false,
+  },
+  usdcTrustLineHash: {
+    type: String,
+  },
 })
+
+UserSchema.index({ phoneNumber: 1, xrplAddress: 1 })
+UserSchema.index({ whatsappId: 1, lastActive: -1 })
+UserSchema.index({ username: 1 }, { unique: true })
+UserSchema.index({ pinLockedUntil: 1 })
 
 UserSchema.pre('save', async function () {
   this.lastActive = new Date()

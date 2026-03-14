@@ -1,270 +1,596 @@
-import {
-  Wallet,
-  Payment,
-  xrpToDrops,
-  dropsToXrp,
-  isValidClassicAddress,
-  rippleTimeToUnixTime,
-  AccountTxTransaction,
-} from 'xrpl'
-import { xrplClient } from '../config/xrpl'
-import { decryptSeed, encryptSeed } from '../utils/encryption'
-import {
-  WalletInfo,
-  TransactionResult,
-  BalanceInfo,
-  TransactionHistory,
-} from '../types'
+// src/services/xrpl-FINAL-SECURE.service.ts
+import { Client, Wallet, Payment, TrustSet, xrpToDrops } from 'xrpl'
+import crypto from 'node:crypto'
+import dotenv from 'dotenv'
 
-export async function generateWallet(): Promise<WalletInfo> {
-  console.log('\nGenerating new wallet...')
+dotenv.config()
 
-  const client = xrplClient.getClient()
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY!
+// FIXED: Use AES-256-GCM for authenticated encryption (more secure than CBC)
+const ALGORITHM = 'aes-256-gcm' as const
+const IV_LENGTH = 16
 
-  if (xrplClient.isTestnet()) {
-    const { wallet, balance } = await client.fundWallet()
+// Network configuration
+const XRPL_NETWORK = process.env.XRPL_NETWORK || 'testnet'
+const WEBSOCKET_URL =
+  XRPL_NETWORK === 'mainnet'
+    ? 'wss://xrplcluster.com'
+    : 'wss://s.altnet.rippletest.net:51233'
 
-    console.log('Wallet created and funded!')
-    console.log(`Address: ${wallet.classicAddress}`)
-    console.log(`Balance: ${balance} XRP`)
-    console.log(`Seed: ${wallet.seed}`)
-
-    return {
-      address: wallet.classicAddress,
-      seed: wallet.seed!,
-      publicKey: wallet.publicKey,
-      privateKey: wallet.privateKey,
-    }
-  } else {
-    const wallet = Wallet.generate()
-
-    console.log('Wallet created!')
-    console.log(`Address: ${wallet.classicAddress}`)
-    console.log(`Seed: ${wallet.seed}`)
-    console.log('MAINNET: Deposit at least 10 XRP to activate this wallet')
-
-    return {
-      address: wallet.classicAddress,
-      seed: wallet.seed!,
-      publicKey: wallet.publicKey,
-      privateKey: wallet.privateKey,
-    }
-  }
+// ============ RLUSD Configuration ============
+// RLUSD uses hex-encoded currency code (not standard 3-letter)
+export const RLUSD_MAINNET = {
+  issuer: 'rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De',
+  currency: '524C555344000000000000000000000000000000', // Hex for "RLUSD"
 }
 
-export function loadWallet(seed: string): Wallet {
-  return Wallet.fromSeed(seed)
+export const RLUSD_TESTNET = {
+  issuer: 'rQhWct2fv4Vc4KRjRgMrxa8xPN9Zx9iLKV',
+  currency: '524C555344000000000000000000000000000000', // Hex for "RLUSD"
 }
 
-export function loadWalletFromEncrypted(encryptedSeed: string): Wallet {
-  const seed = decryptSeed(encryptedSeed)
-  return Wallet.fromSeed(seed)
+// ============ USDC Configuration ============
+export const USDC_MAINNET = {
+  issuer: 'rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE',
+  currency: '5553444300000000000000000000000000000000', // Hex for "USDC"
 }
 
-export async function sendXRP(
-  senderSeed: string,
-  destinationAddress: string,
-  amount: number,
-): Promise<TransactionResult> {
-  console.log(`Sending ${amount} XRP to ${destinationAddress}`)
+export const USDC_TESTNET = {
+  issuer: 'rHuGNhqTG32mfmAvWA8hUyWRLV3tCSwKQt',
+  currency: '5553444300000000000000000000000000000000',
+}
 
-  const client = xrplClient.getClient()
-  const senderWallet = Wallet.fromSeed(senderSeed)
+// Use testnet or mainnet based on environment
+export const RLUSD = XRPL_NETWORK === 'mainnet' ? RLUSD_MAINNET : RLUSD_TESTNET
+export const USDC = XRPL_NETWORK === 'mainnet' ? USDC_MAINNET : USDC_TESTNET
 
-  if (!isValidClassicAddress(destinationAddress)) {
-    throw new Error('Invalid destination address')
-  }
+/**
+ * Generate a new XRPL wallet (auto-funded on testnet)
+ */
+export async function generateWallet(): Promise<{
+  address: string
+  seed: string
+}> {
+  console.log('\n🔐 Generating new wallet...')
 
-  const tx: Payment = {
-    TransactionType: 'Payment',
-    Account: senderWallet.classicAddress,
-    Destination: destinationAddress,
-    Amount: xrpToDrops(amount.toString()),
-  }
+  const client = new Client(WEBSOCKET_URL)
+  await client.connect()
 
   try {
-    const result = await client.submitAndWait(tx, {
-      autofill: true,
-      wallet: senderWallet,
-    })
+    if (XRPL_NETWORK === 'mainnet') {
+      // MAINNET: Generate wallet (no auto-funding)
+      const wallet = Wallet.generate()
 
-    if (!result.result.meta || typeof result.result.meta === 'string') {
-      throw new Error('Transaction metadata is missing or invalid')
-    }
+      await client.disconnect()
 
-    const txResult = result.result.meta.TransactionResult
-
-    if (txResult === 'tesSUCCESS') {
-      console.log(`Transaction successful: ${result.result.hash}`)
+      console.log('✅ Wallet created!')
+      console.log(`Address: ${wallet.classicAddress}`)
+      console.log(`Seed: ${wallet.seed}`)
+      console.log(
+        '⚠️  MAINNET: Deposit at least 10 XRP to activate this wallet',
+      )
 
       return {
-        success: true,
-        hash: result.result.hash,
-        amount: amount.toString(),
-        from: senderWallet.classicAddress,
-        to: destinationAddress,
-        message: `Sent ${amount} XRP to ${destinationAddress}`,
+        address: wallet.classicAddress,
+        seed: wallet.seed!,
       }
     } else {
-      throw new Error(`Transaction failed: ${txResult}`)
-    }
-  } catch (error) {
-    console.error('Transaction error:', error)
-    throw error
-  }
-}
+      // TESTNET: Auto-fund wallet via faucet
+      const { wallet, balance } = await client.fundWallet()
 
-export async function getBalance(address: string): Promise<BalanceInfo> {
-  console.log(`\nChecking balance for: ${address}`)
+      await client.disconnect()
 
-  if (!isValidClassicAddress(address)) {
-    throw new Error('Invalid XRPL address')
-  }
+      console.log('✅ Wallet created and funded!')
+      console.log(`Address: ${wallet.classicAddress}`)
+      console.log(`Balance: ${balance} XRP`)
+      console.log(`Seed: ${wallet.seed}`)
 
-  const client = xrplClient.getClient()
-
-  try {
-    const balances = await client.getBalances(address)
-
-    const xrpBalance = balances.find((b) => b.currency === 'XRP')
-    const balance = xrpBalance?.value || '0'
-
-    console.log(`Balance: ${balance} XRP`)
-
-    return {
-      address,
-      balance,
-      currency: 'XRP',
-    }
-  } catch (error: any) {
-    if (error.data?.error === 'actNotFound') {
-      console.log('Account not found (not yet funded)')
       return {
-        address,
-        balance: '0',
-        currency: 'XRP',
+        address: wallet.classicAddress,
+        seed: wallet.seed!,
       }
     }
+  } catch (error) {
+    await client.disconnect()
+    console.error('❌ Error generating wallet:', error)
     throw error
   }
 }
 
-export async function getHistory(
-  address: string,
-  limit: number = 10,
-): Promise<TransactionHistory[]> {
-  console.log(`\nGetting transaction history for: ${address}`)
-  console.log(`Limit: ${limit} transactions`)
-
-  if (!isValidClassicAddress(address)) {
-    throw new Error('Invalid XRPL address')
-  }
-
-  const client = xrplClient.getClient()
-
-  try {
-    const request = {
-      command: 'account_tx' as const,
-      account: address,
-      ledger_index_min: -1,
-      ledger_index_max: -1,
-      limit: limit,
-    }
-
-    const response = await client.request(request)
-
-    const transactions: TransactionHistory[] = response.result.transactions
-      .map(({ tx_json }: AccountTxTransaction) => {
-        if (!tx_json) {
-          return null
-        }
-
-        const unixTime = rippleTimeToUnixTime(tx_json.date || 0)
-
-        const amount: string =
-          typeof tx_json.DeliverMax === 'string'
-            ? String(dropsToXrp(tx_json.DeliverMax))
-            : '0'
-
-        return {
-          hash: tx_json.hash || '',
-          date: new Date(unixTime * 1000),
-          amount: amount,
-          from: tx_json.Account || '',
-          to: tx_json.Destination || '',
-          direction: tx_json.Account === address ? 'sent' : 'received',
-        }
-      })
-      .filter((tx): tx is TransactionHistory => tx !== null)
-
-    console.log(`Found ${transactions.length} transactions`)
-
-    return transactions
-  } catch (error: any) {
-    if (error.data?.error === 'actNotFound') {
-      console.log('Account not found (no transaction history)')
-      return []
-    }
-    throw error
-  }
+/**
+ * @deprecated Use generateWallet() instead - it handles funding internally
+ * Fund a wallet using testnet faucet
+ */
+export async function fundWallet(address: string): Promise<void> {
+  throw new Error(
+    'fundWallet() is deprecated. Use generateWallet() which handles funding automatically.',
+  )
 }
 
-export async function printMoney(
-  destinationAddress: string,
-  amount: number = 90,
-): Promise<string> {
-  console.log(
-    `\nPrint Money - Funding ${destinationAddress} with ${amount} XRP`,
+/**
+ * Encrypt wallet seed using AES-256-GCM (authenticated encryption)
+ * Format: iv:authTag:encryptedData
+ */
+export function encryptSeed(seed: string): string {
+  const iv = crypto.randomBytes(IV_LENGTH)
+  const cipher = crypto.createCipheriv(
+    ALGORITHM,
+    Buffer.from(ENCRYPTION_KEY, 'hex'),
+    iv,
   )
 
-  if (!xrplClient.isTestnet()) {
-    throw new Error('printMoney only works on testnet!')
+  let encrypted = cipher.update(seed, 'utf8', 'hex')
+  encrypted += cipher.final('hex')
+
+  const authTag = cipher.getAuthTag()
+
+  // Format: iv:authTag:encryptedData
+  return iv.toString('hex') + ':' + authTag.toString('hex') + ':' + encrypted
+}
+
+/**
+ * Decrypt wallet seed using AES-256-GCM
+ */
+export function decryptSeed(encryptedSeed: string): string {
+  const parts = encryptedSeed.split(':')
+
+  if (parts.length !== 3) {
+    throw new Error('Invalid encrypted seed format')
   }
 
-  const client = xrplClient.getClient()
+  const iv = Buffer.from(parts[0], 'hex')
+  const authTag = Buffer.from(parts[1], 'hex')
+  const encryptedText = parts[2]
 
-  const { wallet: tempWallet, balance } = await client.fundWallet()
-  console.log(`Temp wallet created: ${tempWallet.classicAddress}`)
-  console.log(`Temp wallet balance: ${balance} XRP`)
+  const decipher = crypto.createDecipheriv(
+    ALGORITHM,
+    Buffer.from(ENCRYPTION_KEY, 'hex'),
+    iv,
+  )
+  decipher.setAuthTag(authTag)
 
-  const tx: Payment = {
-    TransactionType: 'Payment',
-    Account: tempWallet.classicAddress,
-    Destination: destinationAddress,
-    Amount: xrpToDrops(amount.toString()),
-  }
+  let decrypted = decipher.update(encryptedText, 'hex', 'utf8')
+  decrypted += decipher.final('utf8')
 
-  console.log('Submitting payment transaction...')
+  return decrypted
+}
 
-  const result = await client.submitAndWait(tx, {
-    autofill: true,
-    wallet: tempWallet,
-  })
+/**
+ * Get XRP balance for an address
+ */
+export async function getBalance(
+  address: string,
+): Promise<{ balance: string; account: string }> {
+  const client = new Client(WEBSOCKET_URL)
 
-  if (!result.result.meta || typeof result.result.meta === 'string') {
-    throw new Error('Transaction metadata is missing or invalid')
-  }
+  try {
+    await client.connect()
 
-  if (result.result.meta.TransactionResult === 'tesSUCCESS') {
-    console.log(`Successfully sent ${amount} XRP!`)
-    console.log(`Hash: ${result.result.hash}`)
+    const response = await client.request({
+      command: 'account_info',
+      account: address,
+      ledger_index: 'validated',
+    })
 
-    const balances = await client.getBalances(destinationAddress)
-    const xrpBalance = balances.find((b) => b.currency === 'XRP')
-    console.log(`Destination balance: ${xrpBalance?.value || '0'} XRP`)
+    await client.disconnect()
 
-    return result.result.hash
-  } else {
-    throw new Error(
-      `Transaction failed: ${result.result.meta.TransactionResult}`,
-    )
+    const balanceInDrops = response.result.account_data.Balance
+    const balanceInXRP = Number(balanceInDrops) / 1_000_000
+
+    return {
+      balance: balanceInXRP.toString(),
+      account: address,
+    }
+  } catch (error) {
+    await client.disconnect()
+    console.error('Error getting balance:', error)
+    throw new Error('Failed to get balance')
   }
 }
 
+/**
+ * Generic function to create trust line for any stablecoin
+ */
+export async function createTrustLine(
+  walletSeed: string,
+  currency: string,
+  issuer: string,
+  trustLimit: string = '1000000',
+): Promise<{ success: boolean; hash: string }> {
+  // Increase timeout to 15 seconds to prevent connection issues
+  const client = new Client(WEBSOCKET_URL, { connectionTimeout: 15000 })
+
+  try {
+    await client.connect()
+
+    const wallet = Wallet.fromSeed(walletSeed)
+
+    const trustSet: TrustSet = {
+      TransactionType: 'TrustSet',
+      Account: wallet.address,
+      LimitAmount: {
+        currency: currency,
+        issuer: issuer,
+        value: trustLimit,
+      },
+    }
+
+    const prepared = await client.autofill(trustSet)
+    const signed = wallet.sign(prepared)
+    const result = await client.submitAndWait(signed.tx_blob)
+
+    await client.disconnect()
+
+    // Properly check for meta existence
+    const meta = result.result.meta
+    if (!meta || typeof meta === 'string') {
+      throw new Error('Transaction metadata unavailable')
+    }
+
+    const success = meta.TransactionResult === 'tesSUCCESS'
+
+    if (success) {
+      console.log(
+        `✅ Trust line created for ${currency}: ${result.result.hash}`,
+      )
+    } else {
+      console.log(`❌ Trust line failed: ${meta.TransactionResult}`)
+    }
+
+    return {
+      success,
+      hash: result.result.hash,
+    }
+  } catch (error) {
+    await client.disconnect()
+    console.error('❌ Error creating trust line:', error)
+    throw new Error('Failed to create trust line')
+  }
+}
+
+/**
+ * Create RLUSD trust line
+ */
+export async function createRLUSDTrustLine(
+  walletSeed: string,
+): Promise<{ success: boolean; hash: string }> {
+  return createTrustLine(walletSeed, RLUSD.currency, RLUSD.issuer)
+}
+
+/**
+ * Create USDC trust line
+ */
+export async function createUSDCTrustLine(
+  walletSeed: string,
+): Promise<{ success: boolean; hash: string }> {
+  return createTrustLine(walletSeed, USDC.currency, USDC.issuer)
+}
+
+/**
+ * Check if wallet has a specific trust line
+ */
+export async function hasTrustLine(
+  address: string,
+  currency: string,
+  issuer: string,
+): Promise<boolean> {
+  const client = new Client(WEBSOCKET_URL)
+
+  try {
+    await client.connect()
+
+    const response = await client.request({
+      command: 'account_lines',
+      account: address,
+      ledger_index: 'validated',
+    })
+
+    await client.disconnect()
+
+    const trustLine = response.result.lines.find(
+      (line: any) => line.currency === currency && line.account === issuer,
+    )
+
+    return !!trustLine
+  } catch (error) {
+    await client.disconnect()
+    console.error('Error checking trust line:', error)
+    return false
+  }
+}
+
+/**
+ * Check if wallet has RLUSD trust line
+ */
+export async function hasRLUSDTrustLine(address: string): Promise<boolean> {
+  return hasTrustLine(address, RLUSD.currency, RLUSD.issuer)
+}
+
+/**
+ * Check if wallet has USDC trust line
+ */
+export async function hasUSDCTrustLine(address: string): Promise<boolean> {
+  return hasTrustLine(address, USDC.currency, USDC.issuer)
+}
+
+/**
+ * Get balance for a specific stablecoin
+ */
+export async function getStablecoinBalance(
+  address: string,
+  currency: string,
+  issuer: string,
+): Promise<string> {
+  const client = new Client(WEBSOCKET_URL)
+
+  try {
+    await client.connect()
+
+    const response = await client.request({
+      command: 'account_lines',
+      account: address,
+      ledger_index: 'validated',
+    })
+
+    await client.disconnect()
+
+    const line = response.result.lines.find(
+      (line: any) => line.currency === currency && line.account === issuer,
+    )
+
+    return line ? line.balance : '0'
+  } catch (error) {
+    await client.disconnect()
+    console.error('Error getting stablecoin balance:', error)
+    return '0'
+  }
+}
+
+/**
+ * Get RLUSD balance
+ */
+export async function getRLUSDBalance(address: string): Promise<string> {
+  return getStablecoinBalance(address, RLUSD.currency, RLUSD.issuer)
+}
+
+/**
+ * Get USDC balance
+ */
+export async function getUSDCBalance(address: string): Promise<string> {
+  return getStablecoinBalance(address, USDC.currency, USDC.issuer)
+}
+
+/**
+ * Get all balances (XRP + RLUSD + USDC)
+ */
+export async function getAllBalances(address: string): Promise<{
+  xrp: string
+  rlusd: string
+  usdc: string
+}> {
+  const [xrpBalance, rlusdBalance, usdcBalance] = await Promise.all([
+    getBalance(address),
+    getRLUSDBalance(address),
+    getUSDCBalance(address),
+  ])
+
+  return {
+    xrp: xrpBalance.balance,
+    rlusd: rlusdBalance,
+    usdc: usdcBalance,
+  }
+}
+
+/**
+ * Send XRP payment
+ */
+export async function sendXRP(
+  senderSeed: string,
+  recipientAddress: string,
+  amount: number,
+): Promise<{ hash: string; result: string }> {
+  const client = new Client(WEBSOCKET_URL)
+
+  try {
+    await client.connect()
+
+    const wallet = Wallet.fromSeed(senderSeed)
+
+    const payment: Payment = {
+      TransactionType: 'Payment',
+      Account: wallet.address,
+      Destination: recipientAddress,
+      Amount: xrpToDrops(amount),
+    }
+
+    const prepared = await client.autofill(payment)
+    const signed = wallet.sign(prepared)
+    const result = await client.submitAndWait(signed.tx_blob)
+
+    await client.disconnect()
+
+    // Properly check for meta existence
+    const meta = result.result.meta
+    if (!meta || typeof meta === 'string') {
+      throw new Error('Transaction metadata unavailable')
+    }
+
+    const success = meta.TransactionResult === 'tesSUCCESS'
+
+    if (!success) {
+      throw new Error(`Payment failed: ${meta.TransactionResult}`)
+    }
+
+    console.log(`✅ XRP payment sent: ${result.result.hash}`)
+
+    return {
+      hash: result.result.hash,
+      result: meta.TransactionResult,
+    }
+  } catch (error) {
+    await client.disconnect()
+    console.error('❌ Error sending XRP:', error)
+    throw error
+  }
+}
+
+/**
+ * Generic function to send stablecoin payment
+ */
+export async function sendStablecoin(
+  senderSeed: string,
+  recipientAddress: string,
+  amount: number,
+  currency: string,
+  issuer: string,
+): Promise<{ hash: string; result: string }> {
+  const client = new Client(WEBSOCKET_URL)
+
+  try {
+    await client.connect()
+
+    const wallet = Wallet.fromSeed(senderSeed)
+
+    const payment: Payment = {
+      TransactionType: 'Payment',
+      Account: wallet.address,
+      Destination: recipientAddress,
+      Amount: {
+        currency: currency,
+        issuer: issuer,
+        value: amount.toString(),
+      },
+    }
+
+    const prepared = await client.autofill(payment)
+    const signed = wallet.sign(prepared)
+    const result = await client.submitAndWait(signed.tx_blob)
+
+    await client.disconnect()
+
+    // Properly check for meta existence
+    const meta = result.result.meta
+    if (!meta || typeof meta === 'string') {
+      throw new Error('Transaction metadata unavailable')
+    }
+
+    const success = meta.TransactionResult === 'tesSUCCESS'
+
+    if (!success) {
+      throw new Error(`Payment failed: ${meta.TransactionResult}`)
+    }
+
+    console.log(`✅ ${currency} payment sent: ${result.result.hash}`)
+
+    return {
+      hash: result.result.hash,
+      result: meta.TransactionResult,
+    }
+  } catch (error) {
+    await client.disconnect()
+    console.error(`❌ Error sending ${currency}:`, error)
+    throw error
+  }
+}
+
+/**
+ * Send RLUSD payment
+ */
+export async function sendRLUSD(
+  senderSeed: string,
+  recipientAddress: string,
+  amount: number,
+): Promise<{ hash: string; result: string }> {
+  return sendStablecoin(
+    senderSeed,
+    recipientAddress,
+    amount,
+    RLUSD.currency,
+    RLUSD.issuer,
+  )
+}
+
+/**
+ * Send USDC payment
+ */
+export async function sendUSDC(
+  senderSeed: string,
+  recipientAddress: string,
+  amount: number,
+): Promise<{ hash: string; result: string }> {
+  return sendStablecoin(
+    senderSeed,
+    recipientAddress,
+    amount,
+    USDC.currency,
+    USDC.issuer,
+  )
+}
+
+/**
+ * Helper to get decrypted seed from encrypted seed
+ */
+export function getDecryptedSeed(encryptedSeed: string): string {
+  return decryptSeed(encryptedSeed)
+}
+
+/**
+ * Get encrypted seed (for database storage)
+ */
 export function getEncryptedSeed(seed: string): string {
   return encryptSeed(seed)
 }
 
-export function getDecryptedSeed(encryptedSeed: string): string {
-  return decryptSeed(encryptedSeed)
+/**
+ * Display currency name (converts hex codes to readable names)
+ */
+export function getDisplayCurrency(currencyCode: string): string {
+  if (currencyCode === 'RLUSD') return 'RLUSD'
+  if (currencyCode === '5553444300000000000000000000000000000000') return 'USDC'
+  if (currencyCode === 'XRP') return 'XRP'
+  return currencyCode
+}
+
+/**
+ * Get currency config by name
+ */
+export function getCurrencyConfig(currency: 'XRP' | 'RLUSD' | 'USDC'): {
+  currency: string
+  issuer?: string
+} {
+  if (currency === 'XRP') {
+    return { currency: 'XRP' }
+  } else if (currency === 'RLUSD') {
+    return { currency: RLUSD.currency, issuer: RLUSD.issuer }
+  } else if (currency === 'USDC') {
+    return { currency: USDC.currency, issuer: USDC.issuer }
+  }
+  throw new Error(`Unknown currency: ${currency}`)
+}
+
+/**
+ * Get transaction history
+ */
+export async function getHistory(address: string): Promise<any[]> {
+  const client = new Client(WEBSOCKET_URL)
+
+  try {
+    await client.connect()
+
+    const response = await client.request({
+      command: 'account_tx',
+      account: address,
+      ledger_index_min: -1,
+      ledger_index_max: -1,
+      limit: 10,
+    })
+
+    await client.disconnect()
+
+    return response.result.transactions || []
+  } catch (error) {
+    await client.disconnect()
+    console.error('Error getting history:', error)
+    return []
+  }
 }
