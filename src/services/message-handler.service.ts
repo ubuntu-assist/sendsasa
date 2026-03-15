@@ -3,7 +3,9 @@ import {
   sendTextMessage,
   sendConfirmationButtons,
   sendPaymentRequestButtons,
+  sendDocumentByMediaId,
 } from './whatsapp.service'
+import { generateAndUploadReceipt } from './receipt-generator.service'
 import {
   sendWelcomeMessage,
   sendMainMenu,
@@ -83,7 +85,7 @@ export async function handleMessage(
 
     // NEW USER: Send welcome (no wallet yet)
     if (!user) {
-      await sendWelcomeMessage(phoneNumber)
+      await sendWelcomeMessage(phoneNumber, username)
       await MessageLogService.logOutgoingMessage(
         whatsappId,
         'Welcome message sent',
@@ -102,7 +104,13 @@ export async function handleMessage(
 
     // Otherwise show main menu with all 3 balances
     const balances = await getAllBalances(user.xrplAddress)
-    await sendMainMenu(phoneNumber, balances.xrp, balances.rlusd, balances.usdc)
+    await sendMainMenu(
+      phoneNumber,
+      balances.xrp,
+      balances.rlusd,
+      balances.usdc,
+      user.username,
+    )
     await MessageLogService.logOutgoingMessage(whatsappId, 'Main menu sent')
   } catch (error) {
     console.error('Error handling message:', error)
@@ -123,6 +131,7 @@ export async function handleButtonClick(
   whatsappId: string,
   phoneNumber: string,
   buttonId: string,
+  username?: string,
 ): Promise<void> {
   console.log(`\n🔘 Button click from ${phoneNumber}: ${buttonId}`)
 
@@ -138,7 +147,7 @@ export async function handleButtonClick(
     const user = await UserService.getUserByWhatsAppId(whatsappId)
 
     if (!user) {
-      await sendWelcomeMessage(phoneNumber)
+      await sendWelcomeMessage(phoneNumber, username)
       return
     }
 
@@ -193,17 +202,16 @@ export async function handleButtonClick(
         )
         break
 
-      case 'amount_selected':
-        await handleAmountSelected(whatsappId, phoneNumber, interaction.amount!)
-        break
-
       case 'recipient_type_selected':
         await handleRecipientTypeSelected(
           whatsappId,
           phoneNumber,
-          interaction.amount!,
           interaction.recipientType!,
         )
+        break
+
+      case 'amount_selected':
+        await handleAmountSelected(whatsappId, phoneNumber, interaction.amount!)
         break
 
       case 'confirm_send':
@@ -248,6 +256,7 @@ export async function handleButtonClick(
           balances.xrp,
           balances.rlusd,
           balances.usdc,
+          user.username,
         )
     }
   } catch (error) {
@@ -274,7 +283,13 @@ async function handleGetStarted(
   const existingUser = await UserService.getUserByWhatsAppId(whatsappId)
   if (existingUser) {
     const balances = await getAllBalances(existingUser.xrplAddress)
-    await sendMainMenu(phoneNumber, balances.xrp, balances.rlusd, balances.usdc)
+    await sendMainMenu(
+      phoneNumber,
+      balances.xrp,
+      balances.rlusd,
+      balances.usdc,
+      existingUser.username,
+    )
     await MessageLogService.logOutgoingMessage(
       whatsappId,
       'Existing user - main menu sent',
@@ -305,7 +320,13 @@ async function handleMainMenuAction(
   user: IUser,
 ): Promise<void> {
   const balances = await getAllBalances(user.xrplAddress)
-  await sendMainMenu(phoneNumber, balances.xrp, balances.rlusd, balances.usdc)
+  await sendMainMenu(
+    phoneNumber,
+    balances.xrp,
+    balances.rlusd,
+    balances.usdc,
+    user.username,
+  )
   await MessageLogService.logOutgoingMessage(whatsappId, 'Main menu sent')
 }
 
@@ -357,16 +378,15 @@ async function handleMyWalletAction(
 ): Promise<void> {
   const balances = await getAllBalances(user.xrplAddress)
 
-  const msg =
-    `💼 Your Wallet\n\n` +
-    `🔷 XRP: ${balances.xrp} XRP\n` +
-    `💵 RLUSD: ${balances.rlusd} RLUSD\n` +
-    `🔵 USDC: ${balances.usdc} USDC\n\n` +
-    `Address:\n${user.xrplAddress}`
-
-  await sendTextMessage(phoneNumber, msg)
-  await sendWalletMenu(phoneNumber)
-  await MessageLogService.logOutgoingMessage(whatsappId, msg)
+  // Send wallet menu with balances and username in the body
+  await sendWalletMenu(
+    phoneNumber,
+    balances.xrp,
+    balances.rlusd,
+    balances.usdc,
+    user.username,
+  )
+  await MessageLogService.logOutgoingMessage(whatsappId, 'Wallet menu sent')
 }
 
 /**
@@ -388,15 +408,18 @@ async function handleAmountSelected(
         balances.xrp,
         balances.rlusd,
         balances.usdc,
+        user.username,
       )
     }
     return
   }
 
+  const currency = flow.flowData?.currency || 'XRP'
+
   flowManager.updateFlowData(whatsappId, { amount })
   flowManager.setStep(whatsappId, 'recipient_type')
 
-  await sendRecipientTypeMenu(phoneNumber, amount)
+  await sendRecipientTypeMenu(phoneNumber, amount, currency)
   await MessageLogService.logOutgoingMessage(
     whatsappId,
     'Recipient type selection sent',
@@ -404,21 +427,47 @@ async function handleAmountSelected(
 }
 
 /**
- * Handle recipient type selection
+ * Handle recipient type selection (from interactive list)
  */
 async function handleRecipientTypeSelected(
   whatsappId: string,
   phoneNumber: string,
-  amount: number,
-  recipientType: 'phone' | 'address',
+  recipientType: 'phone' | 'address' | 'username',
 ): Promise<void> {
-  flowManager.updateFlowData(whatsappId, { amount, recipientType })
+  const flowData = flowManager.getFlowData(whatsappId)
+
+  if (!flowData?.amount || !flowData?.currency) {
+    const user = await UserService.getUserByWhatsAppId(whatsappId)
+    if (user) {
+      const balances = await getAllBalances(user.xrplAddress)
+      await sendMainMenu(
+        phoneNumber,
+        balances.xrp,
+        balances.rlusd,
+        balances.usdc,
+        user.username,
+      )
+    }
+    return
+  }
+
+  flowManager.updateFlowData(whatsappId, { recipientType })
   flowManager.setStep(whatsappId, 'recipient_input')
 
-  const msg =
-    recipientType === 'phone'
-      ? `Please enter the recipient's phone number:\n\nExample: +237670123456`
-      : `Please enter the recipient's XRP address:\n\nExample: rN7n7otQDd6FczFgLdSqtcsAUxDkw6fzRH`
+  const currency = flowData.currency
+  const amount = flowData.amount
+  const currencyEmoji =
+    currency === 'XRP' ? '🔷' : currency === 'RLUSD' ? '💵' : '🔵'
+
+  let msg = `${currencyEmoji} Sending ${amount} ${currency}\n\n`
+
+  if (recipientType === 'phone') {
+    msg += `Please enter the recipient's phone number:\n\nExample: +237670123456`
+  } else if (recipientType === 'username') {
+    msg += `Please enter the recipient's username:\n\nExample: @john_doe.sasa`
+  } else {
+    msg += `Please enter the recipient's XRP address:\n\nExample: rN7n7otQDd6FczFgLdSqtcsAUxDkw6fzRH`
+  }
 
   await sendTextMessage(phoneNumber, msg)
   await MessageLogService.logOutgoingMessage(whatsappId, msg)
@@ -443,6 +492,7 @@ async function handleFlowMessage(
         balances.xrp,
         balances.rlusd,
         balances.usdc,
+        user.username,
       )
     }
     return
@@ -612,6 +662,7 @@ async function handlePinSetupFlow(
         balances.xrp,
         balances.rlusd,
         balances.usdc,
+        user.username,
       )
       await MessageLogService.logOutgoingMessage(whatsappId, welcomeMsg)
     } catch (error) {
@@ -727,21 +778,40 @@ async function handleSendMoneyFlow(
       return
     }
 
+    // Save amount and show recipient type selection menu
     flowManager.updateFlowData(whatsappId, { amount })
-    flowManager.setStep(whatsappId, 'recipient_input')
+    flowManager.setStep(whatsappId, 'recipient_type')
 
-    const msg = `Who do you want to send ${amount} ${currency} to?\n\nPlease enter their phone number (+237...) or XRP address (rN7n7...)`
-    await sendTextMessage(phoneNumber, msg)
+    await sendRecipientTypeMenu(phoneNumber, amount, currency)
+    await MessageLogService.logOutgoingMessage(
+      whatsappId,
+      'Recipient type selection sent',
+    )
   } else if (currentStep === 'recipient_input') {
     const recipient = messageText.trim()
+    const flowData = flowManager.getFlowData(whatsappId)!
 
-    if (!isPhoneNumber(recipient) && !isXRPLAddress(recipient)) {
-      const msg = `Invalid format. Please enter a valid phone number (+237...) or XRP address (rN7n7...)`
+    // Validate based on recipient type
+    const recipientType = flowData.recipientType
+
+    if (recipientType === 'phone' && !isPhoneNumber(recipient)) {
+      const msg = `Invalid phone number format.\n\nPlease enter a valid phone number (+237...)`
+      await sendTextMessage(phoneNumber, msg)
+      return
+    } else if (
+      recipientType === 'username' &&
+      !usernameService.isUsername(recipient)
+    ) {
+      const msg = `Invalid username format.\n\nPlease enter a valid username (@name.sasa)`
+      await sendTextMessage(phoneNumber, msg)
+      return
+    } else if (recipientType === 'address' && !isXRPLAddress(recipient)) {
+      const msg = `Invalid wallet address format.\n\nPlease enter a valid XRP address (rN7n7...)`
       await sendTextMessage(phoneNumber, msg)
       return
     }
 
-    const amount = flowData!.amount!
+    const amount = flowData.amount!
     flowManager.clearFlow(whatsappId)
 
     await handleSendCommand(
@@ -810,11 +880,25 @@ async function handleHistoryCommand(
   address: string,
 ): Promise<void> {
   try {
+    const user = await UserService.getUserByAddress(address)
+    if (!user) {
+      await sendTextMessage(phoneNumber, '❌ User not found')
+      return
+    }
+
     const history = await getHistory(address)
 
     if (!history || history.length === 0) {
       const msg = `📊 Transaction History\n\nNo transactions found.`
-      await sendBackToMenuButton(phoneNumber, msg)
+      const balances = await getAllBalances(address)
+      await sendTextMessage(phoneNumber, msg)
+      await sendWalletMenu(
+        phoneNumber,
+        balances.xrp,
+        balances.rlusd,
+        balances.usdc,
+        user.username,
+      )
       await MessageLogService.logOutgoingMessage(whatsappId, msg)
       return
     }
@@ -871,13 +955,20 @@ async function handleHistoryCommand(
       }
     })
 
+    const balances = await getAllBalances(address)
     await sendTextMessage(phoneNumber, message)
-    await sendWalletMenu(phoneNumber)
+    await sendWalletMenu(
+      phoneNumber,
+      balances.xrp,
+      balances.rlusd,
+      balances.usdc,
+      user.username,
+    )
     await MessageLogService.logOutgoingMessage(whatsappId, message)
   } catch (error) {
     console.error('Error in handleHistoryCommand:', error)
     const msg = `❌ Error loading transaction history.\n\nPlease try again.`
-    await sendBackToMenuButton(phoneNumber, msg)
+    await sendTextMessage(phoneNumber, msg)
     await MessageLogService.logOutgoingMessage(whatsappId, msg)
   }
 }
@@ -926,7 +1017,31 @@ async function handleSendCommand(
   let recipientDisplay: string
   let recipientPhone: string | undefined
 
-  if (isXRPLAddress(recipient)) {
+  // Username lookup
+  if (usernameService.isUsername(recipient)) {
+    const recipientUser = await usernameService.getUserByUsername(recipient)
+    if (!recipientUser?.xrplAddress) {
+      throw new NotFoundError(
+        `Username ${recipient} not found.\n\nThey need to register with SendSasa first.`,
+      )
+    }
+    recipientAddress = recipientUser.xrplAddress
+    recipientDisplay = recipient
+    recipientPhone = recipientUser.phoneNumber
+
+    // Check trust line for stablecoins
+    if (currency === 'RLUSD' && !recipientUser.rlusdTrustLineCreated) {
+      throw new ValidationError(
+        `${recipient} doesn't have RLUSD enabled!\n\nThey need to send/request RLUSD first.`,
+      )
+    } else if (currency === 'USDC' && !recipientUser.usdcTrustLineCreated) {
+      throw new ValidationError(
+        `${recipient} doesn't have USDC enabled!\n\nThey need to send/request USDC first.`,
+      )
+    }
+  }
+  // XRP address
+  else if (isXRPLAddress(recipient)) {
     recipientAddress = recipient
     recipientDisplay = recipient.substring(0, 10) + '...'
 
@@ -945,7 +1060,9 @@ async function handleSendCommand(
         )
       }
     }
-  } else if (isPhoneNumber(recipient)) {
+  }
+  // Phone number
+  else if (isPhoneNumber(recipient)) {
     const recipientUser = await UserService.getUserByPhone(recipient)
     if (!recipientUser?.xrplAddress) {
       throw new NotFoundError(
@@ -953,7 +1070,7 @@ async function handleSendCommand(
       )
     }
     recipientAddress = recipientUser.xrplAddress
-    recipientDisplay = recipient
+    recipientDisplay = `${recipient} (${recipientUser.username})`
     recipientPhone = recipient
 
     if (currency === 'RLUSD' && !recipientUser.rlusdTrustLineCreated) {
@@ -967,7 +1084,7 @@ async function handleSendCommand(
     }
   } else {
     throw new ValidationError(
-      `Invalid recipient format.\n\nUse a phone number (+237...) or XRP address (rN7n7...).`,
+      `Invalid recipient format.\n\nUse a phone number (+237...), username (@name.sasa), or XRP address (rN7n7...).`,
     )
   }
 
@@ -1077,12 +1194,26 @@ async function handleViewRequestsCommand(
   phoneNumber: string,
   address: string,
 ): Promise<void> {
+  const user = await UserService.getUserByAddress(address)
+  if (!user) {
+    await sendTextMessage(phoneNumber, '❌ User not found')
+    return
+  }
+
   const pendingRequests =
     await PaymentRequestService.getPendingRequestsForPayer(address)
 
   if (pendingRequests.length === 0) {
     const msg = `📋 Payment Requests\n\nNo pending requests.`
-    await sendBackToMenuButton(phoneNumber, msg)
+    const balances = await getAllBalances(address)
+    await sendTextMessage(phoneNumber, msg)
+    await sendWalletMenu(
+      phoneNumber,
+      balances.xrp,
+      balances.rlusd,
+      balances.usdc,
+      user.username,
+    )
     await MessageLogService.logOutgoingMessage(whatsappId, msg)
     return
   }
@@ -1098,8 +1229,15 @@ async function handleViewRequestsCommand(
     message += `   Expires: ${new Date(req.expiresAt).toLocaleDateString()}\n\n`
   })
 
+  const balances = await getAllBalances(address)
   await sendTextMessage(phoneNumber, message)
-  await sendWalletMenu(phoneNumber)
+  await sendWalletMenu(
+    phoneNumber,
+    balances.xrp,
+    balances.rlusd,
+    balances.usdc,
+    user.username,
+  )
   await MessageLogService.logOutgoingMessage(whatsappId, message)
 }
 
@@ -1243,11 +1381,11 @@ async function handleConfirmSend(
   let sufficient = false
 
   if (currency === 'XRP') {
-    sufficient = parseFloat(balances.xrp) >= pendingTx.amount + 1
+    sufficient = Number.parseFloat(balances.xrp) >= pendingTx.amount + 1
   } else if (currency === 'RLUSD') {
-    sufficient = parseFloat(balances.rlusd) >= pendingTx.amount
+    sufficient = Number.parseFloat(balances.rlusd) >= pendingTx.amount
   } else if (currency === 'USDC') {
-    sufficient = parseFloat(balances.usdc) >= pendingTx.amount
+    sufficient = Number.parseFloat(balances.usdc) >= pendingTx.amount
   }
 
   if (!sufficient) {
@@ -1292,24 +1430,83 @@ async function handleConfirmSend(
 
     const currencyEmoji =
       currency === 'XRP' ? '🔷' : currency === 'RLUSD' ? '💵' : '🔵'
-    const msg =
-      `✅ Payment Successful!\n\n` +
-      `Sent: ${currencyEmoji} ${pendingTx.amount} ${currency}\n` +
-      `To: ${pendingTx.recipientDisplay}\n` +
-      `TX Hash: ${result.hash}\n\n` +
-      `View on explorer:\n` +
-      `https://testnet.xrpl.org/transactions/${result.hash}`
 
-    await sendBackToMenuButton(phoneNumber, msg)
-    await MessageLogService.logOutgoingMessage(whatsappId, msg)
+    try {
+      const mediaId = await generateAndUploadReceipt({
+        transactionId: result.hash,
+        dateTime: new Date().toLocaleString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        senderName: user.username,
+        senderPhone: phoneNumber,
+        recipientName: pendingTx.recipientDisplay,
+        recipientPhone: pendingTx.recipientPhone || 'N/A',
+        amount: pendingTx.amount,
+        currency: currency,
+        transactionType: 'Send Money',
+      })
+
+      const confirmMsg = `✅ Payment Successful!\n\n💸 Sent ${currencyEmoji} ${pendingTx.amount} ${currency} to ${pendingTx.recipientDisplay}\n\n📄 Your receipt is ready!`
+      await sendTextMessage(phoneNumber, confirmMsg)
+
+      await sendDocumentByMediaId(
+        phoneNumber,
+        mediaId,
+        `receipt_${Date.now()}.pdf`,
+        `✅ Transaction Receipt - ${pendingTx.amount} ${currency} sent successfully`,
+      )
+
+      await MessageLogService.logOutgoingMessage(whatsappId, confirmMsg)
+    } catch (receiptError) {
+      console.error(
+        '⚠️ Error generating receipt, sending text confirmation:',
+        receiptError,
+      )
+
+      const msg = `✅ Payment Successful!\n\n💸 Sent ${currencyEmoji} ${pendingTx.amount} ${currency} to ${pendingTx.recipientDisplay}`
+      await sendTextMessage(phoneNumber, msg)
+      await MessageLogService.logOutgoingMessage(whatsappId, msg)
+    }
 
     if (pendingTx.recipientPhone) {
-      const recipientMsg =
-        `✅ Payment Received!\n\n` +
-        `Amount: ${currencyEmoji} ${pendingTx.amount} ${currency}\n` +
-        `From: ${pendingTx.phoneNumber}\n` +
-        `TX Hash: ${result.hash}`
-      await sendTextMessage(pendingTx.recipientPhone, recipientMsg)
+      try {
+        const recipientMediaId = await generateAndUploadReceipt({
+          transactionId: result.hash,
+          dateTime: new Date().toLocaleString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          senderName: user.username,
+          senderPhone: phoneNumber,
+          recipientName: pendingTx.recipientDisplay,
+          recipientPhone: pendingTx.recipientPhone,
+          amount: pendingTx.amount,
+          currency: currency,
+          transactionType: 'Send Money',
+        })
+
+        const recipientMsg = `✅ Payment Received!\n\n💰 ${currencyEmoji} ${pendingTx.amount} ${currency} from ${user.username}\n\n📄 Your receipt is ready!`
+        await sendTextMessage(pendingTx.recipientPhone, recipientMsg)
+
+        await sendDocumentByMediaId(
+          pendingTx.recipientPhone,
+          recipientMediaId,
+          `receipt_${Date.now()}.pdf`,
+          `✅ Payment Receipt - ${pendingTx.amount} ${currency} received`,
+        )
+      } catch (recipientError) {
+        console.error('⚠️ Error sending receipt to recipient:', recipientError)
+
+        const recipientMsg = `✅ Payment Received!\n\n💰 ${currencyEmoji} ${pendingTx.amount} ${currency} from ${user.username}`
+        await sendTextMessage(pendingTx.recipientPhone, recipientMsg)
+      }
     }
 
     pendingTransactionService.delete(transactionId)

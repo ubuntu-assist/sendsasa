@@ -1,4 +1,3 @@
-// src/services/xrpl-FINAL-SECURE.service.ts
 import { Client, Wallet, Payment, TrustSet, xrpToDrops } from 'xrpl'
 import crypto from 'node:crypto'
 import dotenv from 'dotenv'
@@ -6,33 +5,28 @@ import dotenv from 'dotenv'
 dotenv.config()
 
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY!
-// FIXED: Use AES-256-GCM for authenticated encryption (more secure than CBC)
 const ALGORITHM = 'aes-256-gcm' as const
 const IV_LENGTH = 16
 
-// Network configuration
 const XRPL_NETWORK = process.env.XRPL_NETWORK || 'testnet'
 const WEBSOCKET_URL =
   XRPL_NETWORK === 'mainnet'
     ? 'wss://xrplcluster.com'
     : 'wss://s.altnet.rippletest.net:51233'
 
-// ============ RLUSD Configuration ============
-// RLUSD uses hex-encoded currency code (not standard 3-letter)
 export const RLUSD_MAINNET = {
   issuer: 'rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De',
-  currency: '524C555344000000000000000000000000000000', // Hex for "RLUSD"
+  currency: '524C555344000000000000000000000000000000',
 }
 
 export const RLUSD_TESTNET = {
   issuer: 'rQhWct2fv4Vc4KRjRgMrxa8xPN9Zx9iLKV',
-  currency: '524C555344000000000000000000000000000000', // Hex for "RLUSD"
+  currency: '524C555344000000000000000000000000000000',
 }
 
-// ============ USDC Configuration ============
 export const USDC_MAINNET = {
   issuer: 'rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE',
-  currency: '5553444300000000000000000000000000000000', // Hex for "USDC"
+  currency: '5553444300000000000000000000000000000000',
 }
 
 export const USDC_TESTNET = {
@@ -40,13 +34,9 @@ export const USDC_TESTNET = {
   currency: '5553444300000000000000000000000000000000',
 }
 
-// Use testnet or mainnet based on environment
 export const RLUSD = XRPL_NETWORK === 'mainnet' ? RLUSD_MAINNET : RLUSD_TESTNET
 export const USDC = XRPL_NETWORK === 'mainnet' ? USDC_MAINNET : USDC_TESTNET
 
-/**
- * Generate a new XRPL wallet (auto-funded on testnet)
- */
 export async function generateWallet(): Promise<{
   address: string
   seed: string
@@ -58,7 +48,6 @@ export async function generateWallet(): Promise<{
 
   try {
     if (XRPL_NETWORK === 'mainnet') {
-      // MAINNET: Generate wallet (no auto-funding)
       const wallet = Wallet.generate()
 
       await client.disconnect()
@@ -75,7 +64,6 @@ export async function generateWallet(): Promise<{
         seed: wallet.seed!,
       }
     } else {
-      // TESTNET: Auto-fund wallet via faucet
       const { wallet, balance } = await client.fundWallet()
 
       await client.disconnect()
@@ -95,16 +83,6 @@ export async function generateWallet(): Promise<{
     console.error('❌ Error generating wallet:', error)
     throw error
   }
-}
-
-/**
- * @deprecated Use generateWallet() instead - it handles funding internally
- * Fund a wallet using testnet faucet
- */
-export async function fundWallet(address: string): Promise<void> {
-  throw new Error(
-    'fundWallet() is deprecated. Use generateWallet() which handles funding automatically.',
-  )
 }
 
 /**
@@ -527,23 +505,14 @@ export async function sendUSDC(
   )
 }
 
-/**
- * Helper to get decrypted seed from encrypted seed
- */
 export function getDecryptedSeed(encryptedSeed: string): string {
   return decryptSeed(encryptedSeed)
 }
 
-/**
- * Get encrypted seed (for database storage)
- */
 export function getEncryptedSeed(seed: string): string {
   return encryptSeed(seed)
 }
 
-/**
- * Display currency name (converts hex codes to readable names)
- */
 export function getDisplayCurrency(currencyCode: string): string {
   if (currencyCode === 'RLUSD') return 'RLUSD'
   if (currencyCode === '5553444300000000000000000000000000000000') return 'USDC'
@@ -551,9 +520,6 @@ export function getDisplayCurrency(currencyCode: string): string {
   return currencyCode
 }
 
-/**
- * Get currency config by name
- */
 export function getCurrencyConfig(currency: 'XRP' | 'RLUSD' | 'USDC'): {
   currency: string
   issuer?: string
