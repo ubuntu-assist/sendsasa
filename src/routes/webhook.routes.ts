@@ -4,6 +4,7 @@ import {
   handleButtonClick,
 } from '../services/message-handler.service'
 import { markMessageAsRead } from '../services/whatsapp.service'
+import config from '../utils/config'
 
 const router = express.Router()
 
@@ -12,7 +13,7 @@ router.get('/', (req: Request, res: Response) => {
   const token = req.query['hub.verify_token']
   const challenge = req.query['hub.challenge']
 
-  if (mode === 'subscribe' && token === process.env.WEBHOOK_VERIFY_TOKEN) {
+  if (mode === 'subscribe' && token === config.VERIFY_TOKEN) {
     console.log('Webhook verified')
     res.status(200).send(challenge)
   } else {

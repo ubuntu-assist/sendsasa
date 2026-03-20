@@ -1,6 +1,7 @@
 // src/services/database-FINAL-FIXED.service.ts
 import { User, Transaction, PaymentRequest, MessageLog } from '../models'
 import { IUser, ITransaction, IPaymentRequest, IMessageLog } from '../types'
+import config from '../utils/config'
 import {
   generateWallet,
   getEncryptedSeed,
@@ -53,7 +54,7 @@ export class UserService {
     const { address, seed } = wallet
 
     // Wait 2 seconds for ledger to process funding
-    if (process.env.XRPL_NETWORK !== 'mainnet') {
+    if (config.XRPL_NETWORK !== 'mainnet') {
       await new Promise((resolve) => setTimeout(resolve, 2000))
     }
 

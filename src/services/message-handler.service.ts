@@ -51,6 +51,7 @@ import { pendingTransactionService } from './pending-transaction.service'
 import { flowManager } from './flow-manager.service'
 import { usernameService } from './username.service'
 import { IUser } from '../types'
+import config from '../utils/config'
 
 /**
  * Handle incoming WhatsApp text messages
@@ -580,7 +581,7 @@ async function handlePinSetupFlow(
       const { address, seed } = wallet
 
       // Wait for ledger to process funding
-      if (process.env.XRPL_NETWORK !== 'mainnet') {
+      if (config.XRPL_NETWORK !== 'mainnet') {
         await new Promise((resolve) => setTimeout(resolve, 2000))
       }
 
