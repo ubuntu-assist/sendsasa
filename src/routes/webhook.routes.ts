@@ -3,6 +3,7 @@ import {
   handleMessage,
   handleButtonClick,
 } from '../services/message-handler.service'
+import { markMessageAsRead } from '../services/whatsapp.service'
 
 const router = express.Router()
 
@@ -12,10 +13,10 @@ router.get('/', (req: Request, res: Response) => {
   const challenge = req.query['hub.challenge']
 
   if (mode === 'subscribe' && token === process.env.WEBHOOK_VERIFY_TOKEN) {
-    console.log('✅ Webhook verified')
+    console.log('Webhook verified')
     res.status(200).send(challenge)
   } else {
-    console.error('❌ Webhook verification failed')
+    console.error('Webhook verification failed')
     res.sendStatus(403)
   }
 })
@@ -27,7 +28,6 @@ router.post('/', async (req: Request, res: Response) => {
     const body = req.body
 
     if (body.object !== 'whatsapp_business_account') {
-      console.log('⚠️ Not a WhatsApp message')
       return
     }
 
@@ -36,7 +36,6 @@ router.post('/', async (req: Request, res: Response) => {
     const value = changes?.value
 
     if (!value?.messages?.[0]) {
-      console.log('⚠️ No message in webhook')
       return
     }
 
@@ -52,6 +51,8 @@ router.post('/', async (req: Request, res: Response) => {
       messageId: message.id,
       profileName,
     })
+
+    await markMessageAsRead(message.id)
 
     if (message.type === 'text') {
       const text = message.text.body

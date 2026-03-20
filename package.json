@@ -5,7 +5,7 @@
   "main": "index.ts",
   "scripts": {
     "start": "cross-env NODE_ENV=production node build/index.js",
-    "dev": "cross-env NODE_ENV=development tsx watch src/app.ts",
+    "dev": "cross-env NODE_ENV=development tsx watch src/index.ts",
     "test": "cross-env NODE_ENV=test tsx --test src/tests/**/*.test.ts",
     "build": "tsc",
     "lint": "eslint .",
@@ -48,6 +48,7 @@
     "helmet": "^8.1.0",
     "http-status-codes": "^2.3.0",
     "mongoose": "^9.1.5",
+    "node-cron": "^4.2.1",
     "pdfkit": "^0.18.0",
     "xrpl": "^4.5.0",
     "zod": "^4.3.6"

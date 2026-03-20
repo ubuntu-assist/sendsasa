@@ -37,16 +37,10 @@ function getSendSasaLogoPath(): string {
   return path.join(process.cwd(), 'assets', 'logo', 'sendsasa-logo.png')
 }
 
-/**
- * Check if image exists, fallback to emoji if not
- */
 function imageExists(filepath: string): boolean {
   return fs.existsSync(filepath)
 }
 
-/**
- * Generate a professional receipt PDF (Single Page, MoMo-style with SendSasa branding)
- */
 export async function generateReceipt(data: ReceiptData): Promise<string> {
   const {
     transactionId,
@@ -61,7 +55,6 @@ export async function generateReceipt(data: ReceiptData): Promise<string> {
     fee = 0,
   } = data
 
-  // Create receipts directory if it doesn't exist
   const receiptsDir = path.join(process.cwd(), 'receipts')
   if (!fs.existsSync(receiptsDir)) {
     fs.mkdirSync(receiptsDir, { recursive: true })

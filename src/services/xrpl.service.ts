@@ -1,14 +1,12 @@
 import { Client, Wallet, Payment, TrustSet, xrpToDrops } from 'xrpl'
 import crypto from 'node:crypto'
-import dotenv from 'dotenv'
+import config from '../utils/config'
 
-dotenv.config()
-
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY!
+const ENCRYPTION_KEY = config.ENCRYPTION_KEY!
 const ALGORITHM = 'aes-256-gcm' as const
 const IV_LENGTH = 16
 
-const XRPL_NETWORK = process.env.XRPL_NETWORK || 'testnet'
+const XRPL_NETWORK = config.XRPL_NETWORK
 const WEBSOCKET_URL =
   XRPL_NETWORK === 'mainnet'
     ? 'wss://xrplcluster.com'
@@ -41,7 +39,7 @@ export async function generateWallet(): Promise<{
   address: string
   seed: string
 }> {
-  console.log('\n🔐 Generating new wallet...')
+  console.log('\nGenerating new wallet...')
 
   const client = new Client(WEBSOCKET_URL)
   await client.connect()
@@ -52,13 +50,6 @@ export async function generateWallet(): Promise<{
 
       await client.disconnect()
 
-      console.log('✅ Wallet created!')
-      console.log(`Address: ${wallet.classicAddress}`)
-      console.log(`Seed: ${wallet.seed}`)
-      console.log(
-        '⚠️  MAINNET: Deposit at least 10 XRP to activate this wallet',
-      )
-
       return {
         address: wallet.classicAddress,
         seed: wallet.seed!,
@@ -68,7 +59,7 @@ export async function generateWallet(): Promise<{
 
       await client.disconnect()
 
-      console.log('✅ Wallet created and funded!')
+      console.log('Wallet created and funded!')
       console.log(`Address: ${wallet.classicAddress}`)
       console.log(`Balance: ${balance} XRP`)
       console.log(`Seed: ${wallet.seed}`)
@@ -446,7 +437,6 @@ export async function sendStablecoin(
 
     await client.disconnect()
 
-    // Properly check for meta existence
     const meta = result.result.meta
     if (!meta || typeof meta === 'string') {
       throw new Error('Transaction metadata unavailable')
@@ -471,9 +461,6 @@ export async function sendStablecoin(
   }
 }
 
-/**
- * Send RLUSD payment
- */
 export async function sendRLUSD(
   senderSeed: string,
   recipientAddress: string,
@@ -488,9 +475,6 @@ export async function sendRLUSD(
   )
 }
 
-/**
- * Send USDC payment
- */
 export async function sendUSDC(
   senderSeed: string,
   recipientAddress: string,
@@ -534,9 +518,6 @@ export function getCurrencyConfig(currency: 'XRP' | 'RLUSD' | 'USDC'): {
   throw new Error(`Unknown currency: ${currency}`)
 }
 
-/**
- * Get transaction history
- */
 export async function getHistory(address: string): Promise<any[]> {
   const client = new Client(WEBSOCKET_URL)
 

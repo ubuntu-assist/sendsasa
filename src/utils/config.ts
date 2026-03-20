@@ -1,10 +1,7 @@
 import 'dotenv/config'
 
 const PORT = process.env.PORT
-const MONGODB_URI =
-  process.env.NODE_ENV === 'test'
-    ? process.env.TEST_MONGODB_URI
-    : process.env.MONGODB_URI
+const MONGODB_URI = process.env.MONGODB_URI
 const XRPL_NETWORK = process.env.XRPL_NETWORK
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY
 const WHATSAPP_API_URL = process.env.WHATSAPP_API_URL

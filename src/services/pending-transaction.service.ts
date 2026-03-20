@@ -54,7 +54,7 @@ class PendingTransactionService {
   getByUser(whatsappId: string): PendingTransaction[] {
     const userTransactions: PendingTransaction[] = []
 
-    for (const [id, tx] of this.transactions.entries()) {
+    for (const [, tx] of this.transactions.entries()) {
       if (tx.whatsappId === whatsappId) {
         userTransactions.push(tx)
       }

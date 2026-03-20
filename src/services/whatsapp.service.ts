@@ -220,15 +220,16 @@ export async function sendDocumentByUrl(
 }
 
 export async function markMessageAsRead(messageId: string): Promise<void> {
-  const url = WHATSAPP_API_URL
-
   try {
     await axios.post(
-      url,
+      WHATSAPP_API_URL,
       {
         messaging_product: 'whatsapp',
         status: 'read',
         message_id: messageId,
+        typing_indicator: {
+          type: 'text',
+        },
       },
       {
         headers: {
@@ -239,7 +240,9 @@ export async function markMessageAsRead(messageId: string): Promise<void> {
       },
     )
 
-    console.log(`✅ Message ${messageId} marked as read`)
+    console.log(
+      `✅ Message ${messageId} marked as read + typing indicator displayed`,
+    )
   } catch (error) {
     console.error('⚠️  Error marking message as read:', error)
   }
