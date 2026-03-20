@@ -61,11 +61,11 @@ async function startServer() {
       console.log(`Database: MongoDB connected`)
       console.log(`\nReady to receive WhatsApp messages!\n`)
 
-      if (NODE_ENV === 'production') {
-        startSelfPing()
-      } else {
-        console.log('Self-ping cron disabled in development mode\n')
-      }
+      // if (NODE_ENV === 'production') {
+      //   startSelfPing()
+      // } else {
+      //   console.log('Self-ping cron disabled in development mode\n')
+      // }
     })
   } catch (error) {
     console.error('Failed to start server:', error)
