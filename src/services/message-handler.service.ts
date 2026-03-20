@@ -58,17 +58,15 @@ import config from '../utils/config'
  */
 export async function handleMessage(
   whatsappId: string,
-  phoneNumber: string,
+  from: string,
   messageText: string,
   username?: string,
 ): Promise<void> {
-  console.log(`\n📱 Message from ${phoneNumber}: ${messageText}`)
+  const phoneNumber = from.startsWith('+') ? from : `+${from}`
 
   try {
     await MessageLogService.logIncomingMessage(whatsappId, messageText)
 
-    // ✅ CRITICAL FIX: Check PIN setup flow BEFORE user lookup
-    // This ensures PIN entry works even when user doesn't exist yet
     const currentFlow = flowManager.getCurrentFlow(whatsappId)
     if (currentFlow === 'pin_setup') {
       const currentStep = flowManager.getCurrentStep(whatsappId)
