@@ -1,8 +1,8 @@
 import express, { Express } from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
-// import cron from 'node-cron'
-// import axios from 'axios'
+import cron from 'node-cron'
+import axios from 'axios'
 import webhookRoutes from './routes/webhook.routes'
 import cronRoutes from './routes/cron.routes'
 import { xrplClient } from './config/xrpl'
@@ -18,7 +18,7 @@ import config from './utils/config'
 const app: Express = express()
 const PORT = config.PORT
 const NODE_ENV = process.env.NODE_ENV || 'development'
-// const SELF_URL = process.env.SELF_URL || `http://localhost:${PORT}`
+const SELF_URL = process.env.SELF_URL || `http://localhost:${PORT}`
 
 app.use(helmet())
 app.use(cors())
@@ -61,11 +61,11 @@ async function startServer() {
       console.log(`Database: MongoDB connected`)
       console.log(`\nReady to receive WhatsApp messages!\n`)
 
-      // if (NODE_ENV === 'production') {
-      //   startSelfPing()
-      // } else {
-      //   console.log('Self-ping cron disabled in development mode\n')
-      // }
+      if (NODE_ENV === 'production') {
+        startSelfPing()
+      } else {
+        console.log('Self-ping cron disabled in development mode\n')
+      }
     })
   } catch (error) {
     console.error('Failed to start server:', error)
@@ -73,29 +73,29 @@ async function startServer() {
   }
 }
 
-// function startSelfPing() {
-//   console.log('Starting self-ping cron job...')
-//   console.log(`Will ping: ${SELF_URL}/cron/activate every 5 minutes`)
+function startSelfPing() {
+  console.log('Starting self-ping cron job...')
+  console.log(`Will ping: ${SELF_URL}/cron/activate every 5 minutes`)
 
-//   cron.schedule('*/5 * * * *', async () => {
-//     try {
-//       const response = await axios.get(`${SELF_URL}/cron/activate`, {
-//         timeout: 10000, // 10 second timeout
-//         headers: {
-//           'User-Agent': 'SelfPing-KeepAlive/1.0',
-//         },
-//       })
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      const response = await axios.get(`${SELF_URL}/cron/activate`, {
+        timeout: 10000, // 10 second timeout
+        headers: {
+          'User-Agent': 'SelfPing-KeepAlive/1.0',
+        },
+      })
 
-//       console.log(`Self-ping successful at ${new Date().toISOString()}`)
-//       console.log(`Ping response:`, response.data)
-//     } catch (error: any) {
-//       console.error(`Self-ping failed at ${new Date().toISOString()}`)
-//       console.error(`Error: ${error.message}`)
-//     }
-//   })
+      console.log(`Self-ping successful at ${new Date().toISOString()}`)
+      console.log(`Ping response:`, response.data)
+    } catch (error: any) {
+      console.error(`Self-ping failed at ${new Date().toISOString()}`)
+      console.error(`Error: ${error.message}`)
+    }
+  })
 
-//   console.log('Self-ping cron job started successfully\n')
-// }
+  console.log('Self-ping cron job started successfully\n')
+}
 
 async function shutdown() {
   console.log('\n\n🛑 Shutting down gracefully...')
