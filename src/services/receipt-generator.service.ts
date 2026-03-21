@@ -84,7 +84,6 @@ export async function generateReceipt(data: ReceiptData): Promise<string> {
       const sendSasaLogo = getSendSasaLogoPath()
       const currencyIcon = getCurrencyIconPath(currency)
       const hasLogo = imageExists(sendSasaLogo)
-      const hasCurrencyIcon = imageExists(currencyIcon)
 
       // Header - White background with logos
       doc.rect(0, 0, 595, 70).fill('#FFFFFF')
@@ -106,14 +105,7 @@ export async function generateReceipt(data: ReceiptData): Promise<string> {
           .text('Powered by XRPL', 40, 45)
       }
 
-      // Currency icon (right)
-      if (hasCurrencyIcon) {
-        doc.image(currencyIcon, 520, 18, { width: 35, height: 35 })
-      } else {
-        const currencyEmoji =
-          currency === 'XRP' ? '🔷' : currency === 'RLUSD' ? '💵' : '🔵'
-        doc.fontSize(28).fillColor(primaryColor).text(currencyEmoji, 530, 20)
-      }
+      doc.image(currencyIcon, 520, 18, { width: 35, height: 35 })
 
       // Title (Compact)
       doc
@@ -169,26 +161,13 @@ export async function generateReceipt(data: ReceiptData): Promise<string> {
         .text('Amount:', 55, yPos)
 
       // Currency icon next to amount
-      if (hasCurrencyIcon) {
-        doc.image(currencyIcon, 220, yPos - 2, { width: 18, height: 18 })
-        doc
-          .fontSize(15)
-          .font('Helvetica-Bold')
-          .fillColor(primaryColor)
-          .text(`${amount.toLocaleString()} ${currency}`, 243, yPos)
-      } else {
-        const currencyEmoji =
-          currency === 'XRP' ? '🔷' : currency === 'RLUSD' ? '💵' : '🔵'
-        doc
-          .fontSize(15)
-          .font('Helvetica-Bold')
-          .fillColor(primaryColor)
-          .text(
-            `${currencyEmoji} ${amount.toLocaleString()} ${currency}`,
-            220,
-            yPos,
-          )
-      }
+
+      doc.image(currencyIcon, 220, yPos - 2, { width: 18, height: 18 })
+      doc
+        .fontSize(15)
+        .font('Helvetica-Bold')
+        .fillColor(primaryColor)
+        .text(`${amount.toLocaleString()} ${currency}`, 243, yPos)
 
       yPos += 28
 

@@ -27,8 +27,6 @@ export async function sendTextMessage(
       },
       timeout: 10000,
     })
-
-    console.log(`✅ Message sent to ${to}`)
   } catch (error) {
     console.error('❌ Error sending WhatsApp message:', error)
     throw new Error('Failed to send WhatsApp message')
@@ -80,8 +78,6 @@ export async function sendConfirmationButtons(
       },
       timeout: 10000,
     })
-
-    console.log(`✅ Confirmation buttons sent to ${to}`)
   } catch (error) {
     console.error('❌ Error sending buttons:', error)
     throw new Error('Failed to send confirmation buttons')
@@ -95,13 +91,10 @@ export async function sendPaymentRequestButtons(
   requestId: string,
   currency: string = 'XRP',
 ): Promise<void> {
-  const currencyEmoji =
-    currency === 'XRP' ? '🔷' : currency === 'RLUSD' ? '💵' : '🔵'
-
   const bodyText =
-    `💰 Payment Request\n\n` +
+    `Payment Request\n\n` +
     `From: ${requester}\n` +
-    `Amount: ${currencyEmoji} ${amount} ${currency}\n\n` +
+    `Amount: ${amount} ${currency}\n\n` +
     `Do you want to approve this request?`
 
   const payload = {
@@ -143,8 +136,6 @@ export async function sendPaymentRequestButtons(
       },
       timeout: 10000,
     })
-
-    console.log(`✅ Payment request sent to ${to}`)
   } catch (error) {
     console.error('❌ Error sending payment request:', error)
     throw new Error('Failed to send payment request')
@@ -177,8 +168,6 @@ export async function sendDocumentByMediaId(
       },
       timeout: 10000,
     })
-
-    console.log(`✅ Document sent to ${to}`)
   } catch (error) {
     console.error('❌ Error sending document:', error)
     throw new Error('Failed to send document')
@@ -211,8 +200,6 @@ export async function sendDocumentByUrl(
       },
       timeout: 10000,
     })
-
-    console.log(`✅ Document sent to ${to}`)
   } catch (error) {
     console.error('❌ Error sending document:', error)
     throw new Error('Failed to send document')
@@ -238,10 +225,6 @@ export async function markMessageAsRead(messageId: string): Promise<void> {
         },
         timeout: 5000,
       },
-    )
-
-    console.log(
-      `✅ Message ${messageId} marked as read + typing indicator displayed`,
     )
   } catch (error) {
     console.error('⚠️  Error marking message as read:', error)

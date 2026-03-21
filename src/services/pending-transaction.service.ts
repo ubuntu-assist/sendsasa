@@ -17,7 +17,7 @@ interface PendingTransaction {
 }
 
 class PendingTransactionService {
-  private transactions: Map<string, PendingTransaction> = new Map()
+  private readonly transactions: Map<string, PendingTransaction> = new Map()
 
   /**
    * Store a pending transaction

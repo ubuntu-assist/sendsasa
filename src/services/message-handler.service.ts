@@ -340,9 +340,7 @@ async function handleCurrencySend(
   flowManager.startFlow(whatsappId, 'send_money', 'amount')
   flowManager.updateFlowData(whatsappId, { currency })
 
-  const currencyEmoji =
-    currency === 'XRP' ? '🔷' : currency === 'RLUSD' ? '💵' : '🔵'
-  const msg = `${currencyEmoji} Send ${currency}\n\nHow much ${currency} do you want to send?\n\nPlease enter the amount (e.g., 50)`
+  const msg = `Send ${currency}\n\nHow much ${currency} do you want to send?\n\nPlease enter the amount (e.g., 50)`
 
   await sendTextMessage(phoneNumber, msg)
   await MessageLogService.logOutgoingMessage(whatsappId, msg)
@@ -359,9 +357,7 @@ async function handleCurrencyRequest(
   flowManager.startFlow(whatsappId, 'request_money', 'amount')
   flowManager.updateFlowData(whatsappId, { currency })
 
-  const currencyEmoji =
-    currency === 'XRP' ? '🔷' : currency === 'RLUSD' ? '💵' : '🔵'
-  const msg = `${currencyEmoji} Request ${currency}\n\nHow much ${currency} do you want to request?\n\nPlease enter the amount (e.g., 50)`
+  const msg = `Request ${currency}\n\nHow much ${currency} do you want to request?\n\nPlease enter the amount (e.g., 50)`
 
   await sendTextMessage(phoneNumber, msg)
   await MessageLogService.logOutgoingMessage(whatsappId, msg)
@@ -455,10 +451,8 @@ async function handleRecipientTypeSelected(
 
   const currency = flowData.currency
   const amount = flowData.amount
-  const currencyEmoji =
-    currency === 'XRP' ? '🔷' : currency === 'RLUSD' ? '💵' : '🔵'
 
-  let msg = `${currencyEmoji} Sending ${amount} ${currency}\n\n`
+  let msg = `Sending ${amount} ${currency}\n\n`
 
   if (recipientType === 'phone') {
     msg += `Please enter the recipient's phone number:\n\nExample: +237670123456`
@@ -765,12 +759,10 @@ async function handleSendMoneyFlow(
     }
 
     if (!sufficient) {
-      const currencyEmoji =
-        currency === 'XRP' ? '🔷' : currency === 'RLUSD' ? '💵' : '🔵'
       const msg =
         `❌ Insufficient ${currency} balance!\n\n` +
-        `You have: ${currencyEmoji} ${balance} ${currency}\n` +
-        `Trying to send: ${currencyEmoji} ${amount} ${currency}`
+        `You have: ${balance} ${currency}\n` +
+        `Trying to send: ${amount} ${currency}`
 
       await sendTextMessage(phoneNumber, msg)
       flowManager.clearFlow(whatsappId)
@@ -846,9 +838,7 @@ async function handleRequestMoneyFlow(
     flowManager.updateFlowData(whatsappId, { amount })
     flowManager.setStep(whatsappId, 'recipient_input')
 
-    const currencyEmoji =
-      currency === 'XRP' ? '🔷' : currency === 'RLUSD' ? '💵' : '🔵'
-    const msg = `${currencyEmoji} Who do you want to request ${amount} ${currency} from?\n\nPlease enter their phone number (+237...) or XRP address (rN7n7...)`
+    const msg = `Who do you want to request ${amount} ${currency} from?\n\nPlease enter their phone number (+237...) or XRP address (rN7n7...)`
     await sendTextMessage(phoneNumber, msg)
   } else if (currentStep === 'recipient_input') {
     const recipient = messageText.trim()
@@ -1101,11 +1091,9 @@ async function handleSendCommand(
     timestamp: new Date(),
   })
 
-  const currencyEmoji =
-    currency === 'XRP' ? '🔷' : currency === 'RLUSD' ? '💵' : '🔵'
   const confirmMsg =
     `💸 Confirm Payment\n\n` +
-    `Amount: ${currencyEmoji} ${amount} ${currency}\n` +
+    `Amount: ${amount} ${currency}\n` +
     `To: ${recipientDisplay}\n\n` +
     `Please confirm this transaction:`
 
@@ -1175,12 +1163,10 @@ async function handleRequestCommand(
     request.requestId,
   )
 
-  const currencyEmoji =
-    currency === 'XRP' ? '🔷' : currency === 'RLUSD' ? '💵' : '🔵'
   const confirmMsg =
     `✅ Payment Request Sent!\n\n` +
     `To: ${payerPhone}\n` +
-    `Amount: ${currencyEmoji} ${amount} ${currency}\n` +
+    `Amount: ${amount} ${currency}\n` +
     `Request ID: ${request.requestId}\n\n` +
     `You'll be notified when they respond.`
 
@@ -1220,9 +1206,7 @@ async function handleViewRequestsCommand(
   let message = `📋 Pending Payment Requests\n\n`
 
   pendingRequests.forEach((req, index) => {
-    const currencyEmoji =
-      req.currency === 'XRP' ? '🔷' : req.currency === 'RLUSD' ? '💵' : '🔵'
-    message += `${index + 1}. ${currencyEmoji} ${req.amount} ${req.currency}\n`
+    message += `${index + 1}. ${req.amount} ${req.currency}\n`
     message += `   From: ${req.requesterPhone}\n`
     message += `   Message: ${req.message || 'No message'}\n`
     message += `   Expires: ${new Date(req.expiresAt).toLocaleDateString()}\n\n`
@@ -1307,11 +1291,9 @@ async function handleApproveRequest(
     request.requesterPhone,
   )
 
-  const currencyEmoji =
-    currency === 'XRP' ? '🔷' : currency === 'RLUSD' ? '💵' : '🔵'
   const payerMsg =
     `✅ Payment Sent!\n\n` +
-    `Amount: ${currencyEmoji} ${request.amount} ${currency}\n` +
+    `Amount: ${request.amount} ${currency}\n` +
     `To: ${request.requesterPhone}\n` +
     `TX Hash: ${result.hash}\n\n` +
     `View on explorer:\n` +
@@ -1322,7 +1304,7 @@ async function handleApproveRequest(
 
   const requesterMsg =
     `✅ Payment Received!\n\n` +
-    `Amount: ${currencyEmoji} ${request.amount} ${currency}\n` +
+    `Amount: ${request.amount} ${currency}\n` +
     `From: ${user.phoneNumber}\n` +
     `TX Hash: ${result.hash}`
 
@@ -1427,9 +1409,6 @@ async function handleConfirmSend(
       pendingTx.recipientPhone,
     )
 
-    const currencyEmoji =
-      currency === 'XRP' ? '🔷' : currency === 'RLUSD' ? '💵' : '🔵'
-
     try {
       const mediaId = await generateAndUploadReceipt({
         transactionId: result.hash,
@@ -1449,7 +1428,7 @@ async function handleConfirmSend(
         transactionType: 'Send Money',
       })
 
-      const confirmMsg = `✅ Payment Successful!\n\n💸 Sent ${currencyEmoji} ${pendingTx.amount} ${currency} to ${pendingTx.recipientDisplay}\n\n📄 Your receipt is ready!`
+      const confirmMsg = `✅ Payment Successful!\n\n💸 Sent ${pendingTx.amount} ${currency} to ${pendingTx.recipientDisplay}\n\n📄 Your receipt is ready!`
       await sendTextMessage(phoneNumber, confirmMsg)
 
       await sendDocumentByMediaId(
@@ -1466,7 +1445,7 @@ async function handleConfirmSend(
         receiptError,
       )
 
-      const msg = `✅ Payment Successful!\n\n💸 Sent ${currencyEmoji} ${pendingTx.amount} ${currency} to ${pendingTx.recipientDisplay}`
+      const msg = `✅ Payment Successful!\n\n💸 Sent ${pendingTx.amount} ${currency} to ${pendingTx.recipientDisplay}`
       await sendTextMessage(phoneNumber, msg)
       await MessageLogService.logOutgoingMessage(whatsappId, msg)
     }
@@ -1491,7 +1470,7 @@ async function handleConfirmSend(
           transactionType: 'Send Money',
         })
 
-        const recipientMsg = `✅ Payment Received!\n\n💰 ${currencyEmoji} ${pendingTx.amount} ${currency} from ${user.username}\n\n📄 Your receipt is ready!`
+        const recipientMsg = `✅ Payment Received!\n\n ${pendingTx.amount} ${currency} from ${user.username}\n\n📄 Your receipt is ready!`
         await sendTextMessage(pendingTx.recipientPhone, recipientMsg)
 
         await sendDocumentByMediaId(
@@ -1503,7 +1482,7 @@ async function handleConfirmSend(
       } catch (recipientError) {
         console.error('⚠️ Error sending receipt to recipient:', recipientError)
 
-        const recipientMsg = `✅ Payment Received!\n\n💰 ${currencyEmoji} ${pendingTx.amount} ${currency} from ${user.username}`
+        const recipientMsg = `✅ Payment Received!\n\n ${pendingTx.amount} ${currency} from ${user.username}`
         await sendTextMessage(pendingTx.recipientPhone, recipientMsg)
       }
     }
@@ -1536,11 +1515,10 @@ async function handleCancelSend(
   pendingTransactionService.delete(transactionId)
 
   const currency = pendingTx.currency || 'XRP'
-  const currencyEmoji =
-    currency === 'XRP' ? '🔷' : currency === 'RLUSD' ? '💵' : '🔵'
+
   const msg =
     `❌ Payment Cancelled\n\n` +
-    `Amount: ${currencyEmoji} ${pendingTx.amount} ${currency}\n` +
+    `Amount: ${pendingTx.amount} ${currency}\n` +
     `To: ${pendingTx.recipientDisplay}`
 
   await sendBackToMenuButton(phoneNumber, msg)

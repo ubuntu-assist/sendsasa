@@ -20,10 +20,10 @@ export async function sendMainMenu(
       type: 'list',
       header: {
         type: 'text',
-        text: '💼 SendSasa Wallet',
+        text: 'SendSasa Wallet',
       },
       body: {
-        text: `Username: ${username}\n\n🔷 XRP: ${xrpBalance} XRP\n💵 RLUSD: ${rlusdBalance} RLUSD\n🔵 USDC: ${usdcBalance} USDC\n\nWhat would you like to do?`,
+        text: `Username: ${username}\n\nXRP: ${xrpBalance} XRP\nRLUSD: ${rlusdBalance} RLUSD\nUSDC: ${usdcBalance} USDC\n\nWhat would you like to do?`,
       },
       footer: {
         text: 'Powered by XRPL',
@@ -36,12 +36,12 @@ export async function sendMainMenu(
             rows: [
               {
                 id: 'send_money',
-                title: '💸 Send Money',
+                title: 'Send Money',
                 description: 'Send XRP, RLUSD or USDC',
               },
               {
                 id: 'request_money',
-                title: '📥 Request Money',
+                title: 'Request Money',
                 description: 'Request payment',
               },
             ],
@@ -51,17 +51,17 @@ export async function sendMainMenu(
             rows: [
               {
                 id: 'my_wallet',
-                title: '💼 My Wallet',
+                title: 'My Wallet',
                 description: 'View wallet details',
               },
               {
                 id: 'transaction_history',
-                title: '📊 History',
+                title: 'History',
                 description: 'Transaction history',
               },
               {
                 id: 'pending_requests',
-                title: '📋 Requests',
+                title: 'Requests',
                 description: 'Pending requests',
               },
             ],
@@ -110,17 +110,17 @@ export async function sendCurrencySelectionMenu(
             rows: [
               {
                 id: `currency_xrp_${action}`,
-                title: '🔷 XRP',
+                title: 'XRP',
                 description: 'Ripple token',
               },
               {
                 id: `currency_rlusd_${action}`,
-                title: '💵 RLUSD',
+                title: 'RLUSD',
                 description: 'Ripple USD stablecoin',
               },
               {
                 id: `currency_usdc_${action}`,
-                title: '🔵 USDC',
+                title: 'USDC',
                 description: 'USD Coin stablecoin',
               },
             ],
@@ -146,9 +146,6 @@ export async function sendRecipientTypeMenu(
   amount: number,
   currency: string,
 ): Promise<void> {
-  const currencyEmoji =
-    currency === 'XRP' ? '🔷' : currency === 'RLUSD' ? '💵' : '🔵'
-
   const payload = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
@@ -161,7 +158,7 @@ export async function sendRecipientTypeMenu(
         text: 'Choose Recipient',
       },
       body: {
-        text: `Sending ${currencyEmoji} ${amount} ${currency}\n\nHow would you like to identify the recipient?`,
+        text: `Sending ${amount} ${currency}\n\nHow would you like to identify the recipient?`,
       },
       action: {
         button: 'Select Type',
@@ -171,17 +168,17 @@ export async function sendRecipientTypeMenu(
             rows: [
               {
                 id: 'recipient_phone',
-                title: '📱 Phone Number',
+                title: 'Phone Number',
                 description: 'e.g., +237670123456',
               },
               {
                 id: 'recipient_username',
-                title: '👤 Username',
+                title: 'Username',
                 description: 'e.g., @john.sasa',
               },
               {
                 id: 'recipient_address',
-                title: '🔐 Wallet Address',
+                title: 'Wallet Address',
                 description: 'e.g., rN7n7otQ...',
               },
             ],
@@ -218,10 +215,10 @@ export async function sendWalletMenu(
       type: 'list',
       header: {
         type: 'text',
-        text: '💼 Wallet Options',
+        text: 'Wallet Options',
       },
       body: {
-        text: `🔷 XRP: ${xrpBalance} XRP\n💵 RLUSD: ${rlusdBalance} RLUSD\n🔵 USDC: ${usdcBalance} USDC\n\nUsername: ${username}\n\nWhat would you like to do?`,
+        text: `XRP: ${xrpBalance} XRP\nRLUSD: ${rlusdBalance} RLUSD\nUSDC: ${usdcBalance} USDC\n\nUsername: ${username}\n\nWhat would you like to do?`,
       },
       action: {
         button: 'Choose Action',
@@ -231,17 +228,17 @@ export async function sendWalletMenu(
             rows: [
               {
                 id: 'transaction_history',
-                title: '📊 View History',
+                title: 'View History',
                 description: 'Recent transactions',
               },
               {
                 id: 'pending_requests',
-                title: '📋 View Requests',
+                title: 'View Requests',
                 description: 'Pending requests',
               },
               {
                 id: 'main_menu',
-                title: '🏠 Main Menu',
+                title: 'Main Menu',
                 description: 'Back to main menu',
               },
             ],
@@ -330,7 +327,7 @@ export async function sendBackToMenuButton(
             rows: [
               {
                 id: 'main_menu',
-                title: '🏠 Main Menu',
+                title: 'Main Menu',
                 description: 'Back to main menu',
               },
             ],
