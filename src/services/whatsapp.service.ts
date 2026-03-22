@@ -1,38 +1,73 @@
+// src/services/whatsapp.service.ts
 import axios from 'axios'
+import dotenv from 'dotenv'
 import config from '../utils/config'
+
+dotenv.config()
 
 const WHATSAPP_API_URL = `${config.WHATSAPP_API_URL}/${config.PHONE_NUMBER_ID}/messages`
 const WHATSAPP_TOKEN = config.ACCESS_TOKEN
 
-export async function sendTextMessage(
-  to: string,
-  message: string,
-): Promise<void> {
-  const payload = {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to,
-    type: 'text',
-    text: {
-      preview_url: false,
-      body: message,
-    },
+/**
+ * WhatsApp Service
+ *
+ * Handles all WhatsApp API communication including:
+ * - Text messages
+ * - Interactive messages (buttons, lists, flows)
+ * - Document/media sending
+ */
+
+export class WhatsAppService {
+  /**
+   * Generic sendMessage - works with any WhatsApp message payload
+   * Used by FlowLauncherService to send flow messages
+   */
+  static async sendMessage(payload: any): Promise<void> {
+    try {
+      await axios.post(WHATSAPP_API_URL, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+        },
+        timeout: 10000,
+      })
+
+      console.log(`✅ Message sent to ${payload.to}`)
+    } catch (error) {
+      console.error('❌ Error sending WhatsApp message:', error)
+      throw new Error('Failed to send WhatsApp message')
+    }
   }
 
-  try {
-    await axios.post(WHATSAPP_API_URL, payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+  /**
+   * Send text message
+   */
+  static async sendTextMessage(to: string, message: string): Promise<void> {
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to,
+      type: 'text',
+      text: {
+        preview_url: false,
+        body: message,
       },
-      timeout: 10000,
-    })
-  } catch (error) {
-    console.error('❌ Error sending WhatsApp message:', error)
-    throw new Error('Failed to send WhatsApp message')
+    }
+
+    await WhatsAppService.sendMessage(payload)
   }
 }
 
+/**
+ * Legacy named exports for backwards compatibility
+ */
+export const sendTextMessage =
+  WhatsAppService.sendTextMessage.bind(WhatsAppService)
+export const sendMessage = WhatsAppService.sendMessage.bind(WhatsAppService)
+
+/**
+ * Send confirmation buttons (REPLY BUTTONS)
+ */
 export async function sendConfirmationButtons(
   to: string,
   bodyText: string,
@@ -55,14 +90,14 @@ export async function sendConfirmationButtons(
             type: 'reply',
             reply: {
               id: confirmId,
-              title: 'Confirm',
+              title: '✅ Confirm',
             },
           },
           {
             type: 'reply',
             reply: {
               id: cancelId,
-              title: 'Cancel',
+              title: '❌ Cancel',
             },
           },
         ],
@@ -70,20 +105,12 @@ export async function sendConfirmationButtons(
     },
   }
 
-  try {
-    await axios.post(WHATSAPP_API_URL, payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-      },
-      timeout: 10000,
-    })
-  } catch (error) {
-    console.error('❌ Error sending buttons:', error)
-    throw new Error('Failed to send confirmation buttons')
-  }
+  await WhatsAppService.sendMessage(payload)
 }
 
+/**
+ * Send payment request buttons (REPLY BUTTONS with currency support)
+ */
 export async function sendPaymentRequestButtons(
   to: string,
   requester: string,
@@ -91,10 +118,13 @@ export async function sendPaymentRequestButtons(
   requestId: string,
   currency: string = 'XRP',
 ): Promise<void> {
+  const currencyEmoji =
+    currency === 'XRP' ? '🔷' : currency === 'RLUSD' ? '💵' : '🔵'
+
   const bodyText =
-    `Payment Request\n\n` +
+    `💰 Payment Request\n\n` +
     `From: ${requester}\n` +
-    `Amount: ${amount} ${currency}\n\n` +
+    `Amount: ${currencyEmoji} ${amount} ${currency}\n\n` +
     `Do you want to approve this request?`
 
   const payload = {
@@ -113,14 +143,14 @@ export async function sendPaymentRequestButtons(
             type: 'reply',
             reply: {
               id: `approve_${requestId}`,
-              title: 'Approve',
+              title: '✅ Approve',
             },
           },
           {
             type: 'reply',
             reply: {
               id: `reject_${requestId}`,
-              title: 'Reject',
+              title: '❌ Reject',
             },
           },
         ],
@@ -128,20 +158,12 @@ export async function sendPaymentRequestButtons(
     },
   }
 
-  try {
-    await axios.post(WHATSAPP_API_URL, payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-      },
-      timeout: 10000,
-    })
-  } catch (error) {
-    console.error('❌ Error sending payment request:', error)
-    throw new Error('Failed to send payment request')
-  }
+  await WhatsAppService.sendMessage(payload)
 }
 
+/**
+ * Send document using WhatsApp media ID (for receipts)
+ */
 export async function sendDocumentByMediaId(
   to: string,
   mediaId: string,
@@ -160,20 +182,12 @@ export async function sendDocumentByMediaId(
     },
   }
 
-  try {
-    await axios.post(WHATSAPP_API_URL, payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-      },
-      timeout: 10000,
-    })
-  } catch (error) {
-    console.error('❌ Error sending document:', error)
-    throw new Error('Failed to send document')
-  }
+  await WhatsAppService.sendMessage(payload)
 }
 
+/**
+ * Send document using URL (alternative method)
+ */
 export async function sendDocumentByUrl(
   to: string,
   documentUrl: string,
@@ -192,20 +206,34 @@ export async function sendDocumentByUrl(
     },
   }
 
-  try {
-    await axios.post(WHATSAPP_API_URL, payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-      },
-      timeout: 10000,
-    })
-  } catch (error) {
-    console.error('❌ Error sending document:', error)
-    throw new Error('Failed to send document')
-  }
+  await WhatsAppService.sendMessage(payload)
 }
 
+/**
+ * Send image using media ID
+ */
+export async function sendImageByMediaId(
+  to: string,
+  mediaId: string,
+  caption?: string,
+): Promise<void> {
+  const payload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'image',
+    image: {
+      id: mediaId,
+      ...(caption && { caption }),
+    },
+  }
+
+  await WhatsAppService.sendMessage(payload)
+}
+
+/**
+ * Mark message as read
+ */
 export async function markMessageAsRead(messageId: string): Promise<void> {
   try {
     await axios.post(
@@ -214,9 +242,6 @@ export async function markMessageAsRead(messageId: string): Promise<void> {
         messaging_product: 'whatsapp',
         status: 'read',
         message_id: messageId,
-        typing_indicator: {
-          type: 'text',
-        },
       },
       {
         headers: {
@@ -226,7 +251,10 @@ export async function markMessageAsRead(messageId: string): Promise<void> {
         timeout: 5000,
       },
     )
+
+    console.log(`✅ Message ${messageId} marked as read`)
   } catch (error) {
+    // Non-critical error, just log
     console.error('⚠️  Error marking message as read:', error)
   }
 }

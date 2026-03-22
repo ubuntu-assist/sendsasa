@@ -1,20 +1,15 @@
 import { Router } from 'express'
+import { FlowDataExchangeService } from '../services/flow-data-exchange.service'
 
 const router = Router()
 
-router.post('/exchange', (_req, res) => {
-  const response = JSON.stringify({
-    status: 'ok',
-    message: 'Flow endpoint working',
-  })
-  const base64Response = Buffer.from(response).toString('base64')
-
-  res.setHeader('Content-Type', 'text/plain')
-  res.send(base64Response)
-})
-
-router.get('/health', (_req, res) => {
-  res.json({ status: 'active' })
+router.post('/flow-data-exchange', async (req, res) => {
+  try {
+    await FlowDataExchangeService.handleDataExchange(req, res)
+  } catch (error) {
+    console.error('Flow data exchange route error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
 })
 
 export default router

@@ -5,7 +5,6 @@ import cron from 'node-cron'
 import axios from 'axios'
 import webhookRoutes from './routes/webhook.routes'
 import cronRoutes from './routes/cron.routes'
-import flowRoutes from './routes/flow.routes'
 import { xrplClient } from './config/xrpl'
 import { connectDatabase, disconnectDatabase } from './config/database'
 import {
@@ -15,6 +14,7 @@ import {
 } from './middleware/error-handler'
 import { apiLimiter } from './middleware/rate-limiter'
 import config from './utils/config'
+import flowDataExchangeRoutes from './routes/flow.routes'
 
 const app: Express = express()
 const PORT = config.PORT
@@ -33,7 +33,7 @@ app.use(express.urlencoded({ extended: true }))
 
 app.use(requestLogger)
 
-app.use('/api/flow', flowRoutes)
+app.use('/api', flowDataExchangeRoutes)
 app.use('/webhook', webhookRoutes)
 app.use('/cron', cronRoutes)
 

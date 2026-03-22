@@ -10,6 +10,7 @@ const ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN
 const DB_MAX_POOL_SIZE = process.env.DB_MAX_POOL_SIZE
 const DB_MIN_POOL_SIZE = process.env.DB_MIN_POOL_SIZE
+const PRIVATE_KEY = process.env.PRIVATE_KEY
 
 export default {
   MONGODB_URI,
@@ -22,4 +23,5 @@ export default {
   VERIFY_TOKEN,
   DB_MAX_POOL_SIZE,
   DB_MIN_POOL_SIZE,
+  PRIVATE_KEY,
 }
