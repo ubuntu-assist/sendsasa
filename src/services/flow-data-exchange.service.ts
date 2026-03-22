@@ -1,9 +1,10 @@
-import crypto from 'crypto'
+import crypto from 'node:crypto'
 import { Request, Response } from 'express'
 import bcrypt from 'bcrypt'
 import { User } from '../models/User'
 import { isPhoneNumber } from './message-parser.service'
 import { getAllBalances } from './xrpl.service'
+import { usernameService } from './username.service'
 import config from '../utils/config'
 
 /**
@@ -184,13 +185,9 @@ export class FlowDataExchangeService {
       // HEALTH CHECK
       if (decryptedBody.action === 'ping') {
         console.log('🏥 Health check (ping) request detected')
-        const healthCheckResponse = {
-          version: decryptedBody.version,
-          data: { status: 'active' },
-        }
         res.send(
           FlowDataExchangeService.encryptResponse(
-            healthCheckResponse,
+            { version: decryptedBody.version, data: { status: 'active' } },
             aesKeyBuffer,
             initialVectorBuffer,
           ),
@@ -240,7 +237,7 @@ export class FlowDataExchangeService {
   }
 
   /**
-   * PIN Setup screen — validate pin/confirm_pin, navigate to SECURITY_QUESTIONS
+   * PIN Setup screen
    */
   private static async handlePinSetup(
     flowData: FlowDataExchangeRequest,
@@ -373,7 +370,7 @@ export class FlowDataExchangeService {
       available_balance_usdc: balances.usdc,
     }
 
-    // Partial submit (dropdown on-select) — return screen as-is with fresh balances
+    // Partial submit (dropdown on-select) — return as-is with fresh balances
     const isFullSubmit = currency && amount && recipient_type && recipient
     if (!isFullSubmit) {
       return {
@@ -385,7 +382,6 @@ export class FlowDataExchangeService {
 
     const errors: Record<string, string> = {}
 
-    // Validate amount + balance
     const numAmount = parseFloat(amount)
     if (isNaN(numAmount) || numAmount <= 0) {
       errors['amount'] = 'Amount must be greater than 0'
@@ -402,7 +398,6 @@ export class FlowDataExchangeService {
       }
     }
 
-    // Validate recipient exists
     const validation = await FlowDataExchangeService.validateRecipient(
       recipient,
       recipient_type,
@@ -446,10 +441,9 @@ export class FlowDataExchangeService {
   /**
    * Send Money Confirm screen — validation only, NO transaction execution.
    *
-   * Validates: PIN lockout → PIN correctness → balance (re-check) → recipient.
-   * On success: navigates to SEND_MONEY_SUCCESS terminal screen.
-   * The actual XRPL transaction is executed by message-handler after nfm_reply,
-   * which keeps this response well within WhatsApp's 10-second timeout.
+   * Validates: PIN lockout → PIN correctness → balance re-check → recipient.
+   * On success navigates to SEND_MONEY_SUCCESS terminal screen.
+   * Transaction executes in message-handler after nfm_reply — no timeout risk.
    */
   private static async handleSendMoneyConfirm(
     flowData: FlowDataExchangeRequest,
@@ -460,7 +454,6 @@ export class FlowDataExchangeService {
       recipient_type,
       recipient,
       recipient_display,
-      fee,
       total,
       transaction_pin,
     } = flowData.data
@@ -492,7 +485,7 @@ export class FlowDataExchangeService {
       }
     }
 
-    // --- PIN lockout check ---
+    // Lockout check
     if (user.pinLockedUntil && user.pinLockedUntil > new Date()) {
       const minutesLeft = Math.ceil(
         (user.pinLockedUntil.getTime() - Date.now()) / 60000,
@@ -509,7 +502,7 @@ export class FlowDataExchangeService {
       }
     }
 
-    // --- PIN validation ---
+    // PIN required check
     if (
       transaction_pin === undefined ||
       transaction_pin === null ||
@@ -525,6 +518,7 @@ export class FlowDataExchangeService {
       }
     }
 
+    // PIN comparison
     const pinStr = FlowDataExchangeService.normalizePin(transaction_pin)
     const isPinValid = await bcrypt.compare(pinStr, user.pinHash)
 
@@ -575,7 +569,7 @@ export class FlowDataExchangeService {
       await user.save()
     }
 
-    // --- Re-check balance (quick, no tx yet) ---
+    // Balance re-check
     try {
       const balances = await getAllBalances(user.xrplAddress)
       let balance = 0
@@ -599,10 +593,10 @@ export class FlowDataExchangeService {
       }
     } catch (error) {
       console.error('Balance re-check failed:', error)
-      // Non-blocking — proceed, final check happens in message-handler
+      // Non-blocking — final check happens in message-handler
     }
 
-    // --- Re-check recipient exists ---
+    // Recipient re-check
     const validation = await FlowDataExchangeService.validateRecipient(
       recipient,
       recipient_type,
@@ -620,9 +614,7 @@ export class FlowDataExchangeService {
       }
     }
 
-    // --- All valid — navigate to success screen ---
-    // Transaction is NOT executed here. message-handler executes it
-    // after receiving the nfm_reply from the SEND_MONEY_SUCCESS Done button.
+    // All valid — navigate to success screen
     return {
       version: flowData.version,
       screen: 'SEND_MONEY_SUCCESS',
@@ -639,8 +631,6 @@ export class FlowDataExchangeService {
 
   /**
    * Request Money Details screen
-   *
-   * Validates amount and recipient existence before navigating to confirm.
    */
   private static async handleRequestMoneyDetails(
     flowData: FlowDataExchangeRequest,
@@ -648,7 +638,6 @@ export class FlowDataExchangeService {
     const { amount, recipient_type, recipient } = flowData.data
     const errors: Record<string, string> = {}
 
-    // Partial submit — return as-is
     const isFullSubmit = amount && recipient_type && recipient
     if (!isFullSubmit) {
       return {
@@ -697,8 +686,7 @@ export class FlowDataExchangeService {
   }
 
   /**
-   * Request Money Confirm screen — no additional validation needed.
-   * Recipient was already validated in handleRequestMoneyDetails.
+   * Request Money Confirm screen — no additional validation needed
    */
   private static async handleRequestMoneyConfirm(
     flowData: FlowDataExchangeRequest,
@@ -711,7 +699,9 @@ export class FlowDataExchangeService {
   }
 
   /**
-   * Validate recipient — checks format and existence on SendSasa
+   * Validate recipient — checks format and existence.
+   * Uses UsernameService for SendSasa Username lookups to handle
+   * @ prefix, .sasa suffix, and case-insensitive matching correctly.
    */
   private static async validateRecipient(
     recipient: string,
@@ -729,7 +719,8 @@ export class FlowDataExchangeService {
         }
         return { valid: true }
       } else if (type === 'SendSasa Username') {
-        const user = await User.findOne({ username: recipient.toLowerCase() })
+        // UsernameService handles @prefix, .sasa suffix, and case-insensitive regex
+        const user = await usernameService.getUserByUsername(recipient)
         if (!user) {
           return { valid: false, error: 'Username not found on SendSasa' }
         }
@@ -748,7 +739,8 @@ export class FlowDataExchangeService {
   }
 
   /**
-   * Get display name for recipient
+   * Get display name for recipient.
+   * Uses UsernameService for SendSasa Username lookups.
    */
   private static async getRecipientDisplayName(
     recipient: string,
@@ -759,11 +751,13 @@ export class FlowDataExchangeService {
         const cleanPhone = recipient.replace(/\+/g, '').replace(/\s/g, '')
         const user = await User.findOne({ whatsappId: cleanPhone })
         if (user && user.username) {
-          return `@${user.username} (${recipient})`
+          return `${user.username} (${recipient})`
         }
         return recipient
       } else if (type === 'SendSasa Username') {
-        return `@${recipient}`
+        // UsernameService normalizes and finds the canonical username
+        const user = await usernameService.getUserByUsername(recipient)
+        return user ? user.username : recipient
       } else if (type === 'Wallet Address') {
         return `${recipient.slice(0, 8)}...${recipient.slice(-6)}`
       }

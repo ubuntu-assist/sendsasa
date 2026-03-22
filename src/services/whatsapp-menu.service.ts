@@ -49,11 +49,11 @@ export async function sendMainMenu(
           {
             title: 'Account',
             rows: [
-              {
-                id: 'my_wallet',
-                title: 'My Wallet',
-                description: 'View wallet details',
-              },
+              // {
+              //   id: 'my_wallet',
+              //   title: 'My Wallet',
+              //   description: 'View wallet details',
+              // },
               {
                 id: 'transaction_history',
                 title: 'History',
@@ -79,9 +79,6 @@ export async function sendMainMenu(
   })
 }
 
-/**
- * Send currency selection menu (interactive list)
- */
 export async function sendCurrencySelectionMenu(
   to: string,
   action: 'send' | 'request',
@@ -138,9 +135,6 @@ export async function sendCurrencySelectionMenu(
   })
 }
 
-/**
- * Send recipient type selection menu (interactive list)
- */
 export async function sendRecipientTypeMenu(
   to: string,
   amount: number,
@@ -196,9 +190,6 @@ export async function sendRecipientTypeMenu(
   })
 }
 
-/**
- * Send wallet menu (interactive list) with balances and username
- */
 export async function sendWalletMenu(
   to: string,
   xrpBalance: string,
@@ -302,9 +293,6 @@ export async function sendWelcomeMessage(
   })
 }
 
-/**
- * Send back to menu button (interactive list)
- */
 export async function sendBackToMenuButton(
   to: string,
   message: string,
