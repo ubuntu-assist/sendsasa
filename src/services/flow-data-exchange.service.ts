@@ -64,7 +64,11 @@ export class FlowDataExchangeService {
       let privateKey = FlowDataExchangeService.PRIVATE_KEY
 
       if (privateKey.includes('|')) {
-        privateKey = privateKey.replace(/\|/g, '\n')
+        privateKey = privateKey.replaceAll('|', '\n')
+      }
+
+      if (privateKey.includes(String.raw`\n`)) {
+        privateKey = privateKey.replaceAll(String.raw`\n`, '\n')
       }
 
       if (!privateKey.includes('-----BEGIN')) {
@@ -382,14 +386,14 @@ export class FlowDataExchangeService {
 
     const errors: Record<string, string> = {}
 
-    const numAmount = parseFloat(amount)
-    if (isNaN(numAmount) || numAmount <= 0) {
+    const numAmount = Number.parseFloat(amount)
+    if (Number.isNaN(numAmount) || numAmount <= 0) {
       errors['amount'] = 'Amount must be greater than 0'
     } else {
       let balance = 0
-      if (currency === 'XRP') balance = parseFloat(balances.xrp)
-      else if (currency === 'RLUSD') balance = parseFloat(balances.rlusd)
-      else if (currency === 'USDC') balance = parseFloat(balances.usdc)
+      if (currency === 'XRP') balance = Number.parseFloat(balances.xrp)
+      else if (currency === 'RLUSD') balance = Number.parseFloat(balances.rlusd)
+      else if (currency === 'USDC') balance = Number.parseFloat(balances.usdc)
 
       const total = numAmount + numAmount * 0.001
       if (total > balance) {
@@ -414,7 +418,7 @@ export class FlowDataExchangeService {
       }
     }
 
-    const numAmt = parseFloat(amount)
+    const numAmt = Number.parseFloat(amount)
     const fee = numAmt * 0.001
     const total = numAmt + fee
     const recipientDisplay =
@@ -573,11 +577,12 @@ export class FlowDataExchangeService {
     try {
       const balances = await getAllBalances(user.xrplAddress)
       let balance = 0
-      if (currency === 'XRP') balance = parseFloat(balances.xrp)
-      else if (currency === 'RLUSD') balance = parseFloat(balances.rlusd)
-      else if (currency === 'USDC') balance = parseFloat(balances.usdc)
+      if (currency === 'XRP') balance = Number.parseFloat(balances.xrp)
+      else if (currency === 'RLUSD') balance = Number.parseFloat(balances.rlusd)
+      else if (currency === 'USDC') balance = Number.parseFloat(balances.usdc)
 
-      const numTotal = parseFloat(total || '0') || parseFloat(amount) * 1.001
+      const numTotal =
+        Number.parseFloat(total || '0') || Number.parseFloat(amount) * 1.001
 
       if (numTotal > balance) {
         return {
@@ -621,7 +626,7 @@ export class FlowDataExchangeService {
       data: {
         currency,
         amount: amount.toString(),
-        total: total || (parseFloat(amount) * 1.001).toFixed(6),
+        total: total || (Number.parseFloat(amount) * 1.001).toFixed(6),
         recipient_display: recipient_display || recipient,
         recipient_type,
         recipient,
@@ -647,8 +652,8 @@ export class FlowDataExchangeService {
       }
     }
 
-    const numAmount = parseFloat(amount)
-    if (isNaN(numAmount) || numAmount <= 0) {
+    const numAmount = Number.parseFloat(amount)
+    if (Number.isNaN(numAmount) || numAmount <= 0) {
       errors['amount'] = 'Amount must be greater than 0'
     }
 
@@ -712,7 +717,7 @@ export class FlowDataExchangeService {
         if (!isPhoneNumber(recipient)) {
           return { valid: false, error: 'Invalid phone number format' }
         }
-        const cleanPhone = recipient.replace(/\+/g, '').replace(/\s/g, '')
+        const cleanPhone = recipient.replaceAll('+', '').replaceAll(/\s/g, '')
         const recipientUser = await User.findOne({ whatsappId: cleanPhone })
         if (!recipientUser) {
           return { valid: false, error: 'Phone number not found on SendSasa' }
@@ -748,7 +753,7 @@ export class FlowDataExchangeService {
   ): Promise<string> {
     try {
       if (type === 'Phone Number') {
-        const cleanPhone = recipient.replace(/\+/g, '').replace(/\s/g, '')
+        const cleanPhone = recipient.replaceAll('+', '').replaceAll(/\s/g, '')
         const user = await User.findOne({ whatsappId: cleanPhone })
         if (user && user.username) {
           return `${user.username} (${recipient})`
