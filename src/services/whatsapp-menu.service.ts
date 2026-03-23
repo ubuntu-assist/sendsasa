@@ -1,8 +1,4 @@
-import axios from 'axios'
-import config from '../utils/config'
-
-const WHATSAPP_API_URL = `${config.WHATSAPP_API_URL}/${config.PHONE_NUMBER_ID}/messages`
-const WHATSAPP_TOKEN = config.ACCESS_TOKEN
+import { WhatsAppService } from './whatsapp.service'
 
 export async function sendMainMenu(
   to: string,
@@ -23,7 +19,7 @@ export async function sendMainMenu(
         text: 'SendSasa Wallet',
       },
       body: {
-        text: `Username: ${username}\n\nXRP: ${xrpBalance} XRP\nRLUSD: ${rlusdBalance} RLUSD\nUSDC: ${usdcBalance} USDC\n\nWhat would you like to do?`,
+        text: `Username: @${username}\n\nXRP: ${xrpBalance}\nRLUSD: ${rlusdBalance}\nUSDC: ${usdcBalance}\n\nWhat would you like to do?`,
       },
       footer: {
         text: 'Powered by XRPL',
@@ -49,11 +45,11 @@ export async function sendMainMenu(
           {
             title: 'Account',
             rows: [
-              // {
-              //   id: 'my_wallet',
-              //   title: 'My Wallet',
-              //   description: 'View wallet details',
-              // },
+              {
+                id: 'my_wallet',
+                title: 'My Wallet',
+                description: 'View wallet details',
+              },
               {
                 id: 'transaction_history',
                 title: 'History',
@@ -71,12 +67,46 @@ export async function sendMainMenu(
     },
   }
 
-  await axios.post(WHATSAPP_API_URL, payload, {
-    headers: {
-      Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-      'Content-Type': 'application/json',
+  await WhatsAppService.sendMessage(payload)
+}
+
+export async function sendFundingMessage(
+  to: string,
+  xrplAddress: string,
+): Promise<void> {
+  const payload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: {
+        text:
+          `*Your wallet has been created!*\n\n` +
+          `To activate it, you need to send at least *10 XRP* to your wallet address:\n\n` +
+          `\`${xrplAddress}\`\n\n` +
+          `You can buy XRP on any exchange (Binance, Coinbase, Kraken) and send it to this address.\n\n` +
+          `Once funded, tap *Check Activation* and we'll set up your security and stablecoin support.`,
+      },
+      footer: {
+        text: 'Minimum 1 XRP required',
+      },
+      action: {
+        buttons: [
+          {
+            type: 'reply',
+            reply: {
+              id: 'check_activation',
+              title: 'Check Activation',
+            },
+          },
+        ],
+      },
     },
-  })
+  }
+
+  await WhatsAppService.sendMessage(payload)
 }
 
 export async function sendCurrencySelectionMenu(
@@ -98,6 +128,9 @@ export async function sendCurrencySelectionMenu(
       },
       body: {
         text: `Which currency do you want to ${action}?`,
+      },
+      footer: {
+        text: 'Powered by XRPL',
       },
       action: {
         button: 'Select Currency',
@@ -127,12 +160,7 @@ export async function sendCurrencySelectionMenu(
     },
   }
 
-  await axios.post(WHATSAPP_API_URL, payload, {
-    headers: {
-      Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-  })
+  await WhatsAppService.sendMessage(payload)
 }
 
 export async function sendRecipientTypeMenu(
@@ -153,6 +181,9 @@ export async function sendRecipientTypeMenu(
       },
       body: {
         text: `Sending ${amount} ${currency}\n\nHow would you like to identify the recipient?`,
+      },
+      footer: {
+        text: 'Powered by XRPL',
       },
       action: {
         button: 'Select Type',
@@ -182,12 +213,7 @@ export async function sendRecipientTypeMenu(
     },
   }
 
-  await axios.post(WHATSAPP_API_URL, payload, {
-    headers: {
-      Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-  })
+  await WhatsAppService.sendMessage(payload)
 }
 
 export async function sendWalletMenu(
@@ -206,10 +232,13 @@ export async function sendWalletMenu(
       type: 'list',
       header: {
         type: 'text',
-        text: 'Wallet Options',
+        text: 'My Wallet',
       },
       body: {
-        text: `XRP: ${xrpBalance} XRP\nRLUSD: ${rlusdBalance} RLUSD\nUSDC: ${usdcBalance} USDC\n\nUsername: ${username}\n\nWhat would you like to do?`,
+        text: `@${username}\n\nXRP: ${xrpBalance}\nRLUSD: ${rlusdBalance}\nUSDC: ${usdcBalance}\n\nWhat would you like to do?`,
+      },
+      footer: {
+        text: 'Powered by XRPL',
       },
       action: {
         button: 'Choose Action',
@@ -239,12 +268,7 @@ export async function sendWalletMenu(
     },
   }
 
-  await axios.post(WHATSAPP_API_URL, payload, {
-    headers: {
-      Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-  })
+  await WhatsAppService.sendMessage(payload)
 }
 
 export async function sendWelcomeMessage(
@@ -285,12 +309,7 @@ export async function sendWelcomeMessage(
     },
   }
 
-  await axios.post(WHATSAPP_API_URL, payload, {
-    headers: {
-      Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-  })
+  await WhatsAppService.sendMessage(payload)
 }
 
 export async function sendBackToMenuButton(
@@ -306,6 +325,9 @@ export async function sendBackToMenuButton(
       type: 'list',
       body: {
         text: message,
+      },
+      footer: {
+        text: 'Powered by XRPL',
       },
       action: {
         button: 'Options',
@@ -325,10 +347,5 @@ export async function sendBackToMenuButton(
     },
   }
 
-  await axios.post(WHATSAPP_API_URL, payload, {
-    headers: {
-      Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-  })
+  await WhatsAppService.sendMessage(payload)
 }

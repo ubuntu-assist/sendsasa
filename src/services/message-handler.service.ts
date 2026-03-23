@@ -12,6 +12,7 @@ import {
   sendWelcomeMessage,
   sendMainMenu,
   sendWalletMenu,
+  sendFundingMessage,
 } from './whatsapp-menu.service'
 import {
   getAllBalances,
@@ -23,17 +24,20 @@ import {
   createUSDCTrustLine,
   hasRLUSDTrustLine,
   hasUSDCTrustLine,
+  isAccountActivated,
 } from './xrpl.service'
 import { parseButtonInteraction } from './message-parser.service'
 import { generateAndUploadReceipt } from './receipt-generator.service'
 import { encryptSeed, decryptSeed } from '../utils/encryption'
-import { usernameService } from './username.service'
 import config from '../utils/config'
 
 function normalizePin(pin: string | number): string {
   return Number.parseInt(pin.toString(), 10).toString()
 }
 
+/**
+ * Handle incoming text messages
+ */
 export async function handleMessage(
   whatsappId: string,
   phoneNumber: string,
@@ -45,6 +49,15 @@ export async function handleMessage(
     if (!user) {
       await sendWelcomeMessage(phoneNumber, profileName || 'there')
       return
+    }
+
+    // If account not yet activated, remind user to fund it
+    if (!user.rlusdTrustLineCreated && !user.usdcTrustLineCreated) {
+      const activated = await isAccountActivated(user.xrplAddress)
+      if (!activated) {
+        await sendFundingMessage(phoneNumber, user.xrplAddress)
+        return
+      }
     }
 
     const balances = await getAllBalances(user.xrplAddress)
@@ -64,6 +77,9 @@ export async function handleMessage(
   }
 }
 
+/**
+ * Handle button clicks and interactive list selections
+ */
 export async function handleInteraction(
   whatsappId: string,
   phoneNumber: string,
@@ -71,10 +87,17 @@ export async function handleInteraction(
   profileName?: string,
 ): Promise<void> {
   try {
+    console.log(`🔘 Interaction: ${interactionId} by ${whatsappId}`)
+
     const interaction = parseButtonInteraction(interactionId)
 
     if (interaction.action === 'get_started') {
       await handleGetStarted(whatsappId, phoneNumber, profileName)
+      return
+    }
+
+    if (interaction.action === 'check_activation') {
+      await handleCheckActivation(whatsappId, phoneNumber)
       return
     }
 
@@ -150,6 +173,9 @@ export async function handleInteraction(
   }
 }
 
+/**
+ * Handle WhatsApp Flow Response (nfm_reply)
+ */
 export async function handleFlowResponse(
   whatsappId: string,
   phoneNumber: string,
@@ -169,15 +195,21 @@ export async function handleFlowResponse(
       responseJson.confirm_pin !== undefined &&
       responseJson.confirm_pin !== null
 
-    const hasSendMoneyData =
+    const isSendMoney =
       !hasPinSetupData &&
       responseJson.currency !== undefined &&
       responseJson.amount !== undefined &&
       responseJson.recipient !== undefined &&
-      responseJson.recipient_type !== undefined
+      responseJson.recipient_type !== undefined &&
+      responseJson.total !== undefined
 
-    const isSendMoney = hasSendMoneyData && responseJson.total !== undefined
-    const isRequestMoney = hasSendMoneyData && responseJson.total === undefined
+    const isRequestMoney =
+      !hasPinSetupData &&
+      responseJson.currency !== undefined &&
+      responseJson.amount !== undefined &&
+      responseJson.recipient !== undefined &&
+      responseJson.recipient_type !== undefined &&
+      responseJson.total === undefined
 
     if (hasPinSetupData) {
       await handlePinSetupComplete(whatsappId, phoneNumber, responseJson)
@@ -198,6 +230,16 @@ export async function handleFlowResponse(
   }
 }
 
+/**
+ * Handle Get Started
+ *
+ * On mainnet: generate wallet, save to DB, send funding instructions.
+ * Trust lines and PIN setup are deferred until the account is funded
+ * and the user taps "Check Activation".
+ *
+ * On testnet: fund wallet automatically, create trust lines immediately,
+ * then launch PIN setup flow as before.
+ */
 async function handleGetStarted(
   whatsappId: string,
   phoneNumber: string,
@@ -207,6 +249,13 @@ async function handleGetStarted(
     let user = await User.findOne({ whatsappId })
 
     if (user) {
+      // Returning user — check if still needs activation
+      const activated = await isAccountActivated(user.xrplAddress)
+      if (!activated) {
+        await sendFundingMessage(phoneNumber, user.xrplAddress)
+        return
+      }
+
       const balances = await getAllBalances(user.xrplAddress)
       await sendMainMenu(
         phoneNumber,
@@ -227,59 +276,84 @@ async function handleGetStarted(
     const { address, seed } = wallet
     const encryptedData = encryptSeed(seed)
 
-    if (config.XRPL_NETWORK !== 'mainnet') {
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-    }
-
-    let rlusdCreated = false
-    let rlusdHash: string | undefined
-    try {
-      const result = await createRLUSDTrustLine(seed)
-      if (result.success) {
-        rlusdCreated = true
-        rlusdHash = result.hash
-        console.log(`✅ RLUSD trust line created: ${rlusdHash}`)
-      }
-    } catch (error) {
-      console.error('⚠️ RLUSD trust line failed (non-critical):', error)
-    }
-
-    let usdcCreated = false
-    let usdcHash: string | undefined
-    try {
-      const result = await createUSDCTrustLine(seed)
-      if (result.success) {
-        usdcCreated = true
-        usdcHash = result.hash
-        console.log(`✅ USDC trust line created: ${usdcHash}`)
-      }
-    } catch (error) {
-      console.error('⚠️ USDC trust line failed (non-critical):', error)
-    }
-
     const defaultPinHash = await bcrypt.hash('0000', 10)
 
-    const username = await usernameService.generateUsername(
-      profileName || 'user',
-    )
+    const baseUsername = (profileName || 'user')
+      .toLowerCase()
+      .replace(/\s+/g, '')
+    let username = baseUsername
+    let counter = 1
 
-    user = await User.create({
-      whatsappId,
-      phoneNumber,
-      xrplAddress: address,
-      encryptedSeed: encryptedData,
-      pinHash: defaultPinHash,
-      pinAttempts: 0,
-      username,
-      rlusdTrustLineCreated: rlusdCreated,
-      usdcTrustLineCreated: usdcCreated,
-      rlusdTrustLineHash: rlusdHash,
-      usdcTrustLineHash: usdcHash,
-    })
+    while (await User.findOne({ username })) {
+      username = `${baseUsername}${counter}`
+      counter++
+    }
 
-    console.log(`✅ New user created: ${whatsappId} (${username})`)
-    await FlowLauncherService.launchPinSetupFlow(user)
-    console.log(`✅ PIN setup flow sent to new user: ${phoneNumber}`)
+    if (config.XRPL_NETWORK !== 'mainnet') {
+      // Testnet — wallet is auto-funded, create trust lines immediately
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+
+      let rlusdCreated = false
+      let rlusdHash: string | undefined
+      try {
+        const result = await createRLUSDTrustLine(seed)
+        if (result.success) {
+          rlusdCreated = true
+          rlusdHash = result.hash
+          console.log(`✅ RLUSD trust line created: ${rlusdHash}`)
+        }
+      } catch (error) {
+        console.error('⚠️ RLUSD trust line failed:', error)
+      }
+
+      let usdcCreated = false
+      let usdcHash: string | undefined
+      try {
+        const result = await createUSDCTrustLine(seed)
+        if (result.success) {
+          usdcCreated = true
+          usdcHash = result.hash
+          console.log(`✅ USDC trust line created: ${usdcHash}`)
+        }
+      } catch (error) {
+        console.error('⚠️ USDC trust line failed:', error)
+      }
+
+      user = await User.create({
+        whatsappId,
+        phoneNumber,
+        xrplAddress: address,
+        encryptedSeed: encryptedData,
+        pinHash: defaultPinHash,
+        pinAttempts: 0,
+        username,
+        rlusdTrustLineCreated: rlusdCreated,
+        usdcTrustLineCreated: usdcCreated,
+        rlusdTrustLineHash: rlusdHash,
+        usdcTrustLineHash: usdcHash,
+      })
+
+      console.log(`✅ New testnet user created: ${whatsappId} (${username})`)
+      await FlowLauncherService.launchPinSetupFlow(user)
+    } else {
+      // Mainnet — wallet not yet on ledger, defer trust lines + PIN setup
+      user = await User.create({
+        whatsappId,
+        phoneNumber,
+        xrplAddress: address,
+        encryptedSeed: encryptedData,
+        pinHash: defaultPinHash,
+        pinAttempts: 0,
+        username,
+        rlusdTrustLineCreated: false,
+        usdcTrustLineCreated: false,
+      })
+
+      console.log(`✅ New mainnet user created: ${whatsappId} (${username})`)
+
+      // Send address and funding instructions — PIN setup happens after funding
+      await sendFundingMessage(phoneNumber, address)
+    }
   } catch (error) {
     console.error('❌ Error handling get started:', error)
     await sendTextMessage(
@@ -289,6 +363,116 @@ async function handleGetStarted(
   }
 }
 
+/**
+ * Handle Check Activation
+ *
+ * Called when user taps "Check Activation" after funding their wallet.
+ * Checks if the account is now on the ledger. If yes:
+ *   1. Creates RLUSD + USDC trust lines
+ *   2. Launches PIN setup flow
+ * If not yet funded, re-sends the funding instructions.
+ */
+async function handleCheckActivation(
+  whatsappId: string,
+  phoneNumber: string,
+): Promise<void> {
+  try {
+    const user = await User.findOne({ whatsappId })
+
+    if (!user) {
+      await sendWelcomeMessage(phoneNumber)
+      return
+    }
+
+    await sendTextMessage(phoneNumber, '⏳ Checking your wallet activation...')
+
+    const activated = await isAccountActivated(user.xrplAddress)
+
+    if (!activated) {
+      await sendTextMessage(
+        phoneNumber,
+        `⚠️ *Wallet not yet activated.*\n\n` +
+          `Your wallet address is:\n\`${user.xrplAddress}\`\n\n` +
+          `Please send at least *10 XRP* to this address and tap *Check Activation* again once done.`,
+      )
+      await sendFundingMessage(phoneNumber, user.xrplAddress)
+      return
+    }
+
+    await sendTextMessage(
+      phoneNumber,
+      '✅ *Wallet activated!*\n\nSetting up stablecoin support...',
+    )
+
+    // Create RLUSD trust line
+    let rlusdCreated = user.rlusdTrustLineCreated
+    let rlusdHash = user.rlusdTrustLineHash
+    if (!rlusdCreated) {
+      try {
+        const seed = decryptSeed(user.encryptedSeed)
+        const result = await createRLUSDTrustLine(seed)
+        if (result.success) {
+          rlusdCreated = true
+          rlusdHash = result.hash
+          console.log(`✅ RLUSD trust line created: ${rlusdHash}`)
+        }
+      } catch (error) {
+        console.error('⚠️ RLUSD trust line failed:', error)
+      }
+    }
+
+    // Create USDC trust line
+    let usdcCreated = user.usdcTrustLineCreated
+    let usdcHash = user.usdcTrustLineHash
+    if (!usdcCreated) {
+      try {
+        const seed = decryptSeed(user.encryptedSeed)
+        const result = await createUSDCTrustLine(seed)
+        if (result.success) {
+          usdcCreated = true
+          usdcHash = result.hash
+          console.log(`✅ USDC trust line created: ${usdcHash}`)
+        }
+      } catch (error) {
+        console.error('⚠️ USDC trust line failed:', error)
+      }
+    }
+
+    // Save trust line status
+    user.rlusdTrustLineCreated = rlusdCreated
+    user.usdcTrustLineCreated = usdcCreated
+    if (rlusdHash) user.rlusdTrustLineHash = rlusdHash
+    if (usdcHash) user.usdcTrustLineHash = usdcHash
+    await user.save()
+
+    // Check if PIN still needs to be set up
+    const isDefaultPin = await bcrypt.compare('0000', user.pinHash)
+
+    if (isDefaultPin) {
+      await FlowLauncherService.launchPinSetupFlow(user)
+    } else {
+      // PIN already set — go straight to main menu
+      const balances = await getAllBalances(user.xrplAddress)
+      await sendMainMenu(
+        phoneNumber,
+        balances.xrp,
+        balances.rlusd,
+        balances.usdc,
+        user.username,
+      )
+    }
+  } catch (error) {
+    console.error('❌ Error handling check activation:', error)
+    await sendTextMessage(
+      phoneNumber,
+      '❌ Error checking activation. Please try again.',
+    )
+  }
+}
+
+/**
+ * Handle PIN Setup Flow Completion
+ */
 async function handlePinSetupComplete(
   whatsappId: string,
   phoneNumber: string,
@@ -328,14 +512,19 @@ async function handlePinSetupComplete(
     user.pinLockedUntil = undefined
     await user.save()
 
-    console.log(`✅ PIN set up for user ${whatsappId} (normalized: ${pinStr})`)
+    console.log(`✅ PIN set up for user ${whatsappId}`)
 
     const balances = await getAllBalances(user.xrplAddress)
 
     await sendTextMessage(
       phoneNumber,
-      `*Account Secured!*\n\n` +
-        `Your transaction PIN has been set successfully.\n` +
+      `✅ *Account Secured!*\n\n` +
+        `Your transaction PIN has been set successfully.\n\n` +
+        `💰 *Your Wallet*\n` +
+        `🔷 XRP: ${balances.xrp}\n` +
+        `💵 RLUSD: ${balances.rlusd}\n` +
+        `🔵 USDC: ${balances.usdc}\n\n` +
+        `Username: @${user.username}\n\n` +
         `You can now send and receive money securely! 🔐`,
     )
 
@@ -355,6 +544,12 @@ async function handlePinSetupComplete(
   }
 }
 
+/**
+ * Handle Send Money Flow Completion
+ *
+ * PIN already validated in FlowDataExchangeService.handleSendMoneyConfirm.
+ * This handler executes the XRPL transaction and delivers receipts.
+ */
 async function handleSendMoneyComplete(
   whatsappId: string,
   phoneNumber: string,
@@ -374,7 +569,7 @@ async function handleSendMoneyComplete(
     let recipientPhone: string | undefined
 
     if (recipient_type === 'Phone Number') {
-      const cleanPhone = recipient.replaceAll('+', '').replaceAll(/\s/g, '')
+      const cleanPhone = recipient.replace(/\+/g, '').replace(/\s/g, '')
       const recipientUser = await User.findOne({ whatsappId: cleanPhone })
 
       if (!recipientUser) {
@@ -384,6 +579,7 @@ async function handleSendMoneyComplete(
         )
         return
       }
+
       if (currency === 'RLUSD' && !recipientUser.rlusdTrustLineCreated) {
         await sendTextMessage(
           phoneNumber,
@@ -402,12 +598,15 @@ async function handleSendMoneyComplete(
       recipientAddress = recipientUser.xrplAddress
       recipientPhone = recipientUser.phoneNumber
     } else if (recipient_type === 'SendSasa Username') {
-      const recipientUser = await usernameService.getUserByUsername(recipient)
+      const recipientUser = await User.findOne({
+        username: recipient.toLowerCase(),
+      })
 
       if (!recipientUser) {
         await sendTextMessage(phoneNumber, '❌ Username not found on SendSasa.')
         return
       }
+
       if (currency === 'RLUSD' && !recipientUser.rlusdTrustLineCreated) {
         await sendTextMessage(
           phoneNumber,
@@ -455,23 +654,11 @@ async function handleSendMoneyComplete(
     let result: { hash: string; result: string }
 
     if (currency === 'XRP') {
-      result = await sendXRP(
-        senderSeed,
-        recipientAddress,
-        Number.parseFloat(amount),
-      )
+      result = await sendXRP(senderSeed, recipientAddress, parseFloat(amount))
     } else if (currency === 'RLUSD') {
-      result = await sendRLUSD(
-        senderSeed,
-        recipientAddress,
-        Number.parseFloat(amount),
-      )
+      result = await sendRLUSD(senderSeed, recipientAddress, parseFloat(amount))
     } else {
-      result = await sendUSDC(
-        senderSeed,
-        recipientAddress,
-        Number.parseFloat(amount),
-      )
+      result = await sendUSDC(senderSeed, recipientAddress, parseFloat(amount))
     }
 
     const txHash = result.hash
@@ -482,11 +669,13 @@ async function handleSendMoneyComplete(
       toAddress: recipientAddress,
       fromPhone: user.phoneNumber,
       toPhone: recipientPhone,
-      amount: Number.parseFloat(amount),
+      amount: parseFloat(amount),
       currency,
       status: 'success',
       timestamp: new Date(),
     })
+
+    console.log(`✅ Transaction completed: ${txHash}`)
 
     try {
       const mediaId = await generateAndUploadReceipt({
@@ -502,21 +691,21 @@ async function handleSendMoneyComplete(
         senderPhone: phoneNumber,
         recipientName: recipient_display || recipient,
         recipientPhone: recipientPhone || 'N/A',
-        amount: Number.parseFloat(amount),
+        amount: parseFloat(amount),
         currency,
         transactionType: 'Send Money',
       })
 
       await sendTextMessage(
         phoneNumber,
-        `Payment Successful!\n📄 Your receipt is ready!`,
+        `✅ Payment Successful!\n\n💸 Sent ${amount} ${currency} to ${recipient_display || recipient}\n\n📄 Your receipt is ready!`,
       )
 
       await sendDocumentByMediaId(
         phoneNumber,
         mediaId,
         `receipt_${Date.now()}.pdf`,
-        `Transaction Receipt — ${amount} ${currency} sent`,
+        `✅ Transaction Receipt — ${amount} ${currency} sent`,
       )
     } catch (receiptError) {
       console.error('⚠️ Error generating sender receipt:', receiptError)
@@ -541,27 +730,27 @@ async function handleSendMoneyComplete(
           senderPhone: phoneNumber,
           recipientName: recipient_display || recipient,
           recipientPhone: recipientPhone,
-          amount: Number.parseFloat(amount),
+          amount: parseFloat(amount),
           currency,
           transactionType: 'Send Money',
         })
 
         await sendTextMessage(
           recipientPhone,
-          `Payment Received!\n\n${amount} ${currency} from ${user.username}\n\n📄 Your receipt is ready!`,
+          `✅ Payment Received!\n\n${amount} ${currency} from @${user.username}\n\n📄 Your receipt is ready!`,
         )
 
         await sendDocumentByMediaId(
           recipientPhone,
           recipientMediaId,
           `receipt_${Date.now()}.pdf`,
-          `Payment Receipt — ${amount} ${currency} received`,
+          `✅ Payment Receipt — ${amount} ${currency} received`,
         )
       } catch (recipientError) {
         console.error('⚠️ Error sending receipt to recipient:', recipientError)
         await sendTextMessage(
           recipientPhone,
-          `✅ Payment Received!\n\n${amount} ${currency} from ${user.username}\n\n🔖 TX: ${txHash.slice(0, 8)}...${txHash.slice(-6)}`,
+          `✅ Payment Received!\n\n${amount} ${currency} from @${user.username}\n\n🔖 TX: ${txHash.slice(0, 8)}...${txHash.slice(-6)}`,
         )
       }
     }
@@ -574,6 +763,9 @@ async function handleSendMoneyComplete(
   }
 }
 
+/**
+ * Handle Request Money Flow Completion
+ */
 async function handleRequestMoneyComplete(
   whatsappId: string,
   phoneNumber: string,
@@ -593,7 +785,7 @@ async function handleRequestMoneyComplete(
     let recipientUsername: string
 
     if (recipient_type === 'Phone Number') {
-      const cleanPhone = recipient.replaceAll('+', '').replaceAll(/\s/g, '')
+      const cleanPhone = recipient.replace(/\+/g, '').replace(/\s/g, '')
       const recipientUser = await User.findOne({ whatsappId: cleanPhone })
 
       if (!recipientUser) {
@@ -608,8 +800,9 @@ async function handleRequestMoneyComplete(
       payerPhone = recipientUser.phoneNumber
       recipientUsername = recipientUser.username
     } else if (recipient_type === 'SendSasa Username') {
-      // UsernameService handles @ prefix, .sasa suffix, and case-insensitive matching
-      const recipientUser = await usernameService.getUserByUsername(recipient)
+      const recipientUser = await User.findOne({
+        username: recipient.toLowerCase(),
+      })
 
       if (!recipientUser) {
         await sendTextMessage(phoneNumber, '❌ Username not found on SendSasa.')
@@ -635,26 +828,28 @@ async function handleRequestMoneyComplete(
       requesterPhone: user.phoneNumber,
       payerAddress,
       payerPhone,
-      amount: Number.parseFloat(amount),
+      amount: parseFloat(amount),
       currency,
       message: note || '',
       status: 'pending',
       createdAt: new Date(),
     })
 
+    console.log(`✅ Payment request created: ${paymentRequest.requestId}`)
+
     await sendTextMessage(
       phoneNumber,
-      `*Payment Request Sent!*\n\n` +
-        `Amount: ${amount} ${currency}\n` +
-        `To: ${recipientUsername}\n` +
-        `Note: ${note || 'N/A'}\n\n` +
+      `✅ *Payment Request Sent!*\n\n` +
+        `💰 Amount: ${amount} ${currency}\n` +
+        `📍 To: @${recipientUsername}\n` +
+        `📝 Note: ${note || 'N/A'}\n\n` +
         `You'll be notified when they respond.`,
     )
 
     await sendPaymentRequestButtons(
       payerPhone,
-      user.username,
-      Number.parseFloat(amount),
+      `@${user.username}`,
+      parseFloat(amount),
       paymentRequest.requestId,
       currency,
     )
@@ -667,6 +862,9 @@ async function handleRequestMoneyComplete(
   }
 }
 
+/**
+ * Handle Send Money — Launch send money flow
+ */
 async function handleSendMoney(
   whatsappId: string,
   phoneNumber: string,
@@ -702,6 +900,7 @@ async function handleSendMoney(
     }
 
     await FlowLauncherService.launchSendMoneyFlow(user)
+    console.log(`✅ Send money flow launched for ${phoneNumber}`)
   } catch (error) {
     console.error('❌ Error handling send money:', error)
     await sendTextMessage(
@@ -711,6 +910,9 @@ async function handleSendMoney(
   }
 }
 
+/**
+ * Handle Request Money — Launch request money flow
+ */
 async function handleRequestMoney(
   whatsappId: string,
   phoneNumber: string,
@@ -727,6 +929,7 @@ async function handleRequestMoney(
     }
 
     await FlowLauncherService.launchRequestMoneyFlow(user)
+    console.log(`✅ Request money flow launched for ${phoneNumber}`)
   } catch (error) {
     console.error('❌ Error handling request money:', error)
     await sendTextMessage(
@@ -736,6 +939,9 @@ async function handleRequestMoney(
   }
 }
 
+/**
+ * Handle My Wallet
+ */
 async function handleMyWallet(phoneNumber: string, user: any): Promise<void> {
   try {
     const balances = await getAllBalances(user.xrplAddress)
@@ -755,6 +961,9 @@ async function handleMyWallet(phoneNumber: string, user: any): Promise<void> {
   }
 }
 
+/**
+ * Handle Transaction History
+ */
 async function handleTransactionHistory(
   whatsappId: string,
   phoneNumber: string,
@@ -784,9 +993,12 @@ async function handleTransactionHistory(
 
     transactions.forEach((tx, index) => {
       const isSent = tx.fromAddress === user.xrplAddress
+      const emoji = isSent ? '📤' : '📥'
+      const currencyEmoji =
+        tx.currency === 'XRP' ? '🔷' : tx.currency === 'RLUSD' ? '💵' : '🔵'
 
-      message += `*${isSent ? 'Sent' : 'Received'}*\n`
-      message += `${tx.amount} ${tx.currency}\n`
+      message += `${emoji} *${isSent ? 'Sent' : 'Received'}*\n`
+      message += `${currencyEmoji} ${tx.amount} ${tx.currency}\n`
       message += `${isSent ? 'To' : 'From'}: ${isSent ? tx.toAddress.slice(0, 8) : tx.fromAddress.slice(0, 8)}...\n`
       message += `${new Date(tx.timestamp).toLocaleDateString()}\n`
 
@@ -803,6 +1015,9 @@ async function handleTransactionHistory(
   }
 }
 
+/**
+ * Handle Pending Payment Requests
+ */
 async function handlePendingRequests(
   whatsappId: string,
   phoneNumber: string,
@@ -830,14 +1045,17 @@ async function handlePendingRequests(
       const requester = await User.findOne({
         xrplAddress: req.requesterAddress,
       })
+      const currencyEmoji =
+        req.currency === 'XRP' ? '🔷' : req.currency === 'RLUSD' ? '💵' : '🔵'
 
-      message += `${req.amount} ${req.currency}\n`
-      message += `From: ${requester?.username || 'Unknown'}\n`
+      message += `💰 ${currencyEmoji} ${req.amount} ${req.currency}\n`
+      message += `From: @${requester?.username || 'Unknown'}\n`
       message += `${req.message ? `Note: ${req.message}\n` : ''}`
       message += `ID: ${req.requestId.slice(-8)}\n\n`
     }
 
     message += 'Check WhatsApp for approval buttons.'
+
     await sendTextMessage(phoneNumber, message)
   } catch (error) {
     console.error('❌ Error getting pending requests:', error)
@@ -848,6 +1066,9 @@ async function handlePendingRequests(
   }
 }
 
+/**
+ * Handle Approve Payment Request
+ */
 async function handleApproveRequest(
   phoneNumber: string,
   user: any,
@@ -878,11 +1099,11 @@ async function handleApproveRequest(
     let sufficient = false
 
     if (paymentRequest.currency === 'XRP') {
-      sufficient = Number.parseFloat(balances.xrp) >= paymentRequest.amount + 1
+      sufficient = parseFloat(balances.xrp) >= paymentRequest.amount + 1
     } else if (paymentRequest.currency === 'RLUSD') {
-      sufficient = Number.parseFloat(balances.rlusd) >= paymentRequest.amount
+      sufficient = parseFloat(balances.rlusd) >= paymentRequest.amount
     } else if (paymentRequest.currency === 'USDC') {
-      sufficient = Number.parseFloat(balances.usdc) >= paymentRequest.amount
+      sufficient = parseFloat(balances.usdc) >= paymentRequest.amount
     }
 
     if (!sufficient) {
@@ -943,17 +1164,17 @@ async function handleApproveRequest(
 
     await sendTextMessage(
       phoneNumber,
-      `*Payment Sent!*\n\n` +
+      `✅ *Payment Sent!*\n\n` +
         `Amount: ${paymentRequest.amount} ${paymentRequest.currency}\n` +
-        `To: ${requester.username}\n` +
+        `To: @${requester.username}\n` +
         `TX Hash: ${result.hash.slice(0, 8)}...${result.hash.slice(-6)}`,
     )
 
     await sendTextMessage(
       requester.phoneNumber,
-      `*Payment Received!*\n\n` +
+      `✅ *Payment Received!*\n\n` +
         `Amount: ${paymentRequest.amount} ${paymentRequest.currency}\n` +
-        `From: ${user.username}\n` +
+        `From: @${user.username}\n` +
         `TX Hash: ${result.hash.slice(0, 8)}...${result.hash.slice(-6)}`,
     )
   } catch (error) {
@@ -965,6 +1186,9 @@ async function handleApproveRequest(
   }
 }
 
+/**
+ * Handle Reject Payment Request
+ */
 async function handleRejectRequest(
   phoneNumber: string,
   requestId: string,

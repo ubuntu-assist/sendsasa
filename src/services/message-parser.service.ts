@@ -8,33 +8,20 @@ export interface ButtonInteraction {
 }
 
 export function parseButtonInteraction(buttonId: string): ButtonInteraction {
-  if (buttonId === 'main_menu') {
-    return { action: 'main_menu' }
-  }
-  if (buttonId === 'send_money') {
-    return { action: 'send_money' }
-  }
-  if (buttonId === 'request_money') {
-    return { action: 'request_money' }
-  }
-  if (buttonId === 'my_wallet') {
-    return { action: 'my_wallet' }
-  }
-  if (buttonId === 'transaction_history') {
+  if (buttonId === 'main_menu') return { action: 'main_menu' }
+  if (buttonId === 'send_money') return { action: 'send_money' }
+  if (buttonId === 'request_money') return { action: 'request_money' }
+  if (buttonId === 'my_wallet') return { action: 'my_wallet' }
+  if (buttonId === 'transaction_history')
     return { action: 'transaction_history' }
-  }
-  if (buttonId === 'pending_requests') {
-    return { action: 'pending_requests' }
-  }
-  if (buttonId === 'get_started') {
-    return { action: 'get_started' }
-  }
+  if (buttonId === 'pending_requests') return { action: 'pending_requests' }
+  if (buttonId === 'get_started') return { action: 'get_started' }
+  if (buttonId === 'check_activation') return { action: 'check_activation' }
 
   if (buttonId.startsWith('currency_')) {
     const parts = buttonId.split('_')
     const currency = parts[1].toUpperCase() as 'XRP' | 'RLUSD' | 'USDC'
     const flowAction = parts[2]
-
     return {
       action: flowAction === 'send' ? 'currency_send' : 'currency_request',
       currency,
@@ -46,16 +33,14 @@ export function parseButtonInteraction(buttonId: string): ButtonInteraction {
       | 'phone'
       | 'address'
       | 'username'
-    return {
-      action: 'recipient_type_selected',
-      recipientType: type,
-    }
+    return { action: 'recipient_type_selected', recipientType: type }
   }
 
   if (buttonId.startsWith('confirm_send_')) {
     const transactionId = buttonId.replace('confirm_send_', '')
     return { action: 'confirm_send', transactionId }
   }
+
   if (buttonId.startsWith('cancel_send_')) {
     const transactionId = buttonId.replace('cancel_send_', '')
     return { action: 'cancel_send', transactionId }
@@ -65,6 +50,7 @@ export function parseButtonInteraction(buttonId: string): ButtonInteraction {
     const requestId = buttonId.replace('approve_', '')
     return { action: 'approve', requestId }
   }
+
   if (buttonId.startsWith('reject_')) {
     const requestId = buttonId.replace('reject_', '')
     return { action: 'reject', requestId }
@@ -75,7 +61,6 @@ export function parseButtonInteraction(buttonId: string): ButtonInteraction {
     return { action: 'amount_selected', amount }
   }
 
-  console.warn(`⚠️ Unknown button ID: ${buttonId}`)
   return { action: 'unknown' }
 }
 
