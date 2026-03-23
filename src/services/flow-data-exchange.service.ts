@@ -1,25 +1,11 @@
 import crypto from 'node:crypto'
 import { Request, Response } from 'express'
 import bcrypt from 'bcrypt'
+import { Wallet } from 'xrpl'
 import { User } from '../models/User'
 import { isPhoneNumber } from './message-parser.service'
-import { getAllBalances } from './xrpl.service'
-import { usernameService } from './username.service'
+import { getAllBalances, isAccountActivated } from './xrpl.service'
 import config from '../utils/config'
-
-/**
- * WhatsApp Flow Data Exchange Service
- *
- * Handles real-time screen-by-screen validation during WhatsApp Flows.
- *
- * IMPORTANT — why we do NOT execute the XRPL transaction here:
- * WhatsApp enforces a strict 10-second timeout on data_exchange responses.
- * XRPL submitAndWait alone takes 4-8 seconds. Combined with PIN check,
- * balance fetch, and recipient lookup it consistently exceeds the limit,
- * causing "could not load content". All heavy async work (transaction
- * execution, receipt generation) happens in message-handler.service after
- * the nfm_reply arrives from the terminal SEND_MONEY_SUCCESS screen.
- */
 
 interface FlowDataExchangeRequest {
   version: string
@@ -63,13 +49,18 @@ export class FlowDataExchangeService {
     try {
       let privateKey = FlowDataExchangeService.PRIVATE_KEY
 
+      // Handle | separator (legacy .env format)
       if (privateKey.includes('|')) {
-        privateKey = privateKey.replaceAll('|', '\n')
+        privateKey = privateKey.replace(/\|/g, '\n')
       }
 
-      if (privateKey.includes(String.raw`\n`)) {
-        privateKey = privateKey.replaceAll(String.raw`\n`, '\n')
+      // Handle literal \n stored by Render/Railway env var editors
+      if (privateKey.includes('\\n')) {
+        privateKey = privateKey.replace(/\\n/g, '\n')
       }
+
+      // Remove any surrounding quotes some env editors add
+      privateKey = privateKey.replace(/^["']|["']$/g, '')
 
       if (!privateKey.includes('-----BEGIN')) {
         throw new Error(
@@ -159,7 +150,7 @@ export class FlowDataExchangeService {
   }
 
   /**
-   * Handle data exchange endpoint
+   * Main entry point — handle data exchange endpoint
    */
   static async handleDataExchange(req: Request, res: Response): Promise<void> {
     try {
@@ -219,6 +210,9 @@ export class FlowDataExchangeService {
       } else if (decryptedBody.screen === 'REQUEST_MONEY_CONFIRM') {
         responseData =
           await FlowDataExchangeService.handleRequestMoneyConfirm(decryptedBody)
+      } else if (decryptedBody.screen === 'IMPORT_WALLET_SEED') {
+        responseData =
+          await FlowDataExchangeService.handleImportWalletSeed(decryptedBody)
       } else {
         responseData = {
           version: decryptedBody.version,
@@ -236,12 +230,21 @@ export class FlowDataExchangeService {
       )
     } catch (error) {
       console.error('❌ Data exchange error:', error)
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+      })
       res.status(500).json({ error: 'Internal server error' })
     }
   }
 
+  // ── PIN Setup ────────────────────────────────────────────────────────────
+
   /**
-   * PIN Setup screen
+   * Validate PIN Setup screen
+   *
+   * Passcode inputs arrive as numbers — pass as Number() to SECURITY_QUESTIONS
+   * which declares pin/confirm_pin as type: number in its data schema.
    */
   private static async handlePinSetup(
     flowData: FlowDataExchangeRequest,
@@ -300,18 +303,26 @@ export class FlowDataExchangeService {
     }
   }
 
-  /**
-   * Security Questions screen
-   */
+  // ── Security Questions ───────────────────────────────────────────────────
+
   private static async handleSecurityQuestions(
     flowData: FlowDataExchangeRequest,
   ): Promise<FlowDataExchangeResponse> {
     const { answer_1, answer_2 } = flowData.data
+
+    console.log('Validating Security Questions:', {
+      question_1: flowData.data.question_1,
+      answer_1,
+      question_2: flowData.data.question_2,
+      answer_2,
+    })
+
     const errors: Record<string, string> = {}
 
     if (!answer_1 || answer_1.trim() === '') {
       errors['answer_1'] = 'Answer 1 is required'
     }
+
     if (!answer_2 || answer_2.trim() === '') {
       errors['answer_2'] = 'Answer 2 is required'
     }
@@ -331,9 +342,9 @@ export class FlowDataExchangeService {
     }
   }
 
+  // ── Send Money Details ───────────────────────────────────────────────────
+
   /**
-   * Send Money Details screen
-   *
    * Called for both dropdown on-select (partial) and footer submit (full).
    * Always re-fetches balances so balance TextBody components stay populated.
    */
@@ -374,7 +385,7 @@ export class FlowDataExchangeService {
       available_balance_usdc: balances.usdc,
     }
 
-    // Partial submit (dropdown on-select) — return as-is with fresh balances
+    // Partial submit (dropdown on-select) — return screen as-is with fresh balances
     const isFullSubmit = currency && amount && recipient_type && recipient
     if (!isFullSubmit) {
       return {
@@ -386,14 +397,15 @@ export class FlowDataExchangeService {
 
     const errors: Record<string, string> = {}
 
-    const numAmount = Number.parseFloat(amount)
-    if (Number.isNaN(numAmount) || numAmount <= 0) {
+    // Validate amount + balance
+    const numAmount = parseFloat(amount)
+    if (isNaN(numAmount) || numAmount <= 0) {
       errors['amount'] = 'Amount must be greater than 0'
     } else {
       let balance = 0
-      if (currency === 'XRP') balance = Number.parseFloat(balances.xrp)
-      else if (currency === 'RLUSD') balance = Number.parseFloat(balances.rlusd)
-      else if (currency === 'USDC') balance = Number.parseFloat(balances.usdc)
+      if (currency === 'XRP') balance = parseFloat(balances.xrp)
+      else if (currency === 'RLUSD') balance = parseFloat(balances.rlusd)
+      else if (currency === 'USDC') balance = parseFloat(balances.usdc)
 
       const total = numAmount + numAmount * 0.001
       if (total > balance) {
@@ -402,6 +414,7 @@ export class FlowDataExchangeService {
       }
     }
 
+    // Validate recipient exists
     const validation = await FlowDataExchangeService.validateRecipient(
       recipient,
       recipient_type,
@@ -418,7 +431,7 @@ export class FlowDataExchangeService {
       }
     }
 
-    const numAmt = Number.parseFloat(amount)
+    const numAmt = parseFloat(amount)
     const fee = numAmt * 0.001
     const total = numAmt + fee
     const recipientDisplay =
@@ -442,12 +455,11 @@ export class FlowDataExchangeService {
     }
   }
 
+  // ── Send Money Confirm ───────────────────────────────────────────────────
+
   /**
-   * Send Money Confirm screen — validation only, NO transaction execution.
-   *
-   * Validates: PIN lockout → PIN correctness → balance re-check → recipient.
-   * On success navigates to SEND_MONEY_SUCCESS terminal screen.
-   * Transaction executes in message-handler after nfm_reply — no timeout risk.
+   * Validates PIN + balance + recipient. Does NOT execute the transaction.
+   * Transaction runs in message-handler after nfm_reply to avoid the 10s timeout.
    */
   private static async handleSendMoneyConfirm(
     flowData: FlowDataExchangeRequest,
@@ -489,7 +501,7 @@ export class FlowDataExchangeService {
       }
     }
 
-    // Lockout check
+    // Check lockout
     if (user.pinLockedUntil && user.pinLockedUntil > new Date()) {
       const minutesLeft = Math.ceil(
         (user.pinLockedUntil.getTime() - Date.now()) / 60000,
@@ -506,7 +518,7 @@ export class FlowDataExchangeService {
       }
     }
 
-    // PIN required check
+    // Require PIN
     if (
       transaction_pin === undefined ||
       transaction_pin === null ||
@@ -522,12 +534,11 @@ export class FlowDataExchangeService {
       }
     }
 
-    // PIN comparison
+    // Validate PIN
     const pinStr = FlowDataExchangeService.normalizePin(transaction_pin)
     const isPinValid = await bcrypt.compare(pinStr, user.pinHash)
 
     console.log('🔐 PIN validation in data exchange:', {
-      rawPin: transaction_pin,
       normalizedPin: pinStr,
       isValid: isPinValid,
     })
@@ -573,16 +584,15 @@ export class FlowDataExchangeService {
       await user.save()
     }
 
-    // Balance re-check
+    // Re-check balance in real time
     try {
       const balances = await getAllBalances(user.xrplAddress)
       let balance = 0
-      if (currency === 'XRP') balance = Number.parseFloat(balances.xrp)
-      else if (currency === 'RLUSD') balance = Number.parseFloat(balances.rlusd)
-      else if (currency === 'USDC') balance = Number.parseFloat(balances.usdc)
+      if (currency === 'XRP') balance = parseFloat(balances.xrp)
+      else if (currency === 'RLUSD') balance = parseFloat(balances.rlusd)
+      else if (currency === 'USDC') balance = parseFloat(balances.usdc)
 
-      const numTotal =
-        Number.parseFloat(total || '0') || Number.parseFloat(amount) * 1.001
+      const numTotal = parseFloat(total || '0') || parseFloat(amount) * 1.001
 
       if (numTotal > balance) {
         return {
@@ -598,10 +608,10 @@ export class FlowDataExchangeService {
       }
     } catch (error) {
       console.error('Balance re-check failed:', error)
-      // Non-blocking — final check happens in message-handler
+      // Non-blocking — proceed, final check happens in message-handler
     }
 
-    // Recipient re-check
+    // Re-check recipient
     const validation = await FlowDataExchangeService.validateRecipient(
       recipient,
       recipient_type,
@@ -619,14 +629,15 @@ export class FlowDataExchangeService {
       }
     }
 
-    // All valid — navigate to success screen
+    // All valid — navigate to SEND_MONEY_SUCCESS
+    // Transaction executed in message-handler after nfm_reply
     return {
       version: flowData.version,
       screen: 'SEND_MONEY_SUCCESS',
       data: {
         currency,
         amount: amount.toString(),
-        total: total || (Number.parseFloat(amount) * 1.001).toFixed(6),
+        total: total || (parseFloat(amount) * 1.001).toFixed(6),
         recipient_display: recipient_display || recipient,
         recipient_type,
         recipient,
@@ -634,8 +645,11 @@ export class FlowDataExchangeService {
     }
   }
 
+  // ── Request Money Details ────────────────────────────────────────────────
+
   /**
-   * Request Money Details screen
+   * Called for both dropdown on-select (partial) and footer submit (full).
+   * Validates amount and recipient before navigating to confirm screen.
    */
   private static async handleRequestMoneyDetails(
     flowData: FlowDataExchangeRequest,
@@ -643,6 +657,7 @@ export class FlowDataExchangeService {
     const { amount, recipient_type, recipient } = flowData.data
     const errors: Record<string, string> = {}
 
+    // Partial submit — return as-is
     const isFullSubmit = amount && recipient_type && recipient
     if (!isFullSubmit) {
       return {
@@ -652,8 +667,8 @@ export class FlowDataExchangeService {
       }
     }
 
-    const numAmount = Number.parseFloat(amount)
-    if (Number.isNaN(numAmount) || numAmount <= 0) {
+    const numAmount = parseFloat(amount)
+    if (isNaN(numAmount) || numAmount <= 0) {
       errors['amount'] = 'Amount must be greater than 0'
     }
 
@@ -690,8 +705,12 @@ export class FlowDataExchangeService {
     }
   }
 
+  // ── Request Money Confirm ────────────────────────────────────────────────
+
   /**
-   * Request Money Confirm screen — no additional validation needed
+   * No server-side validation needed here.
+   * Recipient was already validated in handleRequestMoneyDetails.
+   * The complete action fires directly and message-handler creates the request.
    */
   private static async handleRequestMoneyConfirm(
     flowData: FlowDataExchangeRequest,
@@ -703,10 +722,103 @@ export class FlowDataExchangeService {
     }
   }
 
+  // ── Import Wallet Seed ───────────────────────────────────────────────────
+
   /**
-   * Validate recipient — checks format and existence.
-   * Uses UsernameService for SendSasa Username lookups to handle
-   * @ prefix, .sasa suffix, and case-insensitive matching correctly.
+   * Validate seed on IMPORT_WALLET_SEED screen.
+   *
+   * Checks in order:
+   * 1. Seed not empty
+   * 2. Seed derives a valid XRPL wallet (Wallet.fromSeed)
+   * 3. Address not already registered on SendSasa
+   * 4. Account is activated on the XRPL mainnet ledger (has 10 XRP reserve)
+   *
+   * On success navigates to IMPORT_WALLET_CONFIRM with address + live XRP balance.
+   * The raw seed is passed through to the confirm screen data so it can be
+   * included in the complete payload. It is marked sensitive in the flow JSON
+   * so WhatsApp hides it in the response summary.
+   * message-handler encrypts it immediately on receipt — never stored plain.
+   */
+  private static async handleImportWalletSeed(
+    flowData: FlowDataExchangeRequest,
+  ): Promise<FlowDataExchangeResponse> {
+    const { seed } = flowData.data
+
+    if (!seed || seed.trim() === '') {
+      return {
+        version: flowData.version,
+        screen: 'IMPORT_WALLET_SEED',
+        data: {
+          ...flowData.data,
+          __errors__: { seed: 'Seed is required' },
+        },
+      }
+    }
+
+    // Validate seed format by attempting to derive the wallet
+    let derivedAddress: string
+    try {
+      const wallet = Wallet.fromSeed(seed.trim())
+      derivedAddress = wallet.classicAddress
+    } catch {
+      return {
+        version: flowData.version,
+        screen: 'IMPORT_WALLET_SEED',
+        data: {
+          ...flowData.data,
+          __errors__: { seed: 'Invalid seed. Please check and try again.' },
+        },
+      }
+    }
+
+    // Check if this address is already registered on SendSasa
+    const existingUser = await User.findOne({ xrplAddress: derivedAddress })
+    if (existingUser) {
+      return {
+        version: flowData.version,
+        screen: 'IMPORT_WALLET_SEED',
+        data: {
+          ...flowData.data,
+          __errors__: {
+            seed: 'This wallet is already registered on SendSasa.',
+          },
+        },
+      }
+    }
+
+    // Check if the account is activated on the ledger
+    const activated = await isAccountActivated(derivedAddress)
+    if (!activated) {
+      return {
+        version: flowData.version,
+        screen: 'IMPORT_WALLET_SEED',
+        data: {
+          ...flowData.data,
+          __errors__: {
+            seed: `Address ${derivedAddress} has no funds on the XRPL mainnet. Please fund it with at least 10 XRP first.`,
+          },
+        },
+      }
+    }
+
+    // Fetch live XRP balance to show on confirm screen
+    const balances = await getAllBalances(derivedAddress)
+
+    return {
+      version: flowData.version,
+      screen: 'IMPORT_WALLET_CONFIRM',
+      data: {
+        xrpl_address: derivedAddress,
+        xrp_balance: balances.xrp,
+        seed: seed.trim(),
+      },
+    }
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  /**
+   * Validate recipient — checks format and existence on SendSasa
    */
   private static async validateRecipient(
     recipient: string,
@@ -717,15 +829,14 @@ export class FlowDataExchangeService {
         if (!isPhoneNumber(recipient)) {
           return { valid: false, error: 'Invalid phone number format' }
         }
-        const cleanPhone = recipient.replaceAll('+', '').replaceAll(/\s/g, '')
+        const cleanPhone = recipient.replace(/\+/g, '').replace(/\s/g, '')
         const recipientUser = await User.findOne({ whatsappId: cleanPhone })
         if (!recipientUser) {
           return { valid: false, error: 'Phone number not found on SendSasa' }
         }
         return { valid: true }
       } else if (type === 'SendSasa Username') {
-        // UsernameService handles @prefix, .sasa suffix, and case-insensitive regex
-        const user = await usernameService.getUserByUsername(recipient)
+        const user = await User.findOne({ username: recipient.toLowerCase() })
         if (!user) {
           return { valid: false, error: 'Username not found on SendSasa' }
         }
@@ -736,6 +847,7 @@ export class FlowDataExchangeService {
         }
         return { valid: true }
       }
+
       return { valid: false, error: 'Invalid recipient type' }
     } catch (error) {
       console.error('Recipient validation error:', error)
@@ -744,8 +856,7 @@ export class FlowDataExchangeService {
   }
 
   /**
-   * Get display name for recipient.
-   * Uses UsernameService for SendSasa Username lookups.
+   * Get display name for recipient
    */
   private static async getRecipientDisplayName(
     recipient: string,
@@ -753,16 +864,14 @@ export class FlowDataExchangeService {
   ): Promise<string> {
     try {
       if (type === 'Phone Number') {
-        const cleanPhone = recipient.replaceAll('+', '').replaceAll(/\s/g, '')
+        const cleanPhone = recipient.replace(/\+/g, '').replace(/\s/g, '')
         const user = await User.findOne({ whatsappId: cleanPhone })
-        if (user && user.username) {
+        if (user?.username) {
           return `${user.username} (${recipient})`
         }
         return recipient
       } else if (type === 'SendSasa Username') {
-        // UsernameService normalizes and finds the canonical username
-        const user = await usernameService.getUserByUsername(recipient)
-        return user ? user.username : recipient
+        return recipient
       } else if (type === 'Wallet Address') {
         return `${recipient.slice(0, 8)}...${recipient.slice(-6)}`
       }

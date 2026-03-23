@@ -17,6 +17,7 @@ export function parseButtonInteraction(buttonId: string): ButtonInteraction {
   if (buttonId === 'pending_requests') return { action: 'pending_requests' }
   if (buttonId === 'get_started') return { action: 'get_started' }
   if (buttonId === 'check_activation') return { action: 'check_activation' }
+  if (buttonId === 'import_wallet') return { action: 'import_wallet' }
 
   if (buttonId.startsWith('currency_')) {
     const parts = buttonId.split('_')
@@ -37,28 +38,32 @@ export function parseButtonInteraction(buttonId: string): ButtonInteraction {
   }
 
   if (buttonId.startsWith('confirm_send_')) {
-    const transactionId = buttonId.replace('confirm_send_', '')
-    return { action: 'confirm_send', transactionId }
+    return {
+      action: 'confirm_send',
+      transactionId: buttonId.replace('confirm_send_', ''),
+    }
   }
 
   if (buttonId.startsWith('cancel_send_')) {
-    const transactionId = buttonId.replace('cancel_send_', '')
-    return { action: 'cancel_send', transactionId }
+    return {
+      action: 'cancel_send',
+      transactionId: buttonId.replace('cancel_send_', ''),
+    }
   }
 
   if (buttonId.startsWith('approve_')) {
-    const requestId = buttonId.replace('approve_', '')
-    return { action: 'approve', requestId }
+    return { action: 'approve', requestId: buttonId.replace('approve_', '') }
   }
 
   if (buttonId.startsWith('reject_')) {
-    const requestId = buttonId.replace('reject_', '')
-    return { action: 'reject', requestId }
+    return { action: 'reject', requestId: buttonId.replace('reject_', '') }
   }
 
   if (buttonId.startsWith('amount_')) {
-    const amount = Number.parseFloat(buttonId.replace('amount_', ''))
-    return { action: 'amount_selected', amount }
+    return {
+      action: 'amount_selected',
+      amount: Number.parseFloat(buttonId.replace('amount_', '')),
+    }
   }
 
   return { action: 'unknown' }

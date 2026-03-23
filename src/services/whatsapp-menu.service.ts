@@ -14,16 +14,11 @@ export async function sendMainMenu(
     type: 'interactive',
     interactive: {
       type: 'list',
-      header: {
-        type: 'text',
-        text: 'SendSasa Wallet',
-      },
+      header: { type: 'text', text: 'SendSasa Wallet' },
       body: {
-        text: `Username: @${username}\n\nXRP: ${xrpBalance}\nRLUSD: ${rlusdBalance}\nUSDC: ${usdcBalance}\n\nWhat would you like to do?`,
+        text: `Username: ${username}\n\nXRP: ${xrpBalance}\nRLUSD: ${rlusdBalance}\nUSDC: ${usdcBalance}\n\nWhat would you like to do?`,
       },
-      footer: {
-        text: 'Powered by XRPL',
-      },
+      footer: { text: 'Powered by XRPL' },
       action: {
         button: 'Menu',
         sections: [
@@ -70,6 +65,46 @@ export async function sendMainMenu(
   await WhatsAppService.sendMessage(payload)
 }
 
+export async function sendWelcomeMessage(
+  to: string,
+  userName?: string,
+): Promise<void> {
+  const greeting = userName
+    ? `Welcome to SendSasa, ${userName}! 👋`
+    : 'Welcome to SendSasa! 👋'
+
+  const payload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      header: {
+        type: 'image',
+        image: { link: 'https://i.ibb.co/kgBsTrcR/welcome-sasa.jpg' },
+      },
+      body: {
+        text: `${greeting}\n\nSend money home faster than saying "I love you".\n\nSendSasa lets you send cash to Africa via WhatsApp — lands in M-Pesa, MTN MoMo, or Orange Money in under 60 seconds, for under 1% fee.`,
+      },
+      action: {
+        buttons: [
+          {
+            type: 'reply',
+            reply: { id: 'get_started', title: 'Get Started 🚀' },
+          },
+          {
+            type: 'reply',
+            reply: { id: 'import_wallet', title: 'Import Wallet 📥' },
+          },
+        ],
+      },
+    },
+  }
+
+  await WhatsAppService.sendMessage(payload)
+}
+
 export async function sendFundingMessage(
   to: string,
   xrplAddress: string,
@@ -84,22 +119,17 @@ export async function sendFundingMessage(
       body: {
         text:
           `*Your wallet has been created!*\n\n` +
-          `To activate it, you need to send at least *10 XRP* to your wallet address:\n\n` +
+          `To activate it, send at least *10 XRP* to your wallet address:\n\n` +
           `\`${xrplAddress}\`\n\n` +
           `You can buy XRP on any exchange (Binance, Coinbase, Kraken) and send it to this address.\n\n` +
           `Once funded, tap *Check Activation* and we'll set up your security and stablecoin support.`,
       },
-      footer: {
-        text: 'Minimum 1 XRP required',
-      },
+      footer: { text: 'Minimum 10 XRP required' },
       action: {
         buttons: [
           {
             type: 'reply',
-            reply: {
-              id: 'check_activation',
-              title: 'Check Activation',
-            },
+            reply: { id: 'check_activation', title: 'Check Activation' },
           },
         ],
       },
@@ -122,16 +152,9 @@ export async function sendCurrencySelectionMenu(
     type: 'interactive',
     interactive: {
       type: 'list',
-      header: {
-        type: 'text',
-        text: `${actionText} Money`,
-      },
-      body: {
-        text: `Which currency do you want to ${action}?`,
-      },
-      footer: {
-        text: 'Powered by XRPL',
-      },
+      header: { type: 'text', text: `${actionText} Money` },
+      body: { text: `Which currency do you want to ${action}?` },
+      footer: { text: 'Powered by XRPL' },
       action: {
         button: 'Select Currency',
         sections: [
@@ -175,16 +198,11 @@ export async function sendRecipientTypeMenu(
     type: 'interactive',
     interactive: {
       type: 'list',
-      header: {
-        type: 'text',
-        text: 'Choose Recipient',
-      },
+      header: { type: 'text', text: 'Choose Recipient' },
       body: {
         text: `Sending ${amount} ${currency}\n\nHow would you like to identify the recipient?`,
       },
-      footer: {
-        text: 'Powered by XRPL',
-      },
+      footer: { text: 'Powered by XRPL' },
       action: {
         button: 'Select Type',
         sections: [
@@ -230,16 +248,11 @@ export async function sendWalletMenu(
     type: 'interactive',
     interactive: {
       type: 'list',
-      header: {
-        type: 'text',
-        text: 'My Wallet',
-      },
+      header: { type: 'text', text: 'My Wallet' },
       body: {
-        text: `@${username}\n\nXRP: ${xrpBalance}\nRLUSD: ${rlusdBalance}\nUSDC: ${usdcBalance}\n\nWhat would you like to do?`,
+        text: `${username}\n\nXRP: ${xrpBalance}\nRLUSD: ${rlusdBalance}\nUSDC: ${usdcBalance}\n\nWhat would you like to do?`,
       },
-      footer: {
-        text: 'Powered by XRPL',
-      },
+      footer: { text: 'Powered by XRPL' },
       action: {
         button: 'Choose Action',
         sections: [
@@ -271,47 +284,6 @@ export async function sendWalletMenu(
   await WhatsAppService.sendMessage(payload)
 }
 
-export async function sendWelcomeMessage(
-  to: string,
-  userName?: string,
-): Promise<void> {
-  const greeting = userName
-    ? `Welcome to SendSasa, ${userName}! 👋`
-    : 'Welcome to SendSasa! 👋'
-
-  const payload = {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to,
-    type: 'interactive',
-    interactive: {
-      type: 'button',
-      header: {
-        type: 'image',
-        image: {
-          link: 'https://i.ibb.co/kgBsTrcR/welcome-sasa.jpg',
-        },
-      },
-      body: {
-        text: `${greeting}\n\nSend money home faster than saying "I love you".\n\nSendSasa lets you send cash to Africa via WhatsApp — lands in M-Pesa, MTN MoMo, or Orange Money in under 60 seconds, for under 1% fee.`,
-      },
-      action: {
-        buttons: [
-          {
-            type: 'reply',
-            reply: {
-              id: 'get_started',
-              title: 'Get Started 🚀',
-            },
-          },
-        ],
-      },
-    },
-  }
-
-  await WhatsAppService.sendMessage(payload)
-}
-
 export async function sendBackToMenuButton(
   to: string,
   message: string,
@@ -323,12 +295,8 @@ export async function sendBackToMenuButton(
     type: 'interactive',
     interactive: {
       type: 'list',
-      body: {
-        text: message,
-      },
-      footer: {
-        text: 'Powered by XRPL',
-      },
+      body: { text: message },
+      footer: { text: 'Powered by XRPL' },
       action: {
         button: 'Options',
         sections: [

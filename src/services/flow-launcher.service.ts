@@ -7,7 +7,6 @@ export class FlowLauncherService {
   static async launchSendMoneyFlow(user: IUser): Promise<void> {
     try {
       const balances = await getAllBalances(user.xrplAddress)
-
       const flowToken = FlowDataExchangeService.generateFlowToken(
         user.whatsappId,
       )
@@ -19,16 +18,9 @@ export class FlowLauncherService {
         type: 'interactive',
         interactive: {
           type: 'flow',
-          header: {
-            type: 'text',
-            text: 'Send Money',
-          },
-          body: {
-            text: 'Send XRP, RLUSD, or USDC instantly to anyone',
-          },
-          footer: {
-            text: 'Secure & Fast',
-          },
+          header: { type: 'text', text: '💸 Send Money' },
+          body: { text: 'Send XRP, RLUSD, or USDC instantly to anyone' },
+          footer: { text: 'Secure & Fast' },
           action: {
             name: 'flow',
             parameters: {
@@ -71,16 +63,9 @@ export class FlowLauncherService {
         type: 'interactive',
         interactive: {
           type: 'flow',
-          header: {
-            type: 'text',
-            text: 'Request Money',
-          },
-          body: {
-            text: 'Request XRP, RLUSD, or USDC from anyone',
-          },
-          footer: {
-            text: 'Quick & Easy',
-          },
+          header: { type: 'text', text: 'Request Money' },
+          body: { text: 'Request XRP, RLUSD, or USDC from anyone' },
+          footer: { text: 'Quick & Easy' },
           action: {
             name: 'flow',
             parameters: {
@@ -105,6 +90,9 @@ export class FlowLauncherService {
     }
   }
 
+  /**
+   * Launch PIN Setup Flow (for onboarding)
+   */
   static async launchPinSetupFlow(user: IUser): Promise<void> {
     try {
       const flowToken = FlowDataExchangeService.generateFlowToken(
@@ -118,16 +106,11 @@ export class FlowLauncherService {
         type: 'interactive',
         interactive: {
           type: 'flow',
-          header: {
-            type: 'text',
-            text: 'Secure Your Account',
-          },
+          header: { type: 'text', text: 'Secure Your Account' },
           body: {
             text: 'Create your transaction PIN and set up security questions to protect your wallet',
           },
-          footer: {
-            text: 'This will only take a minute',
-          },
+          footer: { text: 'This will only take a minute' },
           action: {
             name: 'flow',
             parameters: {
@@ -148,6 +131,46 @@ export class FlowLauncherService {
       await WhatsAppService.sendMessage(flowMessage)
     } catch (error) {
       console.error('Failed to launch PIN Setup flow:', error)
+      throw error
+    }
+  }
+
+  static async launchImportWalletFlow(whatsappId: string): Promise<void> {
+    try {
+      const flowToken = FlowDataExchangeService.generateFlowToken(whatsappId)
+
+      const flowMessage = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: whatsappId,
+        type: 'interactive',
+        interactive: {
+          type: 'flow',
+          header: { type: 'text', text: 'Import Wallet' },
+          body: {
+            text: 'Import your existing XRPL wallet into SendSasa using your family seed.',
+          },
+          footer: { text: 'Your seed is encrypted immediately' },
+          action: {
+            name: 'flow',
+            parameters: {
+              flow_message_version: '3',
+              flow_token: flowToken,
+              flow_id: '1556152005476705',
+              flow_cta: 'Import Wallet',
+              mode: 'published',
+              flow_action: 'navigate',
+              flow_action_payload: {
+                screen: 'IMPORT_WALLET_SEED',
+              },
+            },
+          },
+        },
+      }
+
+      await WhatsAppService.sendMessage(flowMessage)
+    } catch (error) {
+      console.error('Failed to launch Import Wallet flow:', error)
       throw error
     }
   }
