@@ -30,6 +30,7 @@ import { parseButtonInteraction } from './message-parser.service'
 import { generateAndUploadReceipt } from './receipt-generator.service'
 import { encryptSeed, decryptSeed } from '../utils/encryption'
 import config from '../utils/config'
+import { usernameService } from './username.service'
 
 function normalizePin(pin: string | number): string {
   return Number.parseInt(pin.toString(), 10).toString()
@@ -278,16 +279,9 @@ async function handleGetStarted(
 
     const defaultPinHash = await bcrypt.hash('0000', 10)
 
-    const baseUsername = (profileName || 'user')
-      .toLowerCase()
-      .replace(/\s+/g, '')
-    let username = baseUsername
-    let counter = 1
-
-    while (await User.findOne({ username })) {
-      username = `${baseUsername}${counter}`
-      counter++
-    }
+    const username = await usernameService.generateUsername(
+      profileName || 'user',
+    )
 
     if (config.XRPL_NETWORK !== 'mainnet') {
       // Testnet — wallet is auto-funded, create trust lines immediately
