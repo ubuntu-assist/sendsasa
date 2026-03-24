@@ -16,7 +16,7 @@ export async function sendMainMenu(
       type: 'list',
       header: { type: 'text', text: 'SendSasa Wallet' },
       body: {
-        text: `Username: ${username}\n\nXRP: ${xrpBalance}\nRLUSD: ${rlusdBalance}\nUSDC: ${usdcBalance}\n\nWhat would you like to do?`,
+        text: `Sasaname: ${username}\n\nXRP: ${xrpBalance}\nRLUSD: ${rlusdBalance}\nUSDC: ${usdcBalance}\n\nWhat would you like to do?`,
       },
       footer: { text: 'Powered by XRPL' },
       action: {

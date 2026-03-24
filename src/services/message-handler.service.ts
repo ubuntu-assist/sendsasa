@@ -362,7 +362,7 @@ async function handleGetStarted(
       await FlowLauncherService.launchPinSetupFlow(user)
     } else {
       // Mainnet — wallet not yet on ledger, defer trust lines and PIN setup
-      user = await User.create({
+      await User.create({
         whatsappId,
         phoneNumber,
         xrplAddress: address,
@@ -374,7 +374,6 @@ async function handleGetStarted(
         usdcTrustLineCreated: false,
       })
 
-      console.log(`✅ New mainnet user created: ${whatsappId} (${username})`)
       await sendFundingMessage(phoneNumber, address)
     }
   } catch (error) {
@@ -694,12 +693,7 @@ async function handlePinSetupComplete(
     await sendTextMessage(
       phoneNumber,
       `✅ *Account Secured!*\n\n` +
-        `Your transaction PIN has been set successfully.\n\n` +
-        `💰 *Your Wallet*\n` +
-        `🔷 XRP: ${balances.xrp}\n` +
-        `💵 RLUSD: ${balances.rlusd}\n` +
-        `🔵 USDC: ${balances.usdc}\n\n` +
-        `Username: ${user.username}\n\n` +
+        `Your transaction PIN has been set successfully.\n` +
         `You can now send and receive money securely! 🔐`,
     )
 
@@ -749,7 +743,7 @@ async function handleSendMoneyComplete(
     let recipientPhone: string | undefined
 
     if (recipient_type === 'Phone Number') {
-      const cleanPhone = recipient.replace(/\+/g, '').replace(/\s/g, '')
+      const cleanPhone = recipient.replaceAll('+', '').replaceAll(/\s/g, '')
       const recipientUser = await User.findOne({ whatsappId: cleanPhone })
 
       if (!recipientUser) {
@@ -837,11 +831,23 @@ async function handleSendMoneyComplete(
     let result: { hash: string; result: string }
 
     if (currency === 'XRP') {
-      result = await sendXRP(senderSeed, recipientAddress, parseFloat(amount))
+      result = await sendXRP(
+        senderSeed,
+        recipientAddress,
+        Number.parseFloat(amount),
+      )
     } else if (currency === 'RLUSD') {
-      result = await sendRLUSD(senderSeed, recipientAddress, parseFloat(amount))
+      result = await sendRLUSD(
+        senderSeed,
+        recipientAddress,
+        Number.parseFloat(amount),
+      )
     } else {
-      result = await sendUSDC(senderSeed, recipientAddress, parseFloat(amount))
+      result = await sendUSDC(
+        senderSeed,
+        recipientAddress,
+        Number.parseFloat(amount),
+      )
     }
 
     const txHash = result.hash
@@ -852,7 +858,7 @@ async function handleSendMoneyComplete(
       toAddress: recipientAddress,
       fromPhone: user.phoneNumber,
       toPhone: recipientPhone,
-      amount: parseFloat(amount),
+      amount: Number.parseFloat(amount),
       currency,
       status: 'success',
       timestamp: new Date(),
@@ -877,7 +883,7 @@ async function handleSendMoneyComplete(
         senderPhone: phoneNumber,
         recipientName: recipient_display || recipient,
         recipientPhone: recipientPhone || 'N/A',
-        amount: parseFloat(amount),
+        amount: Number.parseFloat(amount),
         currency,
         transactionType: 'Send Money',
       })
@@ -911,7 +917,7 @@ async function handleSendMoneyComplete(
           senderPhone: phoneNumber,
           recipientName: recipient_display || recipient,
           recipientPhone: recipientPhone,
-          amount: parseFloat(amount),
+          amount: Number.parseFloat(amount),
           currency,
           transactionType: 'Send Money',
         })
@@ -966,7 +972,7 @@ async function handleRequestMoneyComplete(
     let recipientUsername: string
 
     if (recipient_type === 'Phone Number') {
-      const cleanPhone = recipient.replace(/\+/g, '').replace(/\s/g, '')
+      const cleanPhone = recipient.replaceAll('+', '').replaceAll(/\s/g, '')
       const recipientUser = await User.findOne({ whatsappId: cleanPhone })
 
       if (!recipientUser) {
@@ -1009,7 +1015,7 @@ async function handleRequestMoneyComplete(
       requesterPhone: user.phoneNumber,
       payerAddress,
       payerPhone,
-      amount: parseFloat(amount),
+      amount: Number.parseFloat(amount),
       currency,
       message: note || '',
       status: 'pending',
@@ -1021,16 +1027,16 @@ async function handleRequestMoneyComplete(
     await sendTextMessage(
       phoneNumber,
       `✅ *Payment Request Sent!*\n\n` +
-        `💰 Amount: ${amount} ${currency}\n` +
-        `📍 To: ${recipientUsername}\n` +
-        `📝 Note: ${note || 'N/A'}\n\n` +
+        `Amount: ${amount} ${currency}\n` +
+        `To: ${recipientUsername}\n` +
+        `Note: ${note || 'N/A'}\n\n` +
         `You'll be notified when they respond.`,
     )
 
     await sendPaymentRequestButtons(
       payerPhone,
       user.username,
-      parseFloat(amount),
+      Number.parseFloat(amount),
       paymentRequest.requestId,
       currency,
     )
@@ -1275,11 +1281,11 @@ async function handleApproveRequest(
     let sufficient = false
 
     if (paymentRequest.currency === 'XRP') {
-      sufficient = parseFloat(balances.xrp) >= paymentRequest.amount + 1
+      sufficient = Number.parseFloat(balances.xrp) >= paymentRequest.amount + 1
     } else if (paymentRequest.currency === 'RLUSD') {
-      sufficient = parseFloat(balances.rlusd) >= paymentRequest.amount
+      sufficient = Number.parseFloat(balances.rlusd) >= paymentRequest.amount
     } else if (paymentRequest.currency === 'USDC') {
-      sufficient = parseFloat(balances.usdc) >= paymentRequest.amount
+      sufficient = Number.parseFloat(balances.usdc) >= paymentRequest.amount
     }
 
     if (!sufficient) {
