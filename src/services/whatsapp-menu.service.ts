@@ -119,12 +119,12 @@ export async function sendFundingMessage(
       body: {
         text:
           `*Your wallet has been created!*\n\n` +
-          `To activate it, send at least *10 XRP* to your wallet address:\n\n` +
+          `To activate it, send at least *1 XRP* to your wallet address:\n\n` +
           `\`${xrplAddress}\`\n\n` +
           `You can buy XRP on any exchange (Binance, Coinbase, Kraken) and send it to this address.\n\n` +
           `Once funded, tap *Check Activation* and we'll set up your security and stablecoin support.`,
       },
-      footer: { text: 'Minimum 10 XRP required' },
+      footer: { text: 'Minimum 1 XRP required' },
       action: {
         buttons: [
           {

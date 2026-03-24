@@ -570,7 +570,7 @@ async function handleCheckActivation(
     if (!activated) {
       await sendTextMessage(
         phoneNumber,
-        `⚠️ *Wallet not yet activated.*\n\nYour address:\n\`${user.xrplAddress}\`\n\nPlease send at least *10 XRP* to this address and tap *Check Activation* again.`,
+        `⚠️ *Wallet not yet activated.*\n\nYour address:\n\`${user.xrplAddress}\`\n\nPlease send at least *1 XRP* to this address and tap *Check Activation* again.`,
       )
       await sendFundingMessage(phoneNumber, user.xrplAddress)
       return

@@ -795,7 +795,7 @@ export class FlowDataExchangeService {
         data: {
           ...flowData.data,
           __errors__: {
-            seed: `Address ${derivedAddress} has no funds on the XRPL mainnet. Please fund it with at least 10 XRP first.`,
+            seed: `Address ${derivedAddress} has no funds on the XRPL mainnet. Please fund it with at least 1 XRP first.`,
           },
         },
       }
