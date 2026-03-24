@@ -5,6 +5,7 @@ import config from '../utils/config'
 const ENCRYPTION_KEY = config.ENCRYPTION_KEY!
 const ALGORITHM = 'aes-256-gcm' as const
 const IV_LENGTH = 16
+export const SENDSASA_SOURCE_TAG = 115611156
 
 const XRPL_NETWORK = config.XRPL_NETWORK
 const WEBSOCKET_URL =
@@ -204,6 +205,7 @@ export async function createTrustLine(
         issuer: issuer,
         value: trustLimit,
       },
+      SourceTag: SENDSASA_SOURCE_TAG,
     }
 
     const prepared = await client.autofill(trustSet)
@@ -374,6 +376,7 @@ export async function sendXRP(
       Account: wallet.address,
       Destination: recipientAddress,
       Amount: xrpToDrops(amount),
+      SourceTag: SENDSASA_SOURCE_TAG,
     }
 
     const prepared = await client.autofill(payment)
@@ -426,6 +429,7 @@ export async function sendStablecoin(
         issuer: issuer,
         value: amount.toString(),
       },
+      SourceTag: SENDSASA_SOURCE_TAG,
     }
 
     const prepared = await client.autofill(payment)
