@@ -2,6 +2,7 @@
   "compilerOptions": {
     "target": "ES2022",
     "outDir": "./build/",
+    "rootDir": "./src",
     "module": "commonjs",
     "strict": true,
     "noUnusedLocals": true,
@@ -12,5 +13,7 @@
     "resolveJsonModule": true,
     "moduleResolution": "node",
     "skipLibCheck": true
-  }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "build", "dist", "scripts", "tests"]
 }
