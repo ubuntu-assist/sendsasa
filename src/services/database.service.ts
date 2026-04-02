@@ -1,125 +1,66 @@
-// src/services/database-FINAL-FIXED.service.ts
 import { User, Transaction, PaymentRequest, MessageLog } from '../models'
 import { IUser, ITransaction, IPaymentRequest, IMessageLog } from '../types'
-import config from '../utils/config'
-import {
-  generateWallet,
-  getEncryptedSeed,
-  createRLUSDTrustLine,
-  createUSDCTrustLine,
-  getAllBalances,
-} from './xrpl.service'
+import { getAllBalances } from './xrpl.service'
+import { walletService } from './wallet.service'
+import { normalizeToE164 } from './phone-number.service'
 
-/**
- * User Management
- */
 export class UserService {
-  /**
-   * Get user by WhatsApp ID
-   */
   static async getUserByWhatsAppId(whatsappId: string): Promise<IUser | null> {
     return await User.findOne({ whatsappId })
   }
 
-  /**
-   * Get user by phone number
-   */
   static async getUserByPhone(phoneNumber: string): Promise<IUser | null> {
     return await User.findOne({ phoneNumber })
   }
 
-  /**
-   * Get user by XRPL address
-   */
   static async getUserByAddress(xrplAddress: string): Promise<IUser | null> {
     return await User.findOne({ xrplAddress })
   }
 
-  /**
-   * Create new user with XRPL wallet + RLUSD + USDC trust lines
-   * FIXED: generateWallet handles funding automatically on testnet
-   */
   static async createUser(
     whatsappId: string,
     phoneNumber: string,
   ): Promise<IUser> {
-    // Check if user already exists
     const existingUser = await this.getUserByWhatsAppId(whatsappId)
     if (existingUser) {
       return existingUser
     }
 
-    // Generate XRPL wallet (auto-funded on testnet!)
-    const wallet = await generateWallet()
-    const { address, seed } = wallet
+    // Derive wallet addresses via Web3Auth (no private keys stored)
+    const e164Phone = normalizeToE164(phoneNumber)
+    const { evmAddress, xrplAddress } =
+      await walletService.getOrCreateWallets(e164Phone)
 
-    // Wait 2 seconds for ledger to process funding
-    if (config.XRPL_NETWORK !== 'mainnet') {
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-    }
-
-    // Initialize trust line tracking
-    let rlusdHash: string | undefined
-    let usdcHash: string | undefined
-    let rlusdCreated = false
-    let usdcCreated = false
-
-    // Create RLUSD trust line (non-blocking - FREE!)
-    try {
-      const rlusdResult = await createRLUSDTrustLine(seed)
-      if (rlusdResult.success) {
-        rlusdHash = rlusdResult.hash
-        rlusdCreated = true
-        console.log(`✅ RLUSD trust line created (FREE): ${rlusdHash}`)
-      }
-    } catch (error) {
-      console.error('⚠️ RLUSD trust line failed (non-critical):', error)
-    }
-
-    // Create USDC trust line (non-blocking - FREE!)
-    try {
-      const usdcResult = await createUSDCTrustLine(seed)
-      if (usdcResult.success) {
-        usdcHash = usdcResult.hash
-        usdcCreated = true
-        console.log(`✅ USDC trust line created (FREE): ${usdcHash}`)
-      }
-    } catch (error) {
-      console.error('⚠️ USDC trust line failed (non-critical):', error)
-    }
-
-    // Create user document
     const user = new User({
       whatsappId,
-      phoneNumber,
-      xrplAddress: address,
-      encryptedSeed: getEncryptedSeed(seed),
+      phoneNumber: e164Phone,
+      xrplAddress, // Legacy field kept for compatibility
+      encryptedSeed: '', // No longer used — wallets managed by Web3Auth
 
       // Required fields
-      username: `@${phoneNumber.slice(-8)}.sasa`, // Generate default username from phone
-      pinHash: '', // Empty for now - user will set PIN later
+      username: `@${e164Phone.slice(-8)}.sasa`,
+      pinHash: '',
 
-      // Multi-currency support
-      preferredCurrency: 'XRP', // Default
-      rlusdTrustLineCreated: rlusdCreated,
-      usdcTrustLineCreated: usdcCreated,
-      rlusdTrustLineHash: rlusdHash,
-      usdcTrustLineHash: usdcHash,
+      preferredCurrency: 'XRP',
+      rlusdTrustLineCreated: false,
+      usdcTrustLineCreated: false,
 
-      // Timestamps
+      // Web3Auth fields
+      evm_address: evmAddress,
+      xrpl_address: xrplAddress,
+      web3auth_verifier_id: e164Phone,
+      wallet_created_at: new Date(),
+      migration_status: 'n/a',
+
       createdAt: new Date(),
       lastActive: new Date(),
     })
 
     await user.save()
 
-    console.log(`✅ User created: ${whatsappId} | ${address}`)
     return user
   }
 
-  /**
-   * Update user's preferred currency
-   */
   static async updatePreferredCurrency(
     whatsappId: string,
     currency: 'XRP' | 'RLUSD' | 'USDC',
@@ -131,9 +72,6 @@ export class UserService {
     )
   }
 
-  /**
-   * Update trust line status
-   */
   static async updateTrustLineStatus(
     whatsappId: string,
     currency: 'RLUSD' | 'USDC',
@@ -147,9 +85,6 @@ export class UserService {
     return await User.findOneAndUpdate({ whatsappId }, update, { new: true })
   }
 
-  /**
-   * Get user balances (all currencies)
-   */
   static async getUserBalances(user: IUser): Promise<{
     xrp: string
     rlusd: string
@@ -158,23 +93,14 @@ export class UserService {
     return await getAllBalances(user.xrplAddress)
   }
 
-  /**
-   * Update last active timestamp
-   */
   static async updateLastActive(whatsappId: string): Promise<void> {
     await User.updateOne({ whatsappId }, { lastActive: new Date() })
   }
 
-  /**
-   * Get user by username
-   */
   static async getUserByUsername(username: string): Promise<IUser | null> {
     return await User.findOne({ username: username.toLowerCase() })
   }
 
-  /**
-   * Update username
-   */
   static async updateUsername(
     whatsappId: string,
     newUsername: string,
@@ -189,29 +115,19 @@ export class UserService {
     )
   }
 
-  /**
-   * Check if username is available
-   */
   static async isUsernameAvailable(username: string): Promise<boolean> {
     const existing = await User.findOne({ username: username.toLowerCase() })
     return !existing
   }
 }
 
-/**
- * Transaction Management
- */
 export class TransactionService {
-  /**
-   * Log transaction to database
-   * UPDATED: Added currency parameter
-   */
   static async logTransaction(
     txHash: string,
     fromAddress: string,
     toAddress: string,
     amount: number,
-    currency: 'XRP' | 'RLUSD' | 'USDC' = 'XRP', // NEW: Currency parameter
+    currency: 'XRP' | 'RLUSD' | 'USDC' = 'XRP',
     status: 'pending' | 'success' | 'failed',
     fromPhone?: string,
     toPhone?: string,
@@ -223,28 +139,22 @@ export class TransactionService {
       fromPhone,
       toPhone,
       amount,
-      currency, // NEW: Currency field
+      currency,
       status,
       timestamp: new Date(),
     })
 
     await transaction.save()
-    console.log(`📝 Transaction logged: ${txHash} (${currency})`)
+
     return transaction
   }
 
-  /**
-   * Get transaction by hash
-   */
   static async getTransactionByHash(
     txHash: string,
   ): Promise<ITransaction | null> {
     return await Transaction.findOne({ txHash })
   }
 
-  /**
-   * Get transactions for an address
-   */
   static async getTransactionsForAddress(
     address: string,
     limit: number = 10,
@@ -256,9 +166,6 @@ export class TransactionService {
       .limit(limit)
   }
 
-  /**
-   * Get transactions for a phone number
-   */
   static async getTransactionsForPhone(
     phoneNumber: string,
     limit: number = 10,
@@ -270,9 +177,6 @@ export class TransactionService {
       .limit(limit)
   }
 
-  /**
-   * Update transaction status
-   */
   static async updateTransactionStatus(
     txHash: string,
     status: 'pending' | 'success' | 'failed',
@@ -285,21 +189,14 @@ export class TransactionService {
   }
 }
 
-/**
- * Payment Request Management
- */
 export class PaymentRequestService {
-  /**
-   * Create payment request
-   * UPDATED: Added currency parameter
-   */
   static async createPaymentRequest(
     requesterAddress: string,
     requesterPhone: string,
     payerAddress: string,
     payerPhone: string,
     amount: number,
-    currency: 'XRP' | 'RLUSD' | 'USDC' = 'XRP', // NEW: Currency parameter
+    currency: 'XRP' | 'RLUSD' | 'USDC' = 'XRP',
     message?: string,
   ): Promise<IPaymentRequest> {
     const requestId = `PR_${Date.now()}_${Math.random().toString(36).substring(7)}`
@@ -311,30 +208,24 @@ export class PaymentRequestService {
       payerAddress,
       payerPhone,
       amount,
-      currency, // NEW: Currency field
+      currency,
       message,
       status: 'pending',
       createdAt: new Date(),
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     })
 
     await request.save()
-    console.log(`📝 Payment request created: ${requestId} (${currency})`)
+
     return request
   }
 
-  /**
-   * Get payment request by ID
-   */
   static async getPaymentRequestById(
     requestId: string,
   ): Promise<IPaymentRequest | null> {
     return await PaymentRequest.findOne({ requestId })
   }
 
-  /**
-   * Get pending requests for payer
-   */
   static async getPendingRequestsForPayer(
     payerAddress: string,
   ): Promise<IPaymentRequest[]> {
@@ -345,9 +236,6 @@ export class PaymentRequestService {
     }).sort({ createdAt: -1 })
   }
 
-  /**
-   * Get pending requests for requester
-   */
   static async getPendingRequestsForRequester(
     requesterAddress: string,
   ): Promise<IPaymentRequest[]> {
@@ -358,9 +246,6 @@ export class PaymentRequestService {
     }).sort({ createdAt: -1 })
   }
 
-  /**
-   * Approve payment request
-   */
   static async approvePaymentRequest(
     requestId: string,
     txHash: string,
@@ -376,9 +261,6 @@ export class PaymentRequestService {
     )
   }
 
-  /**
-   * Reject payment request
-   */
   static async rejectPaymentRequest(
     requestId: string,
   ): Promise<IPaymentRequest | null> {
@@ -392,9 +274,6 @@ export class PaymentRequestService {
     )
   }
 
-  /**
-   * Fail payment request
-   */
   static async failPaymentRequest(
     requestId: string,
   ): Promise<IPaymentRequest | null> {
@@ -408,9 +287,6 @@ export class PaymentRequestService {
     )
   }
 
-  /**
-   * Expire old requests
-   */
   static async expireOldRequests(): Promise<void> {
     await PaymentRequest.updateMany(
       {
@@ -422,13 +298,7 @@ export class PaymentRequestService {
   }
 }
 
-/**
- * Message Log Management
- */
 export class MessageLogService {
-  /**
-   * Log incoming message
-   */
   static async logIncomingMessage(
     whatsappId: string,
     message: string,
@@ -444,9 +314,6 @@ export class MessageLogService {
     return log
   }
 
-  /**
-   * Log outgoing message
-   */
   static async logOutgoingMessage(
     whatsappId: string,
     message: string,
@@ -462,9 +329,6 @@ export class MessageLogService {
     return log
   }
 
-  /**
-   * Get message history for user
-   */
   static async getMessageHistory(
     whatsappId: string,
     limit: number = 50,
@@ -474,9 +338,6 @@ export class MessageLogService {
       .limit(limit)
   }
 
-  /**
-   * Clear old message logs (older than 30 days)
-   */
   static async clearOldLogs(): Promise<void> {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     await MessageLog.deleteMany({ timestamp: { $lt: thirtyDaysAgo } })

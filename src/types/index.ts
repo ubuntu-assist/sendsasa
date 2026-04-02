@@ -178,7 +178,7 @@ export interface IUser extends Document {
   whatsappId: string
   phoneNumber: string
   xrplAddress: string
-  encryptedSeed: string
+  encryptedSeed: string  // Legacy — empty string for Web3Auth users
   createdAt: Date
   lastActive: Date
 
@@ -206,6 +206,15 @@ export interface IUser extends Document {
   // USDC trust line tracking
   usdcTrustLineCreated: boolean
   usdcTrustLineHash?: string
+
+  // Web3Auth wallet fields (added during migration)
+  web3auth_verifier?: string       // "sendsasa-whatsapp"
+  web3auth_verifier_id?: string    // E.164 phone number
+  evm_address?: string             // Cached 0x... (same for BSC/Base/ETH)
+  xrpl_address?: string            // Cached r...
+  wallet_created_at?: Date
+  migration_status?: 'pending' | 'completed' | 'n/a'
+  old_wallet_exists?: boolean
 }
 
 export interface ITransaction extends Document {

@@ -23,9 +23,10 @@ const UserSchema = new Schema<IUser>({
     index: true,
     trim: true,
   },
+  // Legacy field — kept for migration period; empty string for Web3Auth users
   encryptedSeed: {
     type: String,
-    required: true,
+    default: '',
   },
   createdAt: {
     type: Date,
@@ -92,6 +93,39 @@ const UserSchema = new Schema<IUser>({
   },
   usdcTrustLineHash: {
     type: String,
+  },
+
+  // Web3Auth wallet fields (populated during migration / new user creation)
+  web3auth_verifier: {
+    type: String,
+    default: 'sendsasa-whatsapp',
+  },
+  web3auth_verifier_id: {
+    type: String,
+    unique: true,
+    sparse: true,
+  },
+  evm_address: {
+    type: String,
+    index: true,
+    sparse: true,
+  },
+  xrpl_address: {
+    type: String,
+    index: true,
+    sparse: true,
+  },
+  wallet_created_at: {
+    type: Date,
+  },
+  migration_status: {
+    type: String,
+    enum: ['pending', 'completed', 'n/a'],
+    default: 'n/a',
+  },
+  old_wallet_exists: {
+    type: Boolean,
+    default: false,
   },
 })
 

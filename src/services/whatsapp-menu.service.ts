@@ -1,12 +1,20 @@
 import { WhatsAppService } from './whatsapp.service'
 
+export interface MenuBalances {
+  xrp: string
+  rlusd: string
+  usdc: string
+  bnb: string
+  bscUsdt: string
+  baseEth: string
+}
+
 export async function sendMainMenu(
   to: string,
-  xrpBalance: string,
-  rlusdBalance: string,
-  usdcBalance: string,
+  balances: MenuBalances,
   username: string,
 ): Promise<void> {
+  const { xrp, rlusd, usdc, bnb, bscUsdt, baseEth } = balances
   const payload = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
@@ -16,7 +24,12 @@ export async function sendMainMenu(
       type: 'list',
       header: { type: 'text', text: 'SendSasa Wallet' },
       body: {
-        text: `Sasaname: ${username}\n\nXRP: ${xrpBalance}\nRLUSD: ${rlusdBalance}\nUSDC: ${usdcBalance}\n\nWhat would you like to do?`,
+        text:
+          `Sasaname: ${username}\n\n` +
+          `*XRPL*\nXRP: ${xrp} | RLUSD: ${rlusd} | USDC: ${usdc}\n\n` +
+          `*BSC*\nBNB: ${bnb} | USDT: ${bscUsdt}\n\n` +
+          `*Base*\nETH: ${baseEth}\n\n` +
+          `What would you like to do?`,
       },
       footer: { text: 'Powered by XRPL' },
       action: {
@@ -236,11 +249,10 @@ export async function sendRecipientTypeMenu(
 
 export async function sendWalletMenu(
   to: string,
-  xrpBalance: string,
-  rlusdBalance: string,
-  usdcBalance: string,
+  balances: MenuBalances,
   username: string,
 ): Promise<void> {
+  const { xrp, rlusd, usdc, bnb, bscUsdt, baseEth } = balances
   const payload = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
@@ -250,7 +262,12 @@ export async function sendWalletMenu(
       type: 'list',
       header: { type: 'text', text: 'My Wallet' },
       body: {
-        text: `${username}\n\nXRP: ${xrpBalance}\nRLUSD: ${rlusdBalance}\nUSDC: ${usdcBalance}\n\nWhat would you like to do?`,
+        text:
+          `${username}\n\n` +
+          `*XRPL*\nXRP: ${xrp} | RLUSD: ${rlusd} | USDC: ${usdc}\n\n` +
+          `*BSC*\nBNB: ${bnb} | USDT: ${bscUsdt}\n\n` +
+          `*Base*\nETH: ${baseEth}\n\n` +
+          `What would you like to do?`,
       },
       footer: { text: 'Powered by XRPL' },
       action: {

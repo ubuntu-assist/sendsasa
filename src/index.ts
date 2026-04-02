@@ -5,6 +5,8 @@ import cron from 'node-cron'
 import axios from 'axios'
 import webhookRoutes from './routes/webhook.routes'
 import cronRoutes from './routes/cron.routes'
+import flowDataExchangeRoutes from './routes/flow.routes'
+import jwksRoutes from './routes/jwks.routes'
 import { xrplClient } from './config/xrpl'
 import { connectDatabase, disconnectDatabase } from './config/database'
 import {
@@ -14,7 +16,6 @@ import {
 } from './middleware/error-handler'
 import { apiLimiter } from './middleware/rate-limiter'
 import config from './utils/config'
-import flowDataExchangeRoutes from './routes/flow.routes'
 
 const app: Express = express()
 const PORT = config.PORT
@@ -33,6 +34,8 @@ app.use(express.urlencoded({ extended: true }))
 
 app.use(requestLogger)
 
+// Routes
+app.use('/.well-known', jwksRoutes)
 app.use('/api', flowDataExchangeRoutes)
 app.use('/webhook', webhookRoutes)
 app.use('/cron', cronRoutes)
@@ -61,6 +64,7 @@ async function startServer() {
       console.log(`Environment: ${NODE_ENV}`)
       console.log(`XRPL Network: ${xrplClient.getNetwork()}`)
       console.log(`Database: MongoDB connected`)
+      console.log(`JWKS Endpoint: ${SELF_URL}/.well-known/jwks.json`)
       console.log(`\nReady to receive WhatsApp messages!\n`)
 
       if (NODE_ENV === 'production') {
@@ -82,7 +86,7 @@ function startSelfPing() {
   cron.schedule('*/5 * * * *', async () => {
     try {
       const response = await axios.get(`${SELF_URL}/cron/activate`, {
-        timeout: 10000, // 10 second timeout
+        timeout: 10000,
         headers: {
           'User-Agent': 'SelfPing-KeepAlive/1.0',
         },

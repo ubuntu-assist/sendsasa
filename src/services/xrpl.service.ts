@@ -1,10 +1,7 @@
-import { Client, Wallet, Payment, TrustSet, xrpToDrops } from 'xrpl'
-import crypto from 'node:crypto'
+import { Client, Wallet, ECDSA, encodeSeed, Payment, TrustSet, xrpToDrops } from 'xrpl'
 import config from '../utils/config'
+import logger from '../utils/logger'
 
-const ENCRYPTION_KEY = config.ENCRYPTION_KEY!
-const ALGORITHM = 'aes-256-gcm' as const
-const IV_LENGTH = 16
 export const SENDSASA_SOURCE_TAG = 115611156
 
 const XRPL_NETWORK = config.XRPL_NETWORK
@@ -12,6 +9,8 @@ const WEBSOCKET_URL =
   XRPL_NETWORK === 'mainnet'
     ? 'wss://xrplcluster.com'
     : 'wss://s.altnet.rippletest.net:51233'
+
+// ─── Token Configs ────────────────────────────────────────────────────────────
 
 export const RLUSD_MAINNET = {
   issuer: 'rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De',
@@ -36,99 +35,46 @@ export const USDC_TESTNET = {
 export const RLUSD = XRPL_NETWORK === 'mainnet' ? RLUSD_MAINNET : RLUSD_TESTNET
 export const USDC = XRPL_NETWORK === 'mainnet' ? USDC_MAINNET : USDC_TESTNET
 
-export async function generateWallet(): Promise<{
-  address: string
-  seed: string
-}> {
-  console.log('\nGenerating new wallet...')
-
-  const client = new Client(WEBSOCKET_URL)
-  await client.connect()
-
-  try {
-    if (XRPL_NETWORK === 'mainnet') {
-      const wallet = Wallet.generate()
-      await client.disconnect()
-      return {
-        address: wallet.classicAddress,
-        seed: wallet.seed!,
-      }
-    } else {
-      const { wallet, balance } = await client.fundWallet()
-      await client.disconnect()
-      console.log('Wallet created and funded!')
-      console.log(`Address: ${wallet.classicAddress}`)
-      console.log(`Balance: ${balance} XRP`)
-      return {
-        address: wallet.classicAddress,
-        seed: wallet.seed!,
-      }
-    }
-  } catch (error) {
-    await client.disconnect()
-    console.error('❌ Error generating wallet:', error)
-    throw error
-  }
-}
+// ─── Key Derivation ──────────────────────────────────────────────────────────
 
 /**
- * Encrypt wallet seed using AES-256-GCM
- * Format: iv:authTag:encryptedData
+ * Derive an XRPL Wallet from a secp256k1 private key (as returned by Web3Auth).
+ *
+ * Replicates the algorithm used by @web3auth/xrpl-provider (XrplPrivateKeyProvider):
+ *   1. Take the first 16 bytes of the 32-byte key as seed entropy
+ *   2. Encode as a secp256k1 XRPL seed (base58 format via xrpl.encodeSeed)
+ *   3. Derive the wallet with Wallet.fromSeed using the secp256k1 algorithm
+ *
+ * This produces the same XRPL address as calling xrpl_getKeyPair through
+ * the XrplPrivateKeyProvider, making it suitable for transaction signing when
+ * you already have the secp256k1 key from Web3Auth.
+ *
+ * @param secp256k1Key  64-char hex string, no "0x" prefix required
  */
-export function encryptSeed(seed: string): string {
-  const iv = crypto.randomBytes(IV_LENGTH)
-  const cipher = crypto.createCipheriv(
-    ALGORITHM,
-    Buffer.from(ENCRYPTION_KEY, 'hex'),
-    iv,
-  )
+export function deriveXRPLWalletFromSecp256k1(secp256k1Key: string): Wallet {
+  const keyHex = secp256k1Key.startsWith('0x')
+    ? secp256k1Key.slice(2)
+    : secp256k1Key
 
-  let encrypted = cipher.update(seed, 'utf8', 'hex')
-  encrypted += cipher.final('hex')
-  const authTag = cipher.getAuthTag()
+  // encodeSeed accepts exactly 16 bytes of entropy for secp256k1 seeds
+  const entropy = Buffer.from(keyHex.padStart(64, '0'), 'hex').subarray(0, 16)
+  const seed = encodeSeed(entropy, 'secp256k1')
 
-  return iv.toString('hex') + ':' + authTag.toString('hex') + ':' + encrypted
+  return Wallet.fromSeed(seed, { algorithm: ECDSA.secp256k1 })
 }
 
-/**
- * Decrypt wallet seed using AES-256-GCM
- */
-export function decryptSeed(encryptedSeed: string): string {
-  const parts = encryptedSeed.split(':')
-
-  if (parts.length !== 3) {
-    throw new Error('Invalid encrypted seed format')
-  }
-
-  const iv = Buffer.from(parts[0], 'hex')
-  const authTag = Buffer.from(parts[1], 'hex')
-  const encryptedText = parts[2]
-
-  const decipher = crypto.createDecipheriv(
-    ALGORITHM,
-    Buffer.from(ENCRYPTION_KEY, 'hex'),
-    iv,
-  )
-  decipher.setAuthTag(authTag)
-
-  let decrypted = decipher.update(encryptedText, 'hex', 'utf8')
-  decrypted += decipher.final('utf8')
-
-  return decrypted
-}
+// ─── Account Queries ─────────────────────────────────────────────────────────
 
 export async function isAccountActivated(address: string): Promise<boolean> {
   const client = new Client(WEBSOCKET_URL)
 
   try {
     await client.connect()
-
     await client.request({
       command: 'account_info',
       account: address,
       ledger_index: 'validated',
     })
-
     await client.disconnect()
     return true
   } catch (error: any) {
@@ -141,7 +87,7 @@ export async function isAccountActivated(address: string): Promise<boolean> {
       return false
     }
 
-    console.error('Error checking account activation:', error)
+    logger.error('Error checking account activation:', error)
     return false
   }
 }
@@ -165,10 +111,7 @@ export async function getBalance(
     const balanceInDrops = response.result.account_data.Balance
     const balanceInXRP = Number(balanceInDrops) / 1_000_000
 
-    return {
-      balance: balanceInXRP.toString(),
-      account: address,
-    }
+    return { balance: balanceInXRP.toString(), account: address }
   } catch (error: any) {
     await client.disconnect()
 
@@ -179,75 +122,12 @@ export async function getBalance(
       return { balance: '0', account: address }
     }
 
-    console.error('Error getting balance:', error)
-    throw new Error('Failed to get balance')
+    logger.error('Error getting XRP balance:', error)
+    throw new Error('Failed to get XRP balance')
   }
 }
 
-export async function createTrustLine(
-  walletSeed: string,
-  currency: string,
-  issuer: string,
-  trustLimit: string = '1000000',
-): Promise<{ success: boolean; hash: string }> {
-  const client = new Client(WEBSOCKET_URL, { connectionTimeout: 15000 })
-
-  try {
-    await client.connect()
-
-    const wallet = Wallet.fromSeed(walletSeed)
-
-    const trustSet: TrustSet = {
-      TransactionType: 'TrustSet',
-      Account: wallet.address,
-      LimitAmount: {
-        currency: currency,
-        issuer: issuer,
-        value: trustLimit,
-      },
-      SourceTag: SENDSASA_SOURCE_TAG,
-    }
-
-    const prepared = await client.autofill(trustSet)
-    const signed = wallet.sign(prepared)
-    const result = await client.submitAndWait(signed.tx_blob)
-
-    await client.disconnect()
-
-    const meta = result.result.meta
-    if (!meta || typeof meta === 'string') {
-      throw new Error('Transaction metadata unavailable')
-    }
-
-    const success = meta.TransactionResult === 'tesSUCCESS'
-
-    if (success) {
-      console.log(
-        `✅ Trust line created for ${currency}: ${result.result.hash}`,
-      )
-    } else {
-      console.log(`❌ Trust line failed: ${meta.TransactionResult}`)
-    }
-
-    return { success, hash: result.result.hash }
-  } catch (error) {
-    await client.disconnect()
-    console.error('❌ Error creating trust line:', error)
-    throw new Error('Failed to create trust line')
-  }
-}
-
-export async function createRLUSDTrustLine(
-  walletSeed: string,
-): Promise<{ success: boolean; hash: string }> {
-  return createTrustLine(walletSeed, RLUSD.currency, RLUSD.issuer)
-}
-
-export async function createUSDCTrustLine(
-  walletSeed: string,
-): Promise<{ success: boolean; hash: string }> {
-  return createTrustLine(walletSeed, USDC.currency, USDC.issuer)
-}
+// ─── Trust Lines ─────────────────────────────────────────────────────────────
 
 export async function hasTrustLine(
   address: string,
@@ -267,14 +147,12 @@ export async function hasTrustLine(
 
     await client.disconnect()
 
-    const trustLine = response.result.lines.find(
+    return response.result.lines.some(
       (line: any) => line.currency === currency && line.account === issuer,
     )
-
-    return !!trustLine
   } catch (error: any) {
     await client.disconnect()
-    console.error('Error checking trust line:', error)
+    logger.error('Error checking trust line:', error)
     return false
   }
 }
@@ -288,8 +166,73 @@ export async function hasUSDCTrustLine(address: string): Promise<boolean> {
 }
 
 /**
- * Get balance for a specific stablecoin.
- * Returns '0' if account not yet funded (actNotFound) instead of throwing.
+ * Create a trust line on XRPL.
+ *
+ * @param secp256k1Key  Web3Auth-derived secp256k1 hex key
+ */
+export async function createTrustLine(
+  secp256k1Key: string,
+  currency: string,
+  issuer: string,
+  trustLimit: string = '1000000',
+): Promise<{ success: boolean; hash: string }> {
+  const client = new Client(WEBSOCKET_URL, { connectionTimeout: 15000 })
+
+  try {
+    await client.connect()
+
+    const wallet = deriveXRPLWalletFromSecp256k1(secp256k1Key)
+
+    const trustSet: TrustSet = {
+      TransactionType: 'TrustSet',
+      Account: wallet.address,
+      LimitAmount: { currency, issuer, value: trustLimit },
+      SourceTag: SENDSASA_SOURCE_TAG,
+    }
+
+    const prepared = await client.autofill(trustSet)
+    const signed = wallet.sign(prepared)
+    const result = await client.submitAndWait(signed.tx_blob)
+
+    await client.disconnect()
+
+    const meta = result.result.meta
+    if (!meta || typeof meta === 'string') {
+      throw new Error('Transaction metadata unavailable')
+    }
+
+    const success = meta.TransactionResult === 'tesSUCCESS'
+
+    if (success) {
+      logger.info(`Trust line created for ${currency}: ${result.result.hash}`)
+    } else {
+      logger.error(`Trust line failed: ${meta.TransactionResult}`)
+    }
+
+    return { success, hash: result.result.hash }
+  } catch (error) {
+    await client.disconnect()
+    logger.error('Error creating trust line:', error)
+    throw new Error('Failed to create trust line')
+  }
+}
+
+export async function createRLUSDTrustLine(
+  secp256k1Key: string,
+): Promise<{ success: boolean; hash: string }> {
+  return createTrustLine(secp256k1Key, RLUSD.currency, RLUSD.issuer)
+}
+
+export async function createUSDCTrustLine(
+  secp256k1Key: string,
+): Promise<{ success: boolean; hash: string }> {
+  return createTrustLine(secp256k1Key, USDC.currency, USDC.issuer)
+}
+
+// ─── Stablecoin Balances ─────────────────────────────────────────────────────
+
+/**
+ * Returns '0' if the account is not yet funded rather than throwing.
  */
 export async function getStablecoinBalance(
   address: string,
@@ -310,25 +253,24 @@ export async function getStablecoinBalance(
     await client.disconnect()
 
     const line = response.result.lines.find(
-      (line: any) => line.currency === currency && line.account === issuer,
+      (l: any) => l.currency === currency && l.account === issuer,
     )
 
     return line ? line.balance : '0'
   } catch (error: any) {
     await client.disconnect()
 
-    // Account not yet funded on mainnet — no trust lines possible
     if (
       error?.data?.error === 'actNotFound' ||
       error?.message?.includes('Account not found')
     ) {
-      console.warn(
-        `⚠️ Account ${address} not found on ledger. Returning 0 for ${currency}.`,
+      logger.info(
+        `Account ${address} not yet on ledger — returning 0 for ${currency}`,
       )
       return '0'
     }
 
-    console.error('Error getting stablecoin balance:', error)
+    logger.error('Error getting stablecoin balance:', error)
     return '0'
   }
 }
@@ -346,21 +288,24 @@ export async function getAllBalances(address: string): Promise<{
   rlusd: string
   usdc: string
 }> {
-  const [xrpBalance, rlusdBalance, usdcBalance] = await Promise.all([
+  const [xrpResult, rlusd, usdc] = await Promise.all([
     getBalance(address),
     getRLUSDBalance(address),
     getUSDCBalance(address),
   ])
 
-  return {
-    xrp: xrpBalance.balance,
-    rlusd: rlusdBalance,
-    usdc: usdcBalance,
-  }
+  return { xrp: xrpResult.balance, rlusd, usdc }
 }
 
+// ─── Payments ─────────────────────────────────────────────────────────────────
+
+/**
+ * Send XRP to a recipient.
+ *
+ * @param secp256k1Key  Web3Auth-derived secp256k1 hex key
+ */
 export async function sendXRP(
-  senderSeed: string,
+  secp256k1Key: string,
   recipientAddress: string,
   amount: number,
 ): Promise<{ hash: string; result: string }> {
@@ -369,7 +314,7 @@ export async function sendXRP(
   try {
     await client.connect()
 
-    const wallet = Wallet.fromSeed(senderSeed)
+    const wallet = deriveXRPLWalletFromSecp256k1(secp256k1Key)
 
     const payment: Payment = {
       TransactionType: 'Payment',
@@ -390,24 +335,26 @@ export async function sendXRP(
       throw new Error('Transaction metadata unavailable')
     }
 
-    const success = meta.TransactionResult === 'tesSUCCESS'
-
-    if (!success) {
-      throw new Error(`Payment failed: ${meta.TransactionResult}`)
+    if (meta.TransactionResult !== 'tesSUCCESS') {
+      throw new Error(`XRP payment failed: ${meta.TransactionResult}`)
     }
 
-    console.log(`✅ XRP payment sent: ${result.result.hash}`)
-
+    logger.info(`XRP payment sent: ${result.result.hash}`)
     return { hash: result.result.hash, result: meta.TransactionResult }
   } catch (error) {
     await client.disconnect()
-    console.error('❌ Error sending XRP:', error)
+    logger.error('Error sending XRP:', error)
     throw error
   }
 }
 
+/**
+ * Send an XRPL stablecoin (RLUSD or USDC).
+ *
+ * @param secp256k1Key  Web3Auth-derived secp256k1 hex key
+ */
 export async function sendStablecoin(
-  senderSeed: string,
+  secp256k1Key: string,
   recipientAddress: string,
   amount: number,
   currency: string,
@@ -418,17 +365,13 @@ export async function sendStablecoin(
   try {
     await client.connect()
 
-    const wallet = Wallet.fromSeed(senderSeed)
+    const wallet = deriveXRPLWalletFromSecp256k1(secp256k1Key)
 
     const payment: Payment = {
       TransactionType: 'Payment',
       Account: wallet.address,
       Destination: recipientAddress,
-      Amount: {
-        currency: currency,
-        issuer: issuer,
-        value: amount.toString(),
-      },
+      Amount: { currency, issuer, value: amount.toString() },
       SourceTag: SENDSASA_SOURCE_TAG,
     }
 
@@ -443,27 +386,25 @@ export async function sendStablecoin(
       throw new Error('Transaction metadata unavailable')
     }
 
-    const success = meta.TransactionResult === 'tesSUCCESS'
-
-    if (!success) {
-      throw new Error(`Payment failed: ${meta.TransactionResult}`)
+    if (meta.TransactionResult !== 'tesSUCCESS') {
+      throw new Error(`${currency} payment failed: ${meta.TransactionResult}`)
     }
 
     return { hash: result.result.hash, result: meta.TransactionResult }
   } catch (error) {
     await client.disconnect()
-    console.error(`❌ Error sending ${currency}:`, error)
+    logger.error(`Error sending ${currency}:`, error)
     throw error
   }
 }
 
 export async function sendRLUSD(
-  senderSeed: string,
+  secp256k1Key: string,
   recipientAddress: string,
   amount: number,
 ): Promise<{ hash: string; result: string }> {
   return sendStablecoin(
-    senderSeed,
+    secp256k1Key,
     recipientAddress,
     amount,
     RLUSD.currency,
@@ -472,12 +413,12 @@ export async function sendRLUSD(
 }
 
 export async function sendUSDC(
-  senderSeed: string,
+  secp256k1Key: string,
   recipientAddress: string,
   amount: number,
 ): Promise<{ hash: string; result: string }> {
   return sendStablecoin(
-    senderSeed,
+    secp256k1Key,
     recipientAddress,
     amount,
     USDC.currency,
@@ -485,34 +426,7 @@ export async function sendUSDC(
   )
 }
 
-export function getDecryptedSeed(encryptedSeed: string): string {
-  return decryptSeed(encryptedSeed)
-}
-
-export function getEncryptedSeed(seed: string): string {
-  return encryptSeed(seed)
-}
-
-export function getDisplayCurrency(currencyCode: string): string {
-  if (currencyCode === 'RLUSD') return 'RLUSD'
-  if (currencyCode === '5553444300000000000000000000000000000000') return 'USDC'
-  if (currencyCode === 'XRP') return 'XRP'
-  return currencyCode
-}
-
-export function getCurrencyConfig(currency: 'XRP' | 'RLUSD' | 'USDC'): {
-  currency: string
-  issuer?: string
-} {
-  if (currency === 'XRP') {
-    return { currency: 'XRP' }
-  } else if (currency === 'RLUSD') {
-    return { currency: RLUSD.currency, issuer: RLUSD.issuer }
-  } else if (currency === 'USDC') {
-    return { currency: USDC.currency, issuer: USDC.issuer }
-  }
-  throw new Error(`Unknown currency: ${currency}`)
-}
+// ─── Transaction History ──────────────────────────────────────────────────────
 
 export async function getHistory(address: string): Promise<any[]> {
   const client = new Client(WEBSOCKET_URL)
@@ -529,11 +443,29 @@ export async function getHistory(address: string): Promise<any[]> {
     })
 
     await client.disconnect()
-
     return response.result.transactions || []
   } catch (error) {
     await client.disconnect()
-    console.error('Error getting history:', error)
+    logger.error('Error getting XRPL history:', error)
     return []
   }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+export function getDisplayCurrency(currencyCode: string): string {
+  if (currencyCode === 'RLUSD') return 'RLUSD'
+  if (currencyCode === '5553444300000000000000000000000000000000') return 'USDC'
+  if (currencyCode === 'XRP') return 'XRP'
+  return currencyCode
+}
+
+export function getCurrencyConfig(currency: 'XRP' | 'RLUSD' | 'USDC'): {
+  currency: string
+  issuer?: string
+} {
+  if (currency === 'XRP') return { currency: 'XRP' }
+  if (currency === 'RLUSD') return { currency: RLUSD.currency, issuer: RLUSD.issuer }
+  if (currency === 'USDC') return { currency: USDC.currency, issuer: USDC.issuer }
+  throw new Error(`Unknown currency: ${currency}`)
 }

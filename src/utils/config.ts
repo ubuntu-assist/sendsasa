@@ -12,6 +12,24 @@ const DB_MAX_POOL_SIZE = process.env.DB_MAX_POOL_SIZE
 const DB_MIN_POOL_SIZE = process.env.DB_MIN_POOL_SIZE
 const PRIVATE_KEY = process.env.PRIVATE_KEY
 
+// Web3Auth
+const WEB3AUTH_CLIENT_ID = process.env.WEB3AUTH_CLIENT_ID
+const WEB3AUTH_NETWORK = process.env.WEB3AUTH_NETWORK
+const WEB3AUTH_VERIFIER = process.env.WEB3AUTH_VERIFIER
+
+// JWT
+const JWT_KID = process.env.JWT_KID
+const JWT_ISSUER = process.env.JWT_ISSUER
+const JWT_AUDIENCE = process.env.JWT_AUDIENCE
+const JWT_PRIVATE_KEY = process.env.JWT_PRIVATE_KEY
+const JWT_PUBLIC_KEY = process.env.JWT_PUBLIC_KEY
+
+// Chain RPC URLs
+const BSC_RPC_URL = process.env.BSC_RPC_URL
+const BASE_RPC_URL = process.env.BASE_RPC_URL
+const ETHEREUM_RPC_URL = process.env.ETHEREUM_RPC_URL
+const XRPL_WSS_URL = process.env.XRPL_WSS_URL
+
 export default {
   MONGODB_URI,
   PORT,
@@ -24,4 +42,16 @@ export default {
   DB_MAX_POOL_SIZE,
   DB_MIN_POOL_SIZE,
   PRIVATE_KEY,
+  WEB3AUTH_CLIENT_ID,
+  WEB3AUTH_NETWORK,
+  WEB3AUTH_VERIFIER,
+  JWT_KID,
+  JWT_ISSUER,
+  JWT_AUDIENCE,
+  JWT_PRIVATE_KEY,
+  JWT_PUBLIC_KEY,
+  BSC_RPC_URL,
+  BASE_RPC_URL,
+  ETHEREUM_RPC_URL,
+  XRPL_WSS_URL,
 }

@@ -1,5 +1,3 @@
-// src/services/message-handler.service.ts
-
 import bcrypt from 'bcrypt'
 import { User } from '../models/User'
 import { Transaction } from '../models/Transaction'
@@ -21,19 +19,81 @@ import {
   sendXRP,
   sendRLUSD,
   sendUSDC,
-  generateWallet,
   createRLUSDTrustLine,
   createUSDCTrustLine,
   hasRLUSDTrustLine,
   hasUSDCTrustLine,
   isAccountActivated,
-  encryptSeed,
-  decryptSeed,
 } from './xrpl.service'
+import { walletService } from './wallet.service'
+import { evmService } from './evm.service'
+import { normalizeToE164 } from './phone-number.service'
 import { parseButtonInteraction } from './message-parser.service'
 import { usernameService } from './username.service'
 import { generateAndUploadReceipt } from './receipt-generator.service'
 import config from '../utils/config'
+
+// ── Wallet helpers ────────────────────────────────────────────────────────────
+
+/**
+ * Return the XRPL address that should be used for balance lookups and as the
+ * sender/receiver in transactions.
+ *
+ * - Users with a Web3Auth-derived address (xrpl_address set): use that field.
+ * - Pending-migration users (only old seed wallet): fall back to xrplAddress.
+ */
+function getEffectiveXRPLAddress(user: any): string {
+  return user.xrpl_address || user.xrplAddress
+}
+
+/**
+ * Return true if the user must complete wallet migration before transacting.
+ * Pending users still have funds in their old address and need to migrate first.
+ */
+function requiresMigration(user: any): boolean {
+  return user.migration_status === 'pending' && !user.xrpl_address
+}
+
+/**
+ * Fetch XRPL and EVM balances in parallel.
+ * EVM calls fall back to '0' on error so a single chain outage never breaks the menu.
+ */
+async function fetchAllBalances(user: any): Promise<{
+  xrp: string
+  rlusd: string
+  usdc: string
+  bnb: string
+  bscUsdt: string
+  baseEth: string
+}> {
+  const xrplAddress = getEffectiveXRPLAddress(user)
+  const evmAddress: string | undefined = user.evm_address
+
+  async function safeEvm(fn: () => Promise<string>): Promise<string> {
+    try {
+      return await fn()
+    } catch {
+      return '0'
+    }
+  }
+
+  const [xrplBalances, bnb, bscUsdt, baseEth] = await Promise.all([
+    getAllBalances(xrplAddress),
+    evmAddress
+      ? safeEvm(() => evmService.getBalance(evmAddress, 'bsc'))
+      : Promise.resolve('0'),
+    evmAddress
+      ? safeEvm(() => evmService.getBalance(evmAddress, 'bsc', 'USDT'))
+      : Promise.resolve('0'),
+    evmAddress
+      ? safeEvm(() => evmService.getBalance(evmAddress, 'base'))
+      : Promise.resolve('0'),
+  ])
+
+  return { ...xrplBalances, bnb, bscUsdt, baseEth }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Normalize a PIN value to a canonical string.
@@ -45,7 +105,7 @@ import config from '../utils/config'
  * parseInt strips leading zeros so both always compare to the same value.
  */
 function normalizePin(pin: string | number): string {
-  return parseInt(pin.toString(), 10).toString()
+  return Number.parseInt(pin.toString(), 10).toString()
 }
 
 // ── Public handlers ──────────────────────────────────────────────────────────
@@ -75,14 +135,8 @@ export async function handleMessage(
       }
     }
 
-    const balances = await getAllBalances(user.xrplAddress)
-    await sendMainMenu(
-      phoneNumber,
-      balances.xrp,
-      balances.rlusd,
-      balances.usdc,
-      user.username,
-    )
+    const balances = await fetchAllBalances(user)
+    await sendMainMenu(phoneNumber, balances, user.username)
   } catch (error) {
     console.error('❌ Error handling message:', error)
     await sendTextMessage(
@@ -131,14 +185,8 @@ export async function handleInteraction(
 
     switch (interaction.action) {
       case 'main_menu': {
-        const balances = await getAllBalances(user.xrplAddress)
-        await sendMainMenu(
-          phoneNumber,
-          balances.xrp,
-          balances.rlusd,
-          balances.usdc,
-          user.username,
-        )
+        const balances = await fetchAllBalances(user)
+        await sendMainMenu(phoneNumber, balances, user.username)
         break
       }
 
@@ -175,14 +223,8 @@ export async function handleInteraction(
         break
 
       default: {
-        const userBalances = await getAllBalances(user.xrplAddress)
-        await sendMainMenu(
-          phoneNumber,
-          userBalances.xrp,
-          userBalances.rlusd,
-          userBalances.usdc,
-          user.username,
-        )
+        const userBalances = await fetchAllBalances(user)
+        await sendMainMenu(phoneNumber, userBalances, user.username)
       }
     }
   } catch (error) {
@@ -288,14 +330,8 @@ async function handleGetStarted(
         await sendFundingMessage(phoneNumber, user.xrplAddress)
         return
       }
-      const balances = await getAllBalances(user.xrplAddress)
-      await sendMainMenu(
-        phoneNumber,
-        balances.xrp,
-        balances.rlusd,
-        balances.usdc,
-        user.username,
-      )
+      const balances = await fetchAllBalances(user)
+      await sendMainMenu(phoneNumber, balances, user.username)
       return
     }
 
@@ -304,9 +340,9 @@ async function handleGetStarted(
       '⏳ Creating your wallet...\n\nPlease wait a moment.',
     )
 
-    const wallet = await generateWallet()
-    const { address, seed } = wallet
-    const encryptedData = encryptSeed(seed)
+    const e164Phone = normalizeToE164(phoneNumber)
+    const { xrplAddress: address, evmAddress } =
+      await walletService.getOrCreateWallets(e164Phone)
     const defaultPinHash = await bcrypt.hash('0000', 10)
 
     // Generate username from WhatsApp profile name using UsernameService
@@ -314,14 +350,23 @@ async function handleGetStarted(
       profileName || 'user',
     )
 
+    // Web3Auth fields shared across both testnet/mainnet branches
+    const web3authFields = {
+      xrpl_address: address,
+      evm_address: evmAddress,
+      web3auth_verifier_id: e164Phone,
+      wallet_created_at: new Date(),
+      migration_status: 'n/a' as const,
+    }
+
     if (config.XRPL_NETWORK !== 'mainnet') {
-      // Testnet — wallet auto-funded, create trust lines immediately
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      // Testnet — derive key once for trust line setup
+      const secp256k1Key = await walletService.getPrivateKey(e164Phone)
 
       let rlusdCreated = false
       let rlusdHash: string | undefined
       try {
-        const result = await createRLUSDTrustLine(seed)
+        const result = await createRLUSDTrustLine(secp256k1Key)
         if (result.success) {
           rlusdCreated = true
           rlusdHash = result.hash
@@ -334,7 +379,7 @@ async function handleGetStarted(
       let usdcCreated = false
       let usdcHash: string | undefined
       try {
-        const result = await createUSDCTrustLine(seed)
+        const result = await createUSDCTrustLine(secp256k1Key)
         if (result.success) {
           usdcCreated = true
           usdcHash = result.hash
@@ -346,9 +391,9 @@ async function handleGetStarted(
 
       user = await User.create({
         whatsappId,
-        phoneNumber,
+        phoneNumber: e164Phone,
         xrplAddress: address,
-        encryptedSeed: encryptedData,
+        encryptedSeed: '',
         pinHash: defaultPinHash,
         pinAttempts: 0,
         username,
@@ -356,6 +401,7 @@ async function handleGetStarted(
         usdcTrustLineCreated: usdcCreated,
         rlusdTrustLineHash: rlusdHash,
         usdcTrustLineHash: usdcHash,
+        ...web3authFields,
       })
 
       console.log(`✅ New testnet user created: ${whatsappId} (${username})`)
@@ -364,14 +410,15 @@ async function handleGetStarted(
       // Mainnet — wallet not yet on ledger, defer trust lines and PIN setup
       await User.create({
         whatsappId,
-        phoneNumber,
+        phoneNumber: e164Phone,
         xrplAddress: address,
-        encryptedSeed: encryptedData,
+        encryptedSeed: '',
         pinHash: defaultPinHash,
         pinAttempts: 0,
         username,
         rlusdTrustLineCreated: false,
         usdcTrustLineCreated: false,
+        ...web3authFields,
       })
 
       await sendFundingMessage(phoneNumber, address)
@@ -402,14 +449,8 @@ async function handleImportWallet(
         phoneNumber,
         '⚠️ You already have a SendSasa account.\n\nIf you want to import a different wallet, please contact support.',
       )
-      const balances = await getAllBalances(existingUser.xrplAddress)
-      await sendMainMenu(
-        phoneNumber,
-        balances.xrp,
-        balances.rlusd,
-        balances.usdc,
-        existingUser.username,
-      )
+      const balances = await fetchAllBalances(existingUser)
+      await sendMainMenu(phoneNumber, balances, existingUser.username)
       return
     }
 
@@ -477,8 +518,6 @@ async function handleWalletImportComplete(
       '⏳ Importing your wallet...\n\nSetting up stablecoin support...',
     )
 
-    // Encrypt seed immediately — never stored in plain text
-    const encryptedData = encryptSeed(seed)
     const defaultPinHash = await bcrypt.hash('0000', 10)
 
     // Generate username from phone number (profile name not available in flow completion)
@@ -486,11 +525,15 @@ async function handleWalletImportComplete(
       phoneNumber.replace('+', '') || 'user',
     )
 
+    // Derive Web3Auth key for trust line setup — seed is legacy and not stored
+    const e164Phone = normalizeToE164(phoneNumber)
+    const secp256k1Key = await walletService.getPrivateKey(e164Phone)
+
     // Create RLUSD trust line
     let rlusdCreated = false
     let rlusdHash: string | undefined
     try {
-      const result = await createRLUSDTrustLine(seed)
+      const result = await createRLUSDTrustLine(secp256k1Key)
       if (result.success) {
         rlusdCreated = true
         rlusdHash = result.hash
@@ -504,7 +547,7 @@ async function handleWalletImportComplete(
     let usdcCreated = false
     let usdcHash: string | undefined
     try {
-      const result = await createUSDCTrustLine(seed)
+      const result = await createUSDCTrustLine(secp256k1Key)
       if (result.success) {
         usdcCreated = true
         usdcHash = result.hash
@@ -516,9 +559,9 @@ async function handleWalletImportComplete(
 
     const user = await User.create({
       whatsappId,
-      phoneNumber,
+      phoneNumber: e164Phone,
       xrplAddress: xrpl_address,
-      encryptedSeed: encryptedData,
+      encryptedSeed: '',
       pinHash: defaultPinHash,
       pinAttempts: 0,
       username,
@@ -526,6 +569,8 @@ async function handleWalletImportComplete(
       usdcTrustLineCreated: usdcCreated,
       rlusdTrustLineHash: rlusdHash,
       usdcTrustLineHash: usdcHash,
+      old_wallet_exists: true,
+      migration_status: 'pending',
     })
 
     console.log(
@@ -585,8 +630,8 @@ async function handleCheckActivation(
     let rlusdHash = user.rlusdTrustLineHash
     if (!rlusdCreated) {
       try {
-        const seed = decryptSeed(user.encryptedSeed)
-        const result = await createRLUSDTrustLine(seed)
+        const secp256k1Key = await walletService.getPrivateKey(user.phoneNumber)
+        const result = await createRLUSDTrustLine(secp256k1Key)
         if (result.success) {
           rlusdCreated = true
           rlusdHash = result.hash
@@ -602,8 +647,8 @@ async function handleCheckActivation(
     let usdcHash = user.usdcTrustLineHash
     if (!usdcCreated) {
       try {
-        const seed = decryptSeed(user.encryptedSeed)
-        const result = await createUSDCTrustLine(seed)
+        const secp256k1Key = await walletService.getPrivateKey(user.phoneNumber)
+        const result = await createUSDCTrustLine(secp256k1Key)
         if (result.success) {
           usdcCreated = true
           usdcHash = result.hash
@@ -626,14 +671,8 @@ async function handleCheckActivation(
     if (isDefaultPin) {
       await FlowLauncherService.launchPinSetupFlow(user)
     } else {
-      const balances = await getAllBalances(user.xrplAddress)
-      await sendMainMenu(
-        phoneNumber,
-        balances.xrp,
-        balances.rlusd,
-        balances.usdc,
-        user.username,
-      )
+      const balances = await fetchAllBalances(user)
+      await sendMainMenu(phoneNumber, balances, user.username)
     }
   } catch (error) {
     console.error('❌ Error handling check activation:', error)
@@ -688,7 +727,7 @@ async function handlePinSetupComplete(
 
     console.log(`✅ PIN set up for user ${whatsappId} (normalized: ${pinStr})`)
 
-    const balances = await getAllBalances(user.xrplAddress)
+    const balances = await fetchAllBalances(user)
 
     await sendTextMessage(
       phoneNumber,
@@ -697,13 +736,7 @@ async function handlePinSetupComplete(
         `You can now send and receive money securely! 🔐`,
     )
 
-    await sendMainMenu(
-      phoneNumber,
-      balances.xrp,
-      balances.rlusd,
-      balances.usdc,
-      user.username,
-    )
+    await sendMainMenu(phoneNumber, balances, user.username)
   } catch (error) {
     console.error('❌ Error completing PIN setup:', error)
     await sendTextMessage(
@@ -825,26 +858,38 @@ async function handleSendMoneyComplete(
       }
     }
 
+    // Block transactions for users who need to complete wallet migration
+    if (requiresMigration(user)) {
+      await sendTextMessage(
+        phoneNumber,
+        '⚠️ *Wallet Migration Required*\n\n' +
+          'Your wallet needs to be upgraded to the new system before you can send money.\n\n' +
+          'Please contact support to complete your migration.',
+      )
+      return
+    }
+
     await sendTextMessage(phoneNumber, '⏳ Processing transaction...')
 
-    const senderSeed = decryptSeed(user.encryptedSeed)
+    const senderKey = await walletService.getPrivateKey(user.phoneNumber)
+    const senderXRPLAddress = getEffectiveXRPLAddress(user)
     let result: { hash: string; result: string }
 
     if (currency === 'XRP') {
       result = await sendXRP(
-        senderSeed,
+        senderKey,
         recipientAddress,
         Number.parseFloat(amount),
       )
     } else if (currency === 'RLUSD') {
       result = await sendRLUSD(
-        senderSeed,
+        senderKey,
         recipientAddress,
         Number.parseFloat(amount),
       )
     } else {
       result = await sendUSDC(
-        senderSeed,
+        senderKey,
         recipientAddress,
         Number.parseFloat(amount),
       )
@@ -854,7 +899,7 @@ async function handleSendMoneyComplete(
 
     await Transaction.create({
       txHash,
-      fromAddress: user.xrplAddress,
+      fromAddress: senderXRPLAddress,
       toAddress: recipientAddress,
       fromPhone: user.phoneNumber,
       toPhone: recipientPhone,
@@ -1131,14 +1176,8 @@ async function handleRequestMoney(
  */
 async function handleMyWallet(phoneNumber: string, user: any): Promise<void> {
   try {
-    const balances = await getAllBalances(user.xrplAddress)
-    await sendWalletMenu(
-      phoneNumber,
-      balances.xrp,
-      balances.rlusd,
-      balances.usdc,
-      user.username,
-    )
+    const balances = await fetchAllBalances(user)
+    await sendWalletMenu(phoneNumber, balances, user.username)
   } catch (error) {
     console.error('❌ Error handling my wallet:', error)
     await sendTextMessage(
@@ -1277,7 +1316,7 @@ async function handleApproveRequest(
       return
     }
 
-    const balances = await getAllBalances(user.xrplAddress)
+    const balances = await getAllBalances(getEffectiveXRPLAddress(user))
     let sufficient = false
 
     if (paymentRequest.currency === 'XRP') {
@@ -1304,24 +1343,34 @@ async function handleApproveRequest(
       return
     }
 
-    const senderSeed = decryptSeed(user.encryptedSeed)
+    if (requiresMigration(user)) {
+      await sendTextMessage(
+        phoneNumber,
+        '⚠️ *Wallet Migration Required*\n\n' +
+          'Your wallet needs to be upgraded before you can approve payment requests.\n\n' +
+          'Please contact support to complete your migration.',
+      )
+      return
+    }
+
+    const senderKey = await walletService.getPrivateKey(user.phoneNumber)
     let result: any
 
     if (paymentRequest.currency === 'XRP') {
       result = await sendXRP(
-        senderSeed,
+        senderKey,
         requester.xrplAddress,
         paymentRequest.amount,
       )
     } else if (paymentRequest.currency === 'RLUSD') {
       result = await sendRLUSD(
-        senderSeed,
+        senderKey,
         requester.xrplAddress,
         paymentRequest.amount,
       )
     } else {
       result = await sendUSDC(
-        senderSeed,
+        senderKey,
         requester.xrplAddress,
         paymentRequest.amount,
       )
