@@ -73,6 +73,7 @@ class WalletService {
             web3auth_verifier: VERIFIER,
             web3auth_verifier_id: e164Phone,
             wallet_created_at: new Date(),
+            migration_status: 'completed',
           },
         },
       )
@@ -113,9 +114,11 @@ class WalletService {
         if (!rawKey) throw new Error('Web3Auth returned an empty private key')
 
         const hex = rawKey.startsWith('0x') ? rawKey.slice(2) : rawKey
+        await web3auth.logout().catch(() => {/* non-critical */})
         return hex.padStart(64, '0')
       } catch (error: any) {
         lastError = error instanceof Error ? error : new Error(String(error))
+        await web3auth.logout().catch(() => {/* non-critical */})
         logger.error(
           `Web3Auth (EVM) connect attempt ${attempt}/${MAX_RETRIES} failed` +
             ` for ${maskPhone(e164Phone)}: ${lastError.message}`,
@@ -163,9 +166,11 @@ class WalletService {
           throw new Error('web3authXrpl returned an empty keypair')
         }
 
+        await web3authXrpl.logout().catch(() => {/* non-critical */})
         return new XrplWallet(keypair.publicKey, keypair.privateKey)
       } catch (error: any) {
         lastError = error instanceof Error ? error : new Error(String(error))
+        await web3authXrpl.logout().catch(() => {/* non-critical */})
         logger.error(
           `Web3Auth (XRPL) connect attempt ${attempt}/${MAX_RETRIES} failed` +
             ` for ${maskPhone(e164Phone)}: ${lastError.message}`,
@@ -207,9 +212,11 @@ class WalletService {
         if (!rawKey) throw new Error('web3authSolana returned an empty private key')
 
         const hex = rawKey.startsWith('0x') ? rawKey.slice(2) : rawKey
+        await web3authSolana.logout().catch(() => {/* non-critical */})
         return hex.padStart(64, '0')
       } catch (error: any) {
         lastError = error instanceof Error ? error : new Error(String(error))
+        await web3authSolana.logout().catch(() => {/* non-critical */})
         logger.error(
           `Web3Auth (Solana) connect attempt ${attempt}/${MAX_RETRIES} failed` +
             ` for ${maskPhone(e164Phone)}: ${lastError.message}`,

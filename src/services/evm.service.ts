@@ -16,7 +16,7 @@ function sleep(ms: number): Promise<void> {
 
 function getProvider(chain: EVMChain): ethers.JsonRpcProvider {
   const { rpcUrl, chainId } = evmChains[chain]
-  return new ethers.JsonRpcProvider(rpcUrl, chainId)
+  return new ethers.JsonRpcProvider(rpcUrl, chainId, { staticNetwork: ethers.Network.from(chainId) })
 }
 
 function getSigner(secp256k1Key: string, chain: EVMChain): ethers.Wallet {
