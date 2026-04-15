@@ -17,8 +17,13 @@ export class WhatsAppService {
         },
         timeout: 10000,
       })
-    } catch (error) {
-      console.error('❌ Error sending WhatsApp message:', error)
+    } catch (error: any) {
+      const metaError = error?.response?.data
+      if (metaError) {
+        console.error('❌ WhatsApp API error:', JSON.stringify(metaError))
+      } else {
+        console.error('❌ Error sending WhatsApp message:', error?.message ?? error)
+      }
       throw new Error('Failed to send WhatsApp message')
     }
   }

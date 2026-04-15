@@ -222,7 +222,6 @@ export class FlowLauncherService {
               flow_action: 'navigate',
               flow_action_payload: {
                 screen: 'CARD_PAYMENT_DETAILS',
-                data: {},
               },
             },
           },
