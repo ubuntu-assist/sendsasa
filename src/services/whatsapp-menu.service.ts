@@ -7,6 +7,8 @@ export interface MenuBalances {
   bnb: string
   bscUsdt: string
   baseEth: string
+  sol: string
+  solUsdc: string
 }
 
 export async function sendMainMenu(
@@ -14,7 +16,7 @@ export async function sendMainMenu(
   balances: MenuBalances,
   username: string,
 ): Promise<void> {
-  const { xrp, rlusd, usdc, bnb, bscUsdt, baseEth } = balances
+  const { xrp, rlusd, usdc, bnb, bscUsdt, baseEth, sol, solUsdc } = balances
   const payload = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
@@ -29,6 +31,7 @@ export async function sendMainMenu(
           `*XRPL*\nXRP: ${xrp} | RLUSD: ${rlusd} | USDC: ${usdc}\n\n` +
           `*BSC*\nBNB: ${bnb} | USDT: ${bscUsdt}\n\n` +
           `*Base*\nETH: ${baseEth}\n\n` +
+          `*Solana*\nSOL: ${sol} | USDC: ${solUsdc}\n\n` +
           `What would you like to do?`,
       },
       footer: { text: 'Powered by XRPL' },
@@ -42,6 +45,16 @@ export async function sendMainMenu(
                 id: 'send_money',
                 title: 'Send Money',
                 description: 'Send XRP, RLUSD or USDC',
+              },
+              {
+                id: 'offramp_money',
+                title: 'Cash Out',
+                description: 'Send to MTN, Orange or UBA M2U',
+              },
+              {
+                id: 'card_payment',
+                title: 'Pay with Card',
+                description: 'Apple Pay, Google Pay or Debit Card',
               },
               {
                 id: 'request_money',
@@ -252,7 +265,7 @@ export async function sendWalletMenu(
   balances: MenuBalances,
   username: string,
 ): Promise<void> {
-  const { xrp, rlusd, usdc, bnb, bscUsdt, baseEth } = balances
+  const { xrp, rlusd, usdc, bnb, bscUsdt, baseEth, sol, solUsdc } = balances
   const payload = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
@@ -267,6 +280,7 @@ export async function sendWalletMenu(
           `*XRPL*\nXRP: ${xrp} | RLUSD: ${rlusd} | USDC: ${usdc}\n\n` +
           `*BSC*\nBNB: ${bnb} | USDT: ${bscUsdt}\n\n` +
           `*Base*\nETH: ${baseEth}\n\n` +
+          `*Solana*\nSOL: ${sol} | USDC: ${solUsdc}\n\n` +
           `What would you like to do?`,
       },
       footer: { text: 'Powered by XRPL' },

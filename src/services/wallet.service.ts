@@ -1,7 +1,8 @@
 import { ethers } from 'ethers'
 import { Wallet as XrplWallet } from 'xrpl'
-import { web3auth, web3authXrpl, initWeb3Auth } from '../config/web3auth'
+import { web3auth, web3authXrpl, web3authSolana, initWeb3Auth } from '../config/web3auth'
 import { jwtAuthService } from './jwt-auth.service'
+import { keypairFromSeed } from './solana.service'
 import { normalizeToE164, maskPhone } from './phone-number.service'
 import { User } from '../models'
 import config from '../utils/config'
@@ -17,6 +18,7 @@ function sleep(ms: number): Promise<void> {
 export interface WalletAddresses {
   evmAddress: string
   xrplAddress: string
+  solanaAddress: string
 }
 
 class WalletService {
@@ -33,25 +35,31 @@ class WalletService {
 
     // Check DB cache first — avoids Web3Auth round-trips on every call
     const user = await User.findOne({ phoneNumber: e164Phone }).select(
-      'evm_address xrpl_address',
+      'evm_address xrpl_address solana_address',
     )
 
-    if (user?.evm_address && user?.xrpl_address) {
+    if (user?.evm_address && user?.xrpl_address && user?.solana_address) {
       logger.info(
         `Wallet cache hit for ${maskPhone(e164Phone)}: EVM=${user.evm_address.slice(0, 8)}...`,
       )
-      return { evmAddress: user.evm_address, xrplAddress: user.xrpl_address }
+      return {
+        evmAddress: user.evm_address,
+        xrplAddress: user.xrpl_address,
+        solanaAddress: user.solana_address,
+      }
     }
 
-    // Derive both in parallel — one connect per provider
-    const [secp256k1Key, xrplWallet] = await Promise.all([
+    // Derive all three in parallel — one connect per provider
+    const [secp256k1Key, xrplWallet, solanaSeed] = await Promise.all([
       this.getPrivateKey(e164Phone),
       this.getXRPLWallet(e164Phone),
+      this.getSolanaPrivateKey(e164Phone),
     ])
 
     const evmWallet = this.deriveEVMWallet(secp256k1Key)
     const evmAddress = evmWallet.address
     const xrplAddress = xrplWallet.classicAddress
+    const solanaAddress = keypairFromSeed(solanaSeed).publicKey.toBase58()
 
     // Persist addresses if user exists (no-op if user not yet registered)
     if (user) {
@@ -61,6 +69,7 @@ class WalletService {
           $set: {
             evm_address: evmAddress,
             xrpl_address: xrplAddress,
+            solana_address: solanaAddress,
             web3auth_verifier: VERIFIER,
             web3auth_verifier_id: e164Phone,
             wallet_created_at: new Date(),
@@ -70,7 +79,7 @@ class WalletService {
       logger.info(`Wallet addresses cached for ${maskPhone(e164Phone)}`)
     }
 
-    return { evmAddress, xrplAddress }
+    return { evmAddress, xrplAddress, solanaAddress }
   }
 
   /**
@@ -167,6 +176,50 @@ class WalletService {
 
     throw new Error(
       `Failed to retrieve XRPL wallet after ${MAX_RETRIES} attempts: ${lastError.message}`,
+    )
+  }
+
+  /**
+   * Retrieve the Ed25519 seed from Web3Auth via SolanaPrivateKeyProvider.
+   * Returns a 64-char hex string (32 bytes). Pass to keypairFromSeed() in
+   * solana.service to get a Keypair. Discard from memory after use.
+   */
+  async getSolanaPrivateKey(phoneNumber: string): Promise<string> {
+    const e164Phone = normalizeToE164(phoneNumber)
+    await initWeb3Auth()
+
+    let lastError: Error = new Error('Unknown error')
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const idToken = jwtAuthService.generateToken(e164Phone)
+
+        const provider = await web3authSolana.connect({
+          verifier: VERIFIER,
+          verifierId: e164Phone,
+          idToken,
+        })
+
+        if (!provider) throw new Error('web3authSolana returned a null provider')
+
+        const rawKey = (await provider.request({ method: 'solanaPrivateKey' })) as string
+
+        if (!rawKey) throw new Error('web3authSolana returned an empty private key')
+
+        const hex = rawKey.startsWith('0x') ? rawKey.slice(2) : rawKey
+        return hex.padStart(64, '0')
+      } catch (error: any) {
+        lastError = error instanceof Error ? error : new Error(String(error))
+        logger.error(
+          `Web3Auth (Solana) connect attempt ${attempt}/${MAX_RETRIES} failed` +
+            ` for ${maskPhone(e164Phone)}: ${lastError.message}`,
+        )
+        if (attempt < MAX_RETRIES) await sleep(Math.pow(2, attempt - 1) * 1000)
+      }
+    }
+
+    throw new Error(
+      `Failed to retrieve Solana private key after ${MAX_RETRIES} attempts: ${lastError.message}`,
     )
   }
 

@@ -36,3 +36,7 @@ coverage/
 
 keys/privateKey.pem
 keys/publicKey.pem
+keys/flow-privateKey.pem
+
+scripts/print-admin-addresses.ts
+scripts/setup-coinbase.ts

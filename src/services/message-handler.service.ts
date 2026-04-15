@@ -27,7 +27,11 @@ import {
 } from './xrpl.service'
 import { walletService } from './wallet.service'
 import { evmService } from './evm.service'
+import { getAllBalances as getSolanaBalances } from './solana.service'
 import { normalizeToE164 } from './phone-number.service'
+import { mobileMoneyService, PROVIDER_DISPLAY, type MobileMoneyProvider } from './mobile-money.service'
+import { OffRampTransaction } from '../models'
+import { getAdminXRPLAddress, getAdminEVMAddress } from '../config/admin-wallet'
 import { parseButtonInteraction } from './message-parser.service'
 import { usernameService } from './username.service'
 import { generateAndUploadReceipt } from './receipt-generator.service'
@@ -65,11 +69,14 @@ async function fetchAllBalances(user: any): Promise<{
   bnb: string
   bscUsdt: string
   baseEth: string
+  sol: string
+  solUsdc: string
 }> {
   const xrplAddress = getEffectiveXRPLAddress(user)
   const evmAddress: string | undefined = user.evm_address
+  const solanaAddress: string | undefined = user.solana_address
 
-  async function safeEvm(fn: () => Promise<string>): Promise<string> {
+  async function safe(fn: () => Promise<string>): Promise<string> {
     try {
       return await fn()
     } catch {
@@ -77,20 +84,24 @@ async function fetchAllBalances(user: any): Promise<{
     }
   }
 
-  const [xrplBalances, bnb, bscUsdt, baseEth] = await Promise.all([
+  const safeSolana = async (): Promise<{ sol: string; usdc: string }> => {
+    if (!solanaAddress) return { sol: '0', usdc: '0' }
+    try {
+      return await getSolanaBalances(solanaAddress)
+    } catch {
+      return { sol: '0', usdc: '0' }
+    }
+  }
+
+  const [xrplBalances, bnb, bscUsdt, baseEth, solana] = await Promise.all([
     getAllBalances(xrplAddress),
-    evmAddress
-      ? safeEvm(() => evmService.getBalance(evmAddress, 'bsc'))
-      : Promise.resolve('0'),
-    evmAddress
-      ? safeEvm(() => evmService.getBalance(evmAddress, 'bsc', 'USDT'))
-      : Promise.resolve('0'),
-    evmAddress
-      ? safeEvm(() => evmService.getBalance(evmAddress, 'base'))
-      : Promise.resolve('0'),
+    evmAddress ? safe(() => evmService.getBalance(evmAddress, 'bsc')) : Promise.resolve('0'),
+    evmAddress ? safe(() => evmService.getBalance(evmAddress, 'bsc', 'USDT')) : Promise.resolve('0'),
+    evmAddress ? safe(() => evmService.getBalance(evmAddress, 'base')) : Promise.resolve('0'),
+    safeSolana(),
   ])
 
-  return { ...xrplBalances, bnb, bscUsdt, baseEth }
+  return { ...xrplBalances, bnb, bscUsdt, baseEth, sol: solana.sol, solUsdc: solana.usdc }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -194,6 +205,14 @@ export async function handleInteraction(
         await handleSendMoney(whatsappId, phoneNumber)
         break
 
+      case 'offramp_money':
+        await handleOffRamp(whatsappId, phoneNumber, user)
+        break
+
+      case 'card_payment':
+        await handleCardPayment(phoneNumber, user)
+        break
+
       case 'request_money':
         await handleRequestMoney(whatsappId, phoneNumber)
         break
@@ -285,10 +304,19 @@ export async function handleFlowResponse(
       responseJson.recipient_type !== undefined &&
       responseJson.total === undefined
 
+    const isOffRamp =
+      !hasPinSetupData &&
+      !hasImportData &&
+      responseJson.mm_provider !== undefined &&
+      responseJson.recipient_phone !== undefined &&
+      responseJson.xaf_amount !== undefined
+
     if (hasPinSetupData) {
       await handlePinSetupComplete(whatsappId, phoneNumber, responseJson)
     } else if (hasImportData) {
       await handleWalletImportComplete(whatsappId, phoneNumber, responseJson)
+    } else if (isOffRamp) {
+      await handleOffRampComplete(whatsappId, phoneNumber, responseJson)
     } else if (isSendMoney) {
       await handleSendMoneyComplete(whatsappId, phoneNumber, responseJson)
     } else if (isRequestMoney) {
@@ -341,7 +369,7 @@ async function handleGetStarted(
     )
 
     const e164Phone = normalizeToE164(phoneNumber)
-    const { xrplAddress: address, evmAddress } =
+    const { xrplAddress: address, evmAddress, solanaAddress } =
       await walletService.getOrCreateWallets(e164Phone)
     const defaultPinHash = await bcrypt.hash('0000', 10)
 
@@ -354,6 +382,7 @@ async function handleGetStarted(
     const web3authFields = {
       xrpl_address: address,
       evm_address: evmAddress,
+      solana_address: solanaAddress,
       web3auth_verifier_id: e164Phone,
       wallet_created_at: new Date(),
       migration_status: 'n/a' as const,
@@ -1465,4 +1494,222 @@ async function handleRejectRequest(
       '❌ An error occurred. Please try again.',
     )
   }
+}
+
+// ── Off-Ramp ──────────────────────────────────────────────────────────────────
+
+/**
+ * Handle "Cash Out" menu tap — launch the off-ramp flow.
+ */
+async function handleOffRamp(
+  _whatsappId: string,
+  phoneNumber: string,
+  user: any,
+): Promise<void> {
+  try {
+    if (requiresMigration(user)) {
+      await sendTextMessage(
+        phoneNumber,
+        '⚠️ *Wallet Migration Required*\n\nPlease contact support to upgrade your wallet before using Cash Out.',
+      )
+      return
+    }
+
+    const isDefaultPin = await bcrypt.compare('0000', user.pinHash)
+    if (isDefaultPin) {
+      await sendTextMessage(
+        phoneNumber,
+        '⚠️ Please set up your transaction PIN first.\n\nLaunching PIN setup...',
+      )
+      await FlowLauncherService.launchPinSetupFlow(user)
+      return
+    }
+
+    await FlowLauncherService.launchOffRampFlow(user)
+  } catch (error) {
+    console.error('❌ Error launching off-ramp flow:', error)
+    await sendTextMessage(phoneNumber, '❌ An error occurred. Please try again.')
+  }
+}
+
+/**
+ * Handle "Pay with Card" menu selection.
+ *
+ * Launches the Coinbase Onramp WhatsApp Flow. No PIN check needed here —
+ * the card payment itself authenticates the sender via Coinbase's KYC.
+ * No migration check either — card payments don't touch the user's crypto wallet.
+ */
+async function handleCardPayment(phoneNumber: string, user: any): Promise<void> {
+  try {
+    await FlowLauncherService.launchCardPaymentFlow(user)
+  } catch (error) {
+    console.error('❌ Error launching card payment flow:', error)
+    await sendTextMessage(phoneNumber, '❌ An error occurred. Please try again.')
+  }
+}
+
+/**
+ * Handle Off-Ramp Flow Completion (nfm_reply from OFFRAMP_SUCCESS).
+ *
+ * Sequence:
+ *   1. Re-derive quote (fresh rate) and confirm balance
+ *   2. Transfer crypto from user → admin wallet
+ *   3. Record OffRampTransaction
+ *   4. Call Mobile Money payout API
+ *   5. Send receipt to sender
+ */
+async function handleOffRampComplete(
+  whatsappId: string,
+  phoneNumber: string,
+  flowData: any,
+): Promise<void> {
+  const {
+    crypto_currency,
+    crypto_amount,
+    recipient_phone,
+    mm_provider,
+    xaf_amount,
+    fixer_rate,
+    sendsasa_rate,
+    crypto_amount_usd,
+    fee_xaf,
+  } = flowData
+
+  const user = await User.findOne({ whatsappId })
+  if (!user) {
+    await sendTextMessage(phoneNumber, '❌ User not found.')
+    return
+  }
+
+  await sendTextMessage(phoneNumber, '⏳ Processing your cash out...')
+
+  const numAmount = Number.parseFloat(crypto_amount)
+  const numXAF = Number.parseInt(xaf_amount, 10)
+  const provider = mm_provider as MobileMoneyProvider
+
+  // Resolve admin address before touching the blockchain
+  const isUSDT = crypto_currency === 'USDT'
+  const adminAddress = isUSDT
+    ? await getAdminEVMAddress()
+    : await getAdminXRPLAddress()
+  const cryptoChain = isUSDT ? 'bsc' : 'xrpl'
+
+  // ── Step 1: create the record BEFORE sending ──────────────────────────────
+  // If the server crashes after the on-chain tx confirms but before we write
+  // to the DB, we would lose the record. Creating it first lets us recover.
+  const offRamp = await OffRampTransaction.create({
+    senderPhone: user.phoneNumber,
+    senderAddress: getEffectiveXRPLAddress(user),
+    cryptoAmount: numAmount,
+    cryptoCurrency: crypto_currency,
+    cryptoChain,
+    adminAddress,
+    cryptoAmountUSD: Number.parseFloat(crypto_amount_usd || '0'),
+    fixerRate: Number.parseFloat(fixer_rate || '0'),
+    sendSasaRate: Number.parseFloat(sendsasa_rate || '0'),
+    feeXAF: Number.parseInt(fee_xaf || '0', 10),
+    recipientPhone: recipient_phone,
+    mmProvider: provider,
+    xafAmount: numXAF,
+    status: 'pending',
+  })
+
+  const refId = (offRamp._id as { toString(): string }).toString()
+
+  // ── Step 2: send crypto to admin wallet ───────────────────────────────────
+  // submitAndWait (XRPL) and tx.wait(1) (EVM) both block until the tx is
+  // in a validated ledger / mined block with a success status — so when
+  // these return without throwing, the admin wallet has the funds.
+  let cryptoTxHash: string
+
+  try {
+    offRamp.status = 'crypto_sent'
+    await offRamp.save()
+
+    const senderKey = await walletService.getPrivateKey(user.phoneNumber)
+
+    if (isUSDT) {
+      const receipt = await evmService.transferToken(
+        senderKey, 'bsc', 'USDT', adminAddress, numAmount.toString(),
+      )
+      cryptoTxHash = receipt.hash
+    } else {
+      let result: { hash: string }
+      if (crypto_currency === 'XRP') {
+        result = await sendXRP(senderKey, adminAddress, numAmount)
+      } else if (crypto_currency === 'RLUSD') {
+        result = await sendRLUSD(senderKey, adminAddress, numAmount)
+      } else {
+        result = await sendUSDC(senderKey, adminAddress, numAmount)
+      }
+      cryptoTxHash = result.hash
+    }
+
+    offRamp.cryptoTxHash = cryptoTxHash
+    offRamp.status = 'crypto_confirmed'
+    await offRamp.save()
+    console.log(`✅ Off-ramp crypto confirmed: ${cryptoTxHash} (ref: ${refId})`)
+  } catch (error: any) {
+    offRamp.status = 'failed'
+    offRamp.failureReason = error.message
+    await offRamp.save()
+    console.error('❌ Off-ramp crypto transfer failed:', error)
+    await sendTextMessage(
+      phoneNumber,
+      `❌ *Transfer Failed*\n\nCould not send ${crypto_currency} to our wallet.\n\n${error.message || 'Please try again.'}\n\nRef: ${refId}`,
+    )
+    return
+  }
+
+  // ── Step 3: trigger Mobile Money payout ──────────────────────────────────
+  try {
+    const payoutResult = await mobileMoneyService.payout({
+      provider,
+      recipientPhone: recipient_phone,
+      amount: numXAF,
+      currency: 'XAF',
+      reference: refId,
+      description: `SendSasa payment from ${user.username}`,
+    })
+
+    offRamp.status = payoutResult.success ? 'completed' : 'payout_initiated'
+    offRamp.mmTxId = payoutResult.providerTxId
+    if (payoutResult.success) offRamp.completedAt = new Date()
+    await offRamp.save()
+  } catch (error: any) {
+    // Crypto is safely in admin wallet — flag for manual payout
+    offRamp.status = 'failed'
+    offRamp.failureReason = error.message
+    await offRamp.save()
+    console.error('❌ Mobile Money payout failed:', error)
+    await sendTextMessage(
+      phoneNumber,
+      `⚠️ *Crypto Received — Payout Pending*\n\n` +
+        `We received your ${numAmount} ${crypto_currency}.\n` +
+        `The Mobile Money payout is being processed manually.\n\n` +
+        `Reference: \`${refId}\`\n` +
+        `Our team will complete your payout shortly.`,
+    )
+    return
+  }
+
+  // ── Step 4: receipt ───────────────────────────────────────────────────────
+  const providerName = PROVIDER_DISPLAY[provider]
+  const dateTime = new Date().toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+
+  await sendTextMessage(
+    phoneNumber,
+    `✅ *Cash Out Successful!*\n\n` +
+      `💸 Sent: ${numAmount} ${crypto_currency}\n` +
+      `💵 Delivered: ${numXAF.toLocaleString()} XAF\n` +
+      `📱 To: ${providerName} ${recipient_phone}\n` +
+      `🕐 ${dateTime}\n\n` +
+      `🔖 Ref: \`${refId}\``,
+  )
+
+  const balances = await fetchAllBalances(user)
+  await sendMainMenu(phoneNumber, balances, user.username)
 }

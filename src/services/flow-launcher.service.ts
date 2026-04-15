@@ -3,6 +3,13 @@ import { getAllBalances } from './xrpl.service'
 import { WhatsAppService } from './whatsapp.service'
 import { IUser } from '../types'
 
+import config from '../utils/config'
+const OFFRAMP_FLOW_ID = config.OFFRAMP_FLOW_ID
+const CARD_PAYMENT_FLOW_ID = config.CARD_PAYMENT_FLOW_ID
+const REQUEST_MONEY_FLOW_ID = config.REQUEST_MONEY_FLOW_ID
+const SEND_MONEY_FLOW_ID = config.SEND_MONEY_FLOW_ID
+const PIN_SETUP_FLOW_ID = config.PIN_SETUP_FLOW_ID
+
 export class FlowLauncherService {
   static async launchSendMoneyFlow(user: IUser): Promise<void> {
     try {
@@ -26,7 +33,7 @@ export class FlowLauncherService {
             parameters: {
               flow_message_version: '3',
               flow_token: flowToken,
-              flow_id: '1604059694187893',
+              flow_id: SEND_MONEY_FLOW_ID,
               flow_cta: 'Continue',
               mode: 'published',
               flow_action: 'navigate',
@@ -71,7 +78,7 @@ export class FlowLauncherService {
             parameters: {
               flow_message_version: '3',
               flow_token: flowToken,
-              flow_id: '799973406499088',
+              flow_id: REQUEST_MONEY_FLOW_ID,
               flow_cta: 'Continue',
               mode: 'published',
               flow_action: 'navigate',
@@ -116,7 +123,7 @@ export class FlowLauncherService {
             parameters: {
               flow_message_version: '3',
               flow_token: flowToken,
-              flow_id: '978803041536597',
+              flow_id: PIN_SETUP_FLOW_ID,
               flow_cta: 'Get Started',
               mode: 'published',
               flow_action: 'navigate',
@@ -131,6 +138,95 @@ export class FlowLauncherService {
       await WhatsAppService.sendMessage(flowMessage)
     } catch (error) {
       console.error('Failed to launch PIN Setup flow:', error)
+      throw error
+    }
+  }
+
+  static async launchOffRampFlow(user: IUser): Promise<void> {
+    try {
+      const balances = await getAllBalances(user.xrplAddress)
+      const flowToken = FlowDataExchangeService.generateFlowToken(
+        user.whatsappId,
+      )
+
+      const flowMessage = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: user.whatsappId,
+        type: 'interactive',
+        interactive: {
+          type: 'flow',
+          header: { type: 'text', text: '💵 Cash Out' },
+          body: { text: 'Send crypto to MTN MoMo, Orange Money or UBA M2U' },
+          footer: { text: 'Powered by SendSasa' },
+          action: {
+            name: 'flow',
+            parameters: {
+              flow_message_version: '3',
+              flow_token: flowToken,
+              flow_id: OFFRAMP_FLOW_ID,
+              flow_cta: 'Continue',
+              mode: 'published',
+              flow_action: 'navigate',
+              flow_action_payload: {
+                screen: 'OFFRAMP_DETAILS',
+                data: {
+                  available_balance_xrp: balances.xrp,
+                  available_balance_rlusd: balances.rlusd,
+                  available_balance_usdc: balances.usdc,
+                },
+              },
+            },
+          },
+        },
+      }
+
+      await WhatsAppService.sendMessage(flowMessage)
+    } catch (error) {
+      console.error('Failed to launch Off-Ramp flow:', error)
+      throw error
+    }
+  }
+
+  static async launchCardPaymentFlow(user: IUser): Promise<void> {
+    try {
+      const flowToken = FlowDataExchangeService.generateFlowToken(
+        user.whatsappId,
+      )
+
+      const flowMessage = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: user.whatsappId,
+        type: 'interactive',
+        interactive: {
+          type: 'flow',
+          header: { type: 'text', text: '💳 Pay with Card' },
+          body: {
+            text: 'Send money to Africa using your debit card, Apple Pay, or Google Pay. No crypto wallet needed.',
+          },
+          footer: { text: 'Powered by Coinbase' },
+          action: {
+            name: 'flow',
+            parameters: {
+              flow_message_version: '3',
+              flow_token: flowToken,
+              flow_id: CARD_PAYMENT_FLOW_ID,
+              flow_cta: 'Continue',
+              mode: 'published',
+              flow_action: 'navigate',
+              flow_action_payload: {
+                screen: 'CARD_PAYMENT_DETAILS',
+                data: {},
+              },
+            },
+          },
+        },
+      }
+
+      await WhatsAppService.sendMessage(flowMessage)
+    } catch (error) {
+      console.error('Failed to launch Card Payment flow:', error)
       throw error
     }
   }

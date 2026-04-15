@@ -115,6 +115,11 @@ const UserSchema = new Schema<IUser>({
     index: true,
     sparse: true,
   },
+  solana_address: {
+    type: String,
+    index: true,
+    sparse: true,
+  },
   wallet_created_at: {
     type: Date,
   },

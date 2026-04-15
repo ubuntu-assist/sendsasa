@@ -1,0 +1,299 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "OFFRAMP_DETAILS": ["OFFRAMP_CONFIRM"],
+    "OFFRAMP_CONFIRM": ["OFFRAMP_SUCCESS"],
+    "OFFRAMP_SUCCESS": []
+  },
+  "screens": [
+    {
+      "id": "OFFRAMP_DETAILS",
+      "title": "Cash Out",
+      "data": {
+        "available_balance_xrp": {
+          "type": "string",
+          "__example__": "5.00"
+        },
+        "available_balance_rlusd": {
+          "type": "string",
+          "__example__": "100.00"
+        },
+        "available_balance_usdc": {
+          "type": "string",
+          "__example__": "50.00"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Available Balances"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'XRP: ' ${data.available_balance_xrp}`"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'RLUSD: ' ${data.available_balance_rlusd}`"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'USDC: ' ${data.available_balance_usdc}`"
+          },
+          {
+            "type": "Form",
+            "name": "offramp_details_form",
+            "children": [
+              {
+                "type": "Dropdown",
+                "name": "crypto_currency",
+                "label": "Crypto to send",
+                "required": true,
+                "data-source": [
+                  { "id": "XRP", "title": "XRP" },
+                  { "id": "RLUSD", "title": "RLUSD (Ripple USD)" },
+                  { "id": "USDC", "title": "USDC (USD Coin)" }
+                ],
+                "on-select-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "crypto_currency": "${form.crypto_currency}",
+                    "crypto_amount": "${form.crypto_amount}",
+                    "mm_provider": "${form.mm_provider}",
+                    "recipient_phone": "${form.recipient_phone}"
+                  }
+                }
+              },
+              {
+                "type": "TextInput",
+                "name": "crypto_amount",
+                "label": "Amount to send",
+                "input-type": "number",
+                "required": true,
+                "helper-text": "Enter the crypto amount you want to convert"
+              },
+              {
+                "type": "Dropdown",
+                "name": "mm_provider",
+                "label": "Mobile Money provider",
+                "required": true,
+                "data-source": [
+                  { "id": "mtn", "title": "MTN Mobile Money" },
+                  { "id": "orange", "title": "Orange Money" },
+                  { "id": "uba", "title": "UBA M2U" }
+                ],
+                "on-select-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "crypto_currency": "${form.crypto_currency}",
+                    "crypto_amount": "${form.crypto_amount}",
+                    "mm_provider": "${form.mm_provider}",
+                    "recipient_phone": "${form.recipient_phone}"
+                  }
+                }
+              },
+              {
+                "type": "TextInput",
+                "name": "recipient_phone",
+                "label": "Recipient phone number",
+                "input-type": "phone",
+                "required": true,
+                "helper-text": "e.g. +237 6XX XXX XXX"
+              },
+              {
+                "type": "Footer",
+                "label": "Get Quote",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "crypto_currency": "${form.crypto_currency}",
+                    "crypto_amount": "${form.crypto_amount}",
+                    "mm_provider": "${form.mm_provider}",
+                    "recipient_phone": "${form.recipient_phone}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "OFFRAMP_CONFIRM",
+      "title": "Confirm Cash Out",
+      "data": {
+        "crypto_currency": {
+          "type": "string",
+          "__example__": "RLUSD"
+        },
+        "crypto_amount": {
+          "type": "string",
+          "__example__": "100"
+        },
+        "xaf_amount": {
+          "type": "string",
+          "__example__": "59700"
+        },
+        "fee_xaf": {
+          "type": "string",
+          "__example__": "299"
+        },
+        "rate_display": {
+          "type": "string",
+          "__example__": "1 RLUSD = 597 XAF"
+        },
+        "mm_provider": {
+          "type": "string",
+          "__example__": "mtn"
+        },
+        "mm_provider_name": {
+          "type": "string",
+          "__example__": "MTN Mobile Money"
+        },
+        "recipient_phone": {
+          "type": "string",
+          "__example__": "+237612345678"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Review Cash Out"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'You send: ' ${data.crypto_amount} ' ' ${data.crypto_currency}`"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'You receive: ' ${data.xaf_amount} ' XAF'`"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'SendSasa fee: ' ${data.fee_xaf} ' XAF'`"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'Rate: ' ${data.rate_display}`"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'Payout via: ' ${data.mm_provider_name}`"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'To: ' ${data.recipient_phone}`"
+          },
+          {
+            "type": "Form",
+            "name": "confirm_form",
+            "children": [
+              {
+                "type": "TextInput",
+                "name": "transaction_pin",
+                "label": "Transaction PIN",
+                "input-type": "passcode",
+                "required": true,
+                "min-chars": 4,
+                "max-chars": 6,
+                "helper-text": "Enter your 4-6 digit PIN to confirm"
+              },
+              {
+                "type": "Footer",
+                "label": "Confirm & Send",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "crypto_currency": "${data.crypto_currency}",
+                    "crypto_amount": "${data.crypto_amount}",
+                    "xaf_amount": "${data.xaf_amount}",
+                    "fee_xaf": "${data.fee_xaf}",
+                    "rate_display": "${data.rate_display}",
+                    "mm_provider": "${data.mm_provider}",
+                    "mm_provider_name": "${data.mm_provider_name}",
+                    "recipient_phone": "${data.recipient_phone}",
+                    "transaction_pin": "${form.transaction_pin}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "OFFRAMP_SUCCESS",
+      "title": "Cash Out Initiated",
+      "terminal": true,
+      "success": true,
+      "data": {
+        "crypto_currency": {
+          "type": "string",
+          "__example__": "RLUSD"
+        },
+        "crypto_amount": {
+          "type": "string",
+          "__example__": "100"
+        },
+        "xaf_amount": {
+          "type": "string",
+          "__example__": "59700"
+        },
+        "mm_provider_name": {
+          "type": "string",
+          "__example__": "MTN Mobile Money"
+        },
+        "recipient_phone": {
+          "type": "string",
+          "__example__": "+237612345678"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "✅ Cash Out Initiated!"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'Sending ' ${data.crypto_amount} ' ' ${data.crypto_currency} ' → ' ${data.xaf_amount} ' XAF'`"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'Payout via ' ${data.mm_provider_name} ' to ' ${data.recipient_phone}`"
+          },
+          {
+            "type": "TextBody",
+            "text": "Your request is being processed. You will receive a confirmation message once the payout is sent."
+          },
+          {
+            "type": "Form",
+            "name": "success_form",
+            "children": [
+              {
+                "type": "Footer",
+                "label": "Done",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {
+                    "crypto_currency": "${data.crypto_currency}",
+                    "crypto_amount": "${data.crypto_amount}",
+                    "xaf_amount": "${data.xaf_amount}",
+                    "mm_provider_name": "${data.mm_provider_name}",
+                    "recipient_phone": "${data.recipient_phone}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

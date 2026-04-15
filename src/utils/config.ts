@@ -29,6 +29,23 @@ const BSC_RPC_URL = process.env.BSC_RPC_URL
 const BASE_RPC_URL = process.env.BASE_RPC_URL
 const ETHEREUM_RPC_URL = process.env.ETHEREUM_RPC_URL
 const XRPL_WSS_URL = process.env.XRPL_WSS_URL
+const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL
+const SOLANA_NETWORK = process.env.SOLANA_NETWORK
+
+// Flow IDs
+const OFFRAMP_FLOW_ID = process.env.OFFRAMP_FLOW_ID
+const CARD_PAYMENT_FLOW_ID = process.env.CARD_PAYMENT_FLOW_ID
+const REQUEST_MONEY_FLOW_ID = process.env.REQUEST_MONEY_FLOW_ID
+const SEND_MONEY_FLOW_ID = process.env.SEND_MONEY_FLOW_ID
+const PIN_SETUP_FLOW_ID = process.env.PIN_SETUP_FLOW_ID
+
+// Fixer.io (FX rates)
+const FIXER_API_KEY = process.env.FIXER_API_KEY
+
+// Admin wallet — managed by Web3Auth (same verifier as user wallets)
+// Use a dedicated internal identifier, not a phone number.
+// Example: ADMIN_VERIFIER_ID=admin.sendsasa
+const ADMIN_VERIFIER_ID = process.env.ADMIN_VERIFIER_ID
 
 export default {
   MONGODB_URI,
@@ -54,4 +71,13 @@ export default {
   BASE_RPC_URL,
   ETHEREUM_RPC_URL,
   XRPL_WSS_URL,
+  SOLANA_RPC_URL,
+  SOLANA_NETWORK,
+  FIXER_API_KEY,
+  ADMIN_VERIFIER_ID,
+  OFFRAMP_FLOW_ID,
+  CARD_PAYMENT_FLOW_ID,
+  REQUEST_MONEY_FLOW_ID,
+  SEND_MONEY_FLOW_ID,
+  PIN_SETUP_FLOW_ID,
 }

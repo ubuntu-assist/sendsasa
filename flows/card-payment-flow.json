@@ -1,0 +1,270 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "CARD_PAYMENT_DETAILS": ["CARD_PAYMENT_CONFIRM"],
+    "CARD_PAYMENT_CONFIRM": ["CARD_PAYMENT_LINK"],
+    "CARD_PAYMENT_LINK": []
+  },
+  "screens": [
+    {
+      "id": "CARD_PAYMENT_DETAILS",
+      "title": "Pay with Card",
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Send Money via Card"
+          },
+          {
+            "type": "TextBody",
+            "text": "Pay with your debit card, Apple Pay, or Google Pay. No crypto wallet needed."
+          },
+          {
+            "type": "Form",
+            "name": "card_payment_details_form",
+            "children": [
+              {
+                "type": "TextInput",
+                "name": "usd_amount",
+                "label": "Amount to send (USD)",
+                "input-type": "number",
+                "required": true,
+                "helper-text": "Enter the USD amount the recipient should receive (e.g. 100)"
+              },
+              {
+                "type": "Dropdown",
+                "name": "mm_provider",
+                "label": "Mobile Money provider",
+                "required": true,
+                "data-source": [
+                  { "id": "mtn", "title": "MTN Mobile Money" },
+                  { "id": "orange", "title": "Orange Money" },
+                  { "id": "uba", "title": "UBA M2U" }
+                ],
+                "on-select-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "usd_amount": "${form.usd_amount}",
+                    "mm_provider": "${form.mm_provider}",
+                    "recipient_phone": "${form.recipient_phone}"
+                  }
+                }
+              },
+              {
+                "type": "TextInput",
+                "name": "recipient_phone",
+                "label": "Recipient phone number",
+                "input-type": "phone",
+                "required": true,
+                "helper-text": "Mobile Money number (e.g. +237 6XX XXX XXX)"
+              },
+              {
+                "type": "Footer",
+                "label": "Get Quote",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "usd_amount": "${form.usd_amount}",
+                    "mm_provider": "${form.mm_provider}",
+                    "recipient_phone": "${form.recipient_phone}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "CARD_PAYMENT_CONFIRM",
+      "title": "Review Payment",
+      "data": {
+        "usd_amount": {
+          "type": "string",
+          "__example__": "100.00"
+        },
+        "card_fee_usd": {
+          "type": "string",
+          "__example__": "3.99"
+        },
+        "total_usd_charged": {
+          "type": "string",
+          "__example__": "103.99"
+        },
+        "xaf_amount": {
+          "type": "string",
+          "__example__": "59700"
+        },
+        "fee_xaf": {
+          "type": "string",
+          "__example__": "299"
+        },
+        "rate_display": {
+          "type": "string",
+          "__example__": "1 USDC = 597.00 XAF"
+        },
+        "mm_provider": {
+          "type": "string",
+          "__example__": "mtn"
+        },
+        "mm_provider_name": {
+          "type": "string",
+          "__example__": "MTN Mobile Money"
+        },
+        "recipient_phone": {
+          "type": "string",
+          "__example__": "+237612345678"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Review your payment"
+          },
+          {
+            "type": "TextSubheading",
+            "text": "What your card is charged"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'Amount: $' ${data.usd_amount} ' USDC'`"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'Card fee (3.99%): $' ${data.card_fee_usd}`"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'Total charged: $' ${data.total_usd_charged}`"
+          },
+          {
+            "type": "TextSubheading",
+            "text": "What the recipient gets"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'Amount: ' ${data.xaf_amount} ' XAF'`"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'SendSasa fee: ' ${data.fee_xaf} ' XAF'`"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'Rate: ' ${data.rate_display}`"
+          },
+          {
+            "type": "TextSubheading",
+            "text": "Payout destination"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'Payout via: ' ${data.mm_provider_name}`"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'To: ' ${data.recipient_phone}`"
+          },
+          {
+            "type": "Form",
+            "name": "confirm_form",
+            "children": [
+              {
+                "type": "Footer",
+                "label": "Get Payment Link",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "usd_amount": "${data.usd_amount}",
+                    "card_fee_usd": "${data.card_fee_usd}",
+                    "total_usd_charged": "${data.total_usd_charged}",
+                    "xaf_amount": "${data.xaf_amount}",
+                    "fee_xaf": "${data.fee_xaf}",
+                    "rate_display": "${data.rate_display}",
+                    "mm_provider": "${data.mm_provider}",
+                    "mm_provider_name": "${data.mm_provider_name}",
+                    "recipient_phone": "${data.recipient_phone}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "CARD_PAYMENT_LINK",
+      "title": "Payment Link Ready",
+      "terminal": true,
+      "success": true,
+      "data": {
+        "usd_amount": {
+          "type": "string",
+          "__example__": "100.00"
+        },
+        "total_usd_charged": {
+          "type": "string",
+          "__example__": "103.99"
+        },
+        "xaf_amount": {
+          "type": "string",
+          "__example__": "59700"
+        },
+        "mm_provider_name": {
+          "type": "string",
+          "__example__": "MTN Mobile Money"
+        },
+        "recipient_phone": {
+          "type": "string",
+          "__example__": "+237612345678"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Your payment link is ready!"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'Check your WhatsApp — we sent you a secure Coinbase payment link for $' ${data.total_usd_charged} '.'`"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'Once payment is complete, ' ${data.xaf_amount} ' XAF will be sent to ' ${data.recipient_phone} ' via ' ${data.mm_provider_name} '.'`"
+          },
+          {
+            "type": "TextBody",
+            "text": "The link expires in 5 minutes. You can pay with Apple Pay, Google Pay, or any debit card."
+          },
+          {
+            "type": "Form",
+            "name": "success_form",
+            "children": [
+              {
+                "type": "Footer",
+                "label": "Done",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {
+                    "usd_amount": "${data.usd_amount}",
+                    "total_usd_charged": "${data.total_usd_charged}",
+                    "xaf_amount": "${data.xaf_amount}",
+                    "mm_provider_name": "${data.mm_provider_name}",
+                    "recipient_phone": "${data.recipient_phone}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -12,6 +12,12 @@ export interface XRPLConfig {
   wssUrl: string
 }
 
+export interface SolanaConfig {
+  rpcUrl: string
+  network: 'mainnet-beta' | 'devnet'
+  chainId: string
+}
+
 export type EVMChain = 'bsc' | 'base' | 'ethereum'
 
 export const evmChains: Record<EVMChain, EVMChainConfig> = {
@@ -40,6 +46,25 @@ export const evmChains: Record<EVMChain, EVMChainConfig> = {
 
 export const xrplConfig: XRPLConfig = {
   wssUrl: config.XRPL_WSS_URL || 'wss://s1.ripple.com',
+}
+
+const isSolanaDevnet = config.SOLANA_NETWORK === 'devnet'
+
+export const solanaConfig: SolanaConfig = {
+  rpcUrl: config.SOLANA_RPC_URL || (isSolanaDevnet
+    ? 'https://api.devnet.solana.com'
+    : 'https://api.mainnet-beta.solana.com'),
+  network: isSolanaDevnet ? 'devnet' : 'mainnet-beta',
+  chainId: isSolanaDevnet ? '0x2' : '0x1',
+}
+
+// SPL token mint addresses
+export const solanaTokens: Record<string, string> = {
+  // USDC mainnet: Circle's official mint
+  // USDC devnet:  Circle's devnet mint
+  USDC: isSolanaDevnet
+    ? '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
+    : 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
 }
 
 // ERC-20 token contract addresses per chain

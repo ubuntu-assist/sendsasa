@@ -7,6 +7,8 @@ import webhookRoutes from './routes/webhook.routes'
 import cronRoutes from './routes/cron.routes'
 import flowDataExchangeRoutes from './routes/flow.routes'
 import jwksRoutes from './routes/jwks.routes'
+import coinbaseWebhookRoutes from './routes/coinbase-webhook.routes'
+import coinbaseReturnRoutes, { pollPendingOnRampTransactions } from './routes/coinbase-return.routes'
 import { xrplClient } from './config/xrpl'
 import { connectDatabase, disconnectDatabase } from './config/database'
 import {
@@ -29,6 +31,10 @@ if (NODE_ENV === 'production') {
   app.use('/api/', apiLimiter)
 }
 
+// Coinbase webhook MUST be registered before express.json() so it receives
+// the raw Buffer body needed for HMAC-SHA256 signature verification.
+app.use('/webhook/coinbase', express.raw({ type: 'application/json' }), coinbaseWebhookRoutes)
+
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
@@ -39,6 +45,7 @@ app.use('/.well-known', jwksRoutes)
 app.use('/api', flowDataExchangeRoutes)
 app.use('/webhook', webhookRoutes)
 app.use('/cron', cronRoutes)
+app.use('/coinbase', coinbaseReturnRoutes)
 
 app.get('/health', (_req, res) => {
   res.status(200).json({
@@ -87,11 +94,8 @@ function startSelfPing() {
     try {
       const response = await axios.get(`${SELF_URL}/cron/activate`, {
         timeout: 10000,
-        headers: {
-          'User-Agent': 'SelfPing-KeepAlive/1.0',
-        },
+        headers: { 'User-Agent': 'SelfPing-KeepAlive/1.0' },
       })
-
       console.log(`Self-ping successful at ${new Date().toISOString()}`)
       console.log(`Ping response:`, response.data)
     } catch (error: any) {
@@ -100,7 +104,16 @@ function startSelfPing() {
     }
   })
 
-  console.log('Self-ping cron job started successfully\n')
+  // Poll pending Coinbase card payments every 2 minutes (fallback for missed redirects)
+  cron.schedule('*/2 * * * *', async () => {
+    try {
+      await pollPendingOnRampTransactions()
+    } catch (error: any) {
+      console.error('Coinbase poller error:', error.message)
+    }
+  })
+
+  console.log('Self-ping and Coinbase poller cron jobs started\n')
 }
 
 async function shutdown() {

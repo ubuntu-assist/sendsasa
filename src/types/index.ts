@@ -212,6 +212,7 @@ export interface IUser extends Document {
   web3auth_verifier_id?: string    // E.164 phone number
   evm_address?: string             // Cached 0x... (same for BSC/Base/ETH)
   xrpl_address?: string            // Cached r...
+  solana_address?: string          // Cached base58 Solana public key
   wallet_created_at?: Date
   migration_status?: 'pending' | 'completed' | 'n/a'
   old_wallet_exists?: boolean

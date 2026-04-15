@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import jwt from 'jsonwebtoken'
 import config from '../utils/config'
 import logger from '../utils/logger'
@@ -21,6 +22,7 @@ class JwtAuthService {
         sub: phoneNumber,
         iss: JWT_ISSUER,
         aud: JWT_AUDIENCE,
+        jti: crypto.randomUUID(),
       },
       privateKey,
       {

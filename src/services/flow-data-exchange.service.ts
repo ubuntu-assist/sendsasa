@@ -3,9 +3,24 @@ import { Request, Response } from 'express'
 import bcrypt from 'bcrypt'
 import { Wallet } from 'xrpl'
 import { User } from '../models/User'
+import { OnRampTransaction } from '../models/OnRampTransaction'
 import { isPhoneNumber } from './message-parser.service'
 import { getAllBalances, isAccountActivated } from './xrpl.service'
+import { fxRateService } from './fx-rate.service'
+import { normalizeToE164 } from './phone-number.service'
+import { PROVIDER_DISPLAY, type MobileMoneyProvider } from './mobile-money.service'
+import {
+  calculateCardQuote,
+  createSessionToken,
+  buildPaymentURL,
+  CARD_FEE_PCT,
+} from './coinbase-onramp.service'
+import { getAdminEVMAddress } from '../config/admin-wallet'
+import { sendTextMessage } from './whatsapp.service'
 import config from '../utils/config'
+
+const OFFRAMP_CURRENCIES = ['XRP', 'RLUSD', 'USDC', 'USDT']
+const OFFRAMP_PROVIDERS: MobileMoneyProvider[] = ['mtn', 'orange', 'uba']
 
 interface FlowDataExchangeRequest {
   version: string
@@ -207,6 +222,18 @@ export class FlowDataExchangeService {
       } else if (decryptedBody.screen === 'IMPORT_WALLET_SEED') {
         responseData =
           await FlowDataExchangeService.handleImportWalletSeed(decryptedBody)
+      } else if (decryptedBody.screen === 'OFFRAMP_DETAILS') {
+        responseData =
+          await FlowDataExchangeService.handleOffRampDetails(decryptedBody)
+      } else if (decryptedBody.screen === 'OFFRAMP_CONFIRM') {
+        responseData =
+          await FlowDataExchangeService.handleOffRampConfirm(decryptedBody)
+      } else if (decryptedBody.screen === 'CARD_PAYMENT_DETAILS') {
+        responseData =
+          await FlowDataExchangeService.handleCardPaymentDetails(decryptedBody)
+      } else if (decryptedBody.screen === 'CARD_PAYMENT_CONFIRM') {
+        responseData =
+          await FlowDataExchangeService.handleCardPaymentConfirm(decryptedBody)
       } else {
         responseData = {
           version: decryptedBody.version,
@@ -806,6 +833,439 @@ export class FlowDataExchangeService {
         xrpl_address: derivedAddress,
         xrp_balance: balances.xrp,
         seed: seed.trim(),
+      },
+    }
+  }
+
+  // ── Off-Ramp Details ────────────────────────────────────────────────────
+  //
+  // Validates currency, amount, recipient phone, and MM provider.
+  // On success: fetches a live quote and navigates to OFFRAMP_CONFIRM.
+  // On partial submit (dropdown): returns the screen as-is with fresh balances.
+
+  private static async handleOffRampDetails(
+    flowData: FlowDataExchangeRequest,
+  ): Promise<FlowDataExchangeResponse> {
+    const { currency, amount, recipient_phone, mm_provider } = flowData.data
+
+    const whatsappId = FlowDataExchangeService.extractWhatsappIdFromToken(
+      flowData.flow_token,
+    )
+    const user = await User.findOne({ whatsappId })
+
+    // Re-fetch balances for every submission so they stay fresh
+    let balances = { xrp: '0', rlusd: '0', usdc: '0' }
+    if (user) {
+      try {
+        balances = await getAllBalances(user.xrplAddress)
+      } catch {
+        // non-blocking
+      }
+    }
+
+    const balanceData = {
+      available_balance_xrp: balances.xrp,
+      available_balance_rlusd: balances.rlusd,
+      available_balance_usdc: balances.usdc,
+    }
+
+    // Partial submit (dropdown on-select) — return as-is with fresh balances
+    const isFullSubmit = currency && amount && recipient_phone && mm_provider
+    if (!isFullSubmit) {
+      return {
+        version: flowData.version,
+        screen: flowData.screen,
+        data: { ...flowData.data, ...balanceData },
+      }
+    }
+
+    if (!user) {
+      return {
+        version: flowData.version,
+        screen: flowData.screen,
+        data: { ...flowData.data, ...balanceData, __errors__: { amount: 'User not found' } },
+      }
+    }
+
+    const errors: Record<string, string> = {}
+
+    // Validate currency
+    if (!OFFRAMP_CURRENCIES.includes(currency)) {
+      errors['currency'] = 'Invalid currency selected'
+    }
+
+    // Validate provider
+    if (!OFFRAMP_PROVIDERS.includes(mm_provider as MobileMoneyProvider)) {
+      errors['mm_provider'] = 'Invalid provider selected'
+    }
+
+    // Validate amount
+    const numAmount = Number.parseFloat(amount)
+    if (Number.isNaN(numAmount) || numAmount <= 0) {
+      errors['amount'] = 'Amount must be greater than 0'
+    } else if (!errors['currency']) {
+      // Check sufficient balance (XRPL currencies only; USDT is on BSC)
+      if (currency !== 'USDT') {
+        let balance = 0
+        if (currency === 'XRP') balance = Number.parseFloat(balances.xrp)
+        else if (currency === 'RLUSD') balance = Number.parseFloat(balances.rlusd)
+        else if (currency === 'USDC') balance = Number.parseFloat(balances.usdc)
+
+        if (numAmount > balance) {
+          errors['amount'] = `Insufficient ${currency} balance. Available: ${balance.toFixed(6)}`
+        }
+      }
+    }
+
+    // Validate recipient phone
+    if (!recipient_phone || recipient_phone.trim() === '') {
+      errors['recipient_phone'] = 'Recipient phone is required'
+    } else {
+      try {
+        normalizeToE164(recipient_phone)
+      } catch {
+        errors['recipient_phone'] = 'Invalid phone number format (e.g. +237612345678)'
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      return {
+        version: flowData.version,
+        screen: flowData.screen,
+        data: { ...flowData.data, ...balanceData, __errors__: errors },
+      }
+    }
+
+    // Calculate live quote
+    let quote
+    try {
+      quote = await fxRateService.calculateQuote(numAmount, currency)
+    } catch (error: any) {
+      return {
+        version: flowData.version,
+        screen: flowData.screen,
+        data: {
+          ...flowData.data,
+          ...balanceData,
+          __errors__: { amount: error.message || 'Failed to fetch exchange rate' },
+        },
+      }
+    }
+
+    const providerDisplay = PROVIDER_DISPLAY[mm_provider as MobileMoneyProvider]
+    const normalizedPhone = normalizeToE164(recipient_phone)
+
+    return {
+      version: flowData.version,
+      screen: 'OFFRAMP_CONFIRM',
+      data: {
+        // Quote display (read-only fields in the flow)
+        crypto_amount: numAmount.toString(),
+        crypto_currency: currency,
+        xaf_amount: quote.xafAmount.toString(),
+        fee_xaf: quote.feeXAF.toString(),
+        rate_display: quote.rateDisplay,
+        // Recipient
+        recipient_phone: normalizedPhone,
+        mm_provider: mm_provider as MobileMoneyProvider,
+        recipient_display: `${providerDisplay} ${normalizedPhone}`,
+        // Snapshot for message-handler (passed through OFFRAMP_SUCCESS complete data)
+        crypto_amount_usd: quote.cryptoAmountUSD.toFixed(6),
+        fixer_rate: quote.fixerRate.toFixed(4),
+        sendsasa_rate: quote.sendSasaRate.toFixed(4),
+      },
+    }
+  }
+
+  // ── Off-Ramp Confirm ─────────────────────────────────────────────────────
+  //
+  // Validates PIN. On success: navigates to OFFRAMP_SUCCESS.
+  // The actual crypto transfer + MM payout run in message-handler after nfm_reply.
+
+  private static async handleOffRampConfirm(
+    flowData: FlowDataExchangeRequest,
+  ): Promise<FlowDataExchangeResponse> {
+    const { transaction_pin } = flowData.data
+
+    const whatsappId = FlowDataExchangeService.extractWhatsappIdFromToken(
+      flowData.flow_token,
+    )
+    const user = await User.findOne({ whatsappId })
+
+    if (!user) {
+      return {
+        version: flowData.version,
+        screen: flowData.screen,
+        data: { ...flowData.data, __errors__: { transaction_pin: 'User not found' } },
+      }
+    }
+
+    // Check lockout
+    if (user.pinLockedUntil && user.pinLockedUntil > new Date()) {
+      const minutesLeft = Math.ceil(
+        (user.pinLockedUntil.getTime() - Date.now()) / 60000,
+      )
+      return {
+        version: flowData.version,
+        screen: flowData.screen,
+        data: {
+          ...flowData.data,
+          __errors__: {
+            transaction_pin: `Account locked. Try again in ${minutesLeft} minute${minutesLeft > 1 ? 's' : ''}`,
+          },
+        },
+      }
+    }
+
+    if (transaction_pin === undefined || transaction_pin === null || transaction_pin === '') {
+      return {
+        version: flowData.version,
+        screen: flowData.screen,
+        data: { ...flowData.data, __errors__: { transaction_pin: 'Transaction PIN is required' } },
+      }
+    }
+
+    const pinStr = Number.parseInt(transaction_pin.toString(), 10).toString()
+    const isPinValid = await bcrypt.compare(pinStr, user.pinHash)
+
+    if (!isPinValid) {
+      user.pinAttempts = (user.pinAttempts || 0) + 1
+
+      if (user.pinAttempts >= 3) {
+        user.pinLockedUntil = new Date(Date.now() + 15 * 60 * 1000)
+        user.pinAttempts = 0
+        await user.save()
+        return {
+          version: flowData.version,
+          screen: flowData.screen,
+          data: {
+            ...flowData.data,
+            __errors__: { transaction_pin: 'Too many incorrect attempts. Account locked for 15 minutes' },
+          },
+        }
+      }
+
+      await user.save()
+      const attemptsLeft = 3 - user.pinAttempts
+      return {
+        version: flowData.version,
+        screen: flowData.screen,
+        data: {
+          ...flowData.data,
+          __errors__: {
+            transaction_pin: `Incorrect PIN. ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} remaining`,
+          },
+        },
+      }
+    }
+
+    // PIN correct — reset attempts
+    if (user.pinAttempts > 0) {
+      user.pinAttempts = 0
+      user.pinLockedUntil = undefined
+      await user.save()
+    }
+
+    // Navigate to success — pass all data through so nfm_reply carries it
+    return {
+      version: flowData.version,
+      screen: 'OFFRAMP_SUCCESS',
+      data: { ...flowData.data },
+    }
+  }
+
+  // ── Card Payment Details ─────────────────────────────────────────────────
+  //
+  // Validates usd_amount, mm_provider, recipient_phone.
+  // On full submit: calculates quote (with 3.99% card fee) → CARD_PAYMENT_CONFIRM.
+  // On dropdown on-select: returns screen as-is.
+
+  private static async handleCardPaymentDetails(
+    flowData: FlowDataExchangeRequest,
+  ): Promise<FlowDataExchangeResponse> {
+    const { usd_amount, mm_provider, recipient_phone } = flowData.data
+
+    // Partial submit (dropdown on-select)
+    const isFullSubmit = usd_amount && mm_provider && recipient_phone
+    if (!isFullSubmit) {
+      return { version: flowData.version, screen: flowData.screen, data: flowData.data }
+    }
+
+    const errors: Record<string, string> = {}
+
+    const numAmount = Number.parseFloat(usd_amount)
+    if (Number.isNaN(numAmount) || numAmount <= 0) {
+      errors['usd_amount'] = 'Amount must be greater than 0'
+    } else if (numAmount < 5) {
+      errors['usd_amount'] = 'Minimum amount is $5'
+    }
+
+    if (!['mtn', 'orange', 'uba'].includes(mm_provider)) {
+      errors['mm_provider'] = 'Invalid provider selected'
+    }
+
+    let normalizedPhone = ''
+    if (!recipient_phone || recipient_phone.trim() === '') {
+      errors['recipient_phone'] = 'Recipient phone is required'
+    } else {
+      try {
+        normalizedPhone = normalizeToE164(recipient_phone)
+      } catch {
+        errors['recipient_phone'] = 'Invalid phone number format (e.g. +237612345678)'
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      return { version: flowData.version, screen: flowData.screen, data: { ...flowData.data, __errors__: errors } }
+    }
+
+    // Calculate quote (stablecoins are 1:1 USD; no XRP conversion needed here)
+    let quote
+    try {
+      const rates = await fxRateService.getRates()
+      quote = calculateCardQuote(numAmount, rates.sendSasaRate, rates.fixerRate)
+    } catch (err: any) {
+      return {
+        version: flowData.version,
+        screen: flowData.screen,
+        data: { ...flowData.data, __errors__: { usd_amount: err.message || 'Failed to fetch exchange rate' } },
+      }
+    }
+
+    const providerName = PROVIDER_DISPLAY[mm_provider as MobileMoneyProvider]
+
+    return {
+      version: flowData.version,
+      screen: 'CARD_PAYMENT_CONFIRM',
+      data: {
+        usd_amount: numAmount.toFixed(2),
+        card_fee_usd: quote.cardFeeUSD.toFixed(2),
+        total_usd_charged: quote.totalUSDCharged.toFixed(2),
+        xaf_amount: quote.xafAmount.toString(),
+        fee_xaf: quote.feeXAF.toString(),
+        rate_display: quote.rateDisplay,
+        mm_provider: mm_provider as MobileMoneyProvider,
+        mm_provider_name: providerName,
+        recipient_phone: normalizedPhone,
+        // Snapshot for OnRampTransaction record
+        fixer_rate: quote.fixerRate.toFixed(4),
+        sendsasa_rate: quote.sendSasaRate.toFixed(4),
+      },
+    }
+  }
+
+  // ── Card Payment Confirm ──────────────────────────────────────────────────
+  //
+  // No PIN required — the card payment IS the authentication.
+  // Creates an OnRampTransaction, generates a Coinbase session token,
+  // sends the user a WhatsApp message with the payment URL,
+  // then navigates to CARD_PAYMENT_LINK (terminal screen).
+
+  private static async handleCardPaymentConfirm(
+    flowData: FlowDataExchangeRequest,
+  ): Promise<FlowDataExchangeResponse> {
+    const {
+      usd_amount,
+      card_fee_usd,
+      total_usd_charged,
+      xaf_amount,
+      fee_xaf,
+      rate_display,
+      mm_provider,
+      mm_provider_name,
+      recipient_phone,
+      fixer_rate,
+      sendsasa_rate,
+    } = flowData.data
+
+    const whatsappId = FlowDataExchangeService.extractWhatsappIdFromToken(flowData.flow_token)
+    const user = await User.findOne({ whatsappId })
+
+    if (!user) {
+      return {
+        version: flowData.version,
+        screen: flowData.screen,
+        data: { ...flowData.data, __errors__: { usd_amount: 'Session expired. Please restart.' } },
+      }
+    }
+
+    let adminAddress: string
+    try {
+      adminAddress = await getAdminEVMAddress()
+    } catch (err: any) {
+      return {
+        version: flowData.version,
+        screen: flowData.screen,
+        data: { ...flowData.data, __errors__: { usd_amount: 'Service temporarily unavailable. Please try again.' } },
+      }
+    }
+
+    const numUSD = Number.parseFloat(usd_amount)
+
+    // Create DB record BEFORE calling Coinbase — crash-safe
+    const onRamp = new OnRampTransaction({
+      senderPhone: user.whatsappId,
+      recipientPhone: recipient_phone,
+      mmProvider: mm_provider as MobileMoneyProvider,
+      usdAmount: numUSD,
+      cardFeePct: CARD_FEE_PCT,
+      cardFeeUSD: Number.parseFloat(card_fee_usd),
+      totalUSDCharged: Number.parseFloat(total_usd_charged),
+      xafAmount: parseInt(xaf_amount, 10),
+      feeXAF: parseInt(fee_xaf, 10),
+      fixerRate: Number.parseFloat(fixer_rate),
+      sendSasaRate: Number.parseFloat(sendsasa_rate),
+      adminAddress,
+      coinbaseSessionToken: 'pending',   // filled in below
+      status: 'pending',
+    })
+    await onRamp.save()
+
+    const refId = (onRamp._id as { toString(): string }).toString()
+
+    // Generate Coinbase session token
+    let sessionToken: string
+    try {
+      sessionToken = await createSessionToken(numUSD, adminAddress, refId)
+      onRamp.coinbaseSessionToken = sessionToken
+      await onRamp.save()
+    } catch (err: any) {
+      onRamp.status = 'failed'
+      onRamp.failureReason = err.message
+      await onRamp.save()
+      return {
+        version: flowData.version,
+        screen: flowData.screen,
+        data: { ...flowData.data, __errors__: { usd_amount: 'Failed to create payment session. Please try again.' } },
+      }
+    }
+
+    const paymentURL = buildPaymentURL(sessionToken)
+
+    // Send payment link via WhatsApp (async — don't block the flow response)
+    sendTextMessage(
+      user.whatsappId,
+      `💳 *Your SendSasa Payment Link*\n\n` +
+      `Tap the link below to pay with your card:\n` +
+      `${paymentURL}\n\n` +
+      `*Summary:*\n` +
+      `• You pay: $${total_usd_charged} (incl. 3.99% card fee)\n` +
+      `• ${xaf_amount} XAF → ${recipient_phone}\n` +
+      `• Via: ${mm_provider_name}\n` +
+      `• Rate: ${rate_display}\n\n` +
+      `⚠️ Link expires in 5 minutes. Do not share it.\n` +
+      `Ref: ${refId}`,
+    ).catch(err => console.error('Failed to send payment link message:', err))
+
+    return {
+      version: flowData.version,
+      screen: 'CARD_PAYMENT_LINK',
+      data: {
+        usd_amount,
+        total_usd_charged,
+        xaf_amount,
+        mm_provider_name,
+        recipient_phone,
       },
     }
   }

@@ -2,6 +2,8 @@ import { Web3Auth, SDK_MODE } from '@web3auth/single-factor-auth'
 import { CHAIN_NAMESPACES, WEB3AUTH_NETWORK, type WEB3AUTH_NETWORK_TYPE } from '@web3auth/base'
 import { CommonPrivateKeyProvider } from '@web3auth/base-provider'
 import { XrplPrivateKeyProvider } from '@web3auth/xrpl-provider'
+import { SolanaPrivateKeyProvider } from '@web3auth/solana-provider'
+import { solanaConfig } from './chains'
 import config from '../utils/config'
 import logger from '../utils/logger'
 
@@ -49,6 +51,21 @@ const xrplPrivateKeyProvider = new XrplPrivateKeyProvider({
   },
 })
 
+// ── Solana provider ───────────────────────────────────────────────────────────
+// Derives an Ed25519 keypair via `solanaPrivateKey` RPC method.
+const solanaPrivateKeyProvider = new SolanaPrivateKeyProvider({
+  config: {
+    chainConfig: {
+      chainNamespace: CHAIN_NAMESPACES.SOLANA,
+      chainId: solanaConfig.chainId,
+      rpcTarget: solanaConfig.rpcUrl,
+      ticker: 'SOL',
+      tickerName: 'Solana',
+    },
+    keyExportEnabled: true,
+  },
+})
+
 // ── Web3Auth instances ────────────────────────────────────────────────────────
 
 /** Main instance — raw secp256k1 key for EVM chains (BSC, Base, Ethereum) */
@@ -67,6 +84,14 @@ export const web3authXrpl = new Web3Auth({
   mode: SDK_MODE.NODE,
 })
 
+/** Solana instance — Ed25519 keypair derivation */
+export const web3authSolana = new Web3Auth({
+  clientId: config.WEB3AUTH_CLIENT_ID || '',
+  web3AuthNetwork: network,
+  privateKeyProvider: solanaPrivateKeyProvider,
+  mode: SDK_MODE.NODE,
+})
+
 // ── Initialisation ────────────────────────────────────────────────────────────
 // Both instances are initialised together. The promise is cached so concurrent
 // callers all await the same underlying init operation.
@@ -74,8 +99,12 @@ export const web3authXrpl = new Web3Auth({
 let initPromise: Promise<void> | null = null
 
 export async function initWeb3Auth(): Promise<void> {
-  initPromise ??= Promise.all([web3auth.init(), web3authXrpl.init()]).then(() => {
-    logger.info('Web3Auth SDK initialized (EVM + XRPL)')
+  initPromise ??= Promise.all([
+    web3auth.init(),
+    web3authXrpl.init(),
+    web3authSolana.init(),
+  ]).then(() => {
+    logger.info('Web3Auth SDK initialized (EVM + XRPL + Solana)')
   })
   await initPromise
 }
