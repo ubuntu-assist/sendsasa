@@ -395,7 +395,7 @@ export class FlowDataExchangeService {
 
     let balances = { xrp: '0', rlusd: '0', usdc: '0' }
     try {
-      balances = await getAllBalances(user.xrplAddress)
+      balances = await getAllBalances(user.xrpl_address || user.xrplAddress)
     } catch (error) {
       console.error('Failed to fetch balances:', error)
     }
@@ -607,7 +607,7 @@ export class FlowDataExchangeService {
 
     // Re-check balance in real time
     try {
-      const balances = await getAllBalances(user.xrplAddress)
+      const balances = await getAllBalances(user.xrpl_address || user.xrplAddress)
       let balance = 0
       if (currency === 'XRP') balance = Number.parseFloat(balances.xrp)
       else if (currency === 'RLUSD') balance = Number.parseFloat(balances.rlusd)
@@ -857,7 +857,7 @@ export class FlowDataExchangeService {
     let balances = { xrp: '0', rlusd: '0', usdc: '0' }
     if (user) {
       try {
-        balances = await getAllBalances(user.xrplAddress)
+        balances = await getAllBalances(user.xrpl_address || user.xrplAddress)
       } catch {
         // non-blocking
       }

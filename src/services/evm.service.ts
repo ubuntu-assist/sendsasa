@@ -14,9 +14,20 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+const _providers: Partial<Record<EVMChain, ethers.JsonRpcProvider>> = {}
+
 function getProvider(chain: EVMChain): ethers.JsonRpcProvider {
-  const { rpcUrl, chainId } = evmChains[chain]
-  return new ethers.JsonRpcProvider(rpcUrl, chainId, { staticNetwork: ethers.Network.from(chainId) })
+  let provider = _providers[chain]
+  if (!provider) {
+    const { rpcUrl, chainId } = evmChains[chain]
+    provider = new ethers.JsonRpcProvider(
+      rpcUrl,
+      chainId,
+      { staticNetwork: ethers.Network.from(chainId) },
+    )
+    _providers[chain] = provider
+  }
+  return provider
 }
 
 function getSigner(secp256k1Key: string, chain: EVMChain): ethers.Wallet {

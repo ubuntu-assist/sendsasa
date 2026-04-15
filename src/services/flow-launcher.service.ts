@@ -13,7 +13,8 @@ const PIN_SETUP_FLOW_ID = config.PIN_SETUP_FLOW_ID
 export class FlowLauncherService {
   static async launchSendMoneyFlow(user: IUser): Promise<void> {
     try {
-      const balances = await getAllBalances(user.xrplAddress)
+      const xrplAddress = (user as any).xrpl_address || user.xrplAddress
+      const balances = await getAllBalances(xrplAddress)
       const flowToken = FlowDataExchangeService.generateFlowToken(
         user.whatsappId,
       )
@@ -144,7 +145,8 @@ export class FlowLauncherService {
 
   static async launchOffRampFlow(user: IUser): Promise<void> {
     try {
-      const balances = await getAllBalances(user.xrplAddress)
+      const xrplAddress = (user as any).xrpl_address || user.xrplAddress
+      const balances = await getAllBalances(xrplAddress)
       const flowToken = FlowDataExchangeService.generateFlowToken(
         user.whatsappId,
       )
@@ -189,6 +191,9 @@ export class FlowLauncherService {
   }
 
   static async launchCardPaymentFlow(user: IUser): Promise<void> {
+    if (!CARD_PAYMENT_FLOW_ID) {
+      throw new Error('CARD_PAYMENT_FLOW_ID is not configured. Set it in your environment variables.')
+    }
     try {
       const flowToken = FlowDataExchangeService.generateFlowToken(
         user.whatsappId,

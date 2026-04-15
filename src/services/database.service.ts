@@ -90,7 +90,7 @@ export class UserService {
     rlusd: string
     usdc: string
   }> {
-    return await getAllBalances(user.xrplAddress)
+    return await getAllBalances((user as any).xrpl_address || user.xrplAddress)
   }
 
   static async updateLastActive(whatsappId: string): Promise<void> {
