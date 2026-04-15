@@ -117,6 +117,14 @@
         "recipient_phone": {
           "type": "string",
           "__example__": "+237612345678"
+        },
+        "fixer_rate": {
+          "type": "string",
+          "__example__": "612.0000"
+        },
+        "sendsasa_rate": {
+          "type": "string",
+          "__example__": "608.9400"
         }
       },
       "layout": {
@@ -188,7 +196,9 @@
                     "rate_display": "${data.rate_display}",
                     "mm_provider": "${data.mm_provider}",
                     "mm_provider_name": "${data.mm_provider_name}",
-                    "recipient_phone": "${data.recipient_phone}"
+                    "recipient_phone": "${data.recipient_phone}",
+                    "fixer_rate": "${data.fixer_rate}",
+                    "sendsasa_rate": "${data.sendsasa_rate}"
                   }
                 }
               }

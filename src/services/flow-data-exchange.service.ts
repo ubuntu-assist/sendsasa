@@ -1174,8 +1174,6 @@ export class FlowDataExchangeService {
       mm_provider,
       mm_provider_name,
       recipient_phone,
-      fixer_rate,
-      sendsasa_rate,
     } = flowData.data
 
     const whatsappId = FlowDataExchangeService.extractWhatsappIdFromToken(flowData.flow_token)
@@ -1200,6 +1198,20 @@ export class FlowDataExchangeService {
       }
     }
 
+    // Re-derive rates — fixer_rate/sendsasa_rate are not in the flow JSON's
+    // CARD_PAYMENT_CONFIRM data schema so they're not passed back on submit.
+    // Rates are cached for 1 hour so this is essentially free.
+    let fixerRate: number
+    let sendSasaRate: number
+    try {
+      const rates = await fxRateService.getRates()
+      fixerRate = rates.fixerRate
+      sendSasaRate = rates.sendSasaRate
+    } catch {
+      fixerRate = 0
+      sendSasaRate = 0
+    }
+
     const numUSD = Number.parseFloat(usd_amount)
 
     // Create DB record BEFORE calling Coinbase — crash-safe
@@ -1213,8 +1225,8 @@ export class FlowDataExchangeService {
       totalUSDCharged: Number.parseFloat(total_usd_charged),
       xafAmount: parseInt(xaf_amount, 10),
       feeXAF: parseInt(fee_xaf, 10),
-      fixerRate: Number.parseFloat(fixer_rate),
-      sendSasaRate: Number.parseFloat(sendsasa_rate),
+      fixerRate,
+      sendSasaRate,
       adminAddress,
       coinbaseSessionToken: 'pending',   // filled in below
       status: 'pending',
