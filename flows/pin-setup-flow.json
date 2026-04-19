@@ -1,0 +1,221 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "PIN_SETUP": ["SECURITY_QUESTIONS"],
+    "SECURITY_QUESTIONS": []
+  },
+  "screens": [
+    {
+      "id": "PIN_SETUP",
+      "title": "Set Transaction PIN",
+      "data": {
+        "error_pin": {
+          "type": "string",
+          "__example__": ""
+        },
+        "error_confirm_pin": {
+          "type": "string",
+          "__example__": ""
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "pin_form",
+            "error-messages": {
+              "pin": "${data.error_pin}",
+              "confirm_pin": "${data.error_confirm_pin}"
+            },
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "Create Your Transaction PIN"
+              },
+              {
+                "type": "TextBody",
+                "text": "Your PIN will be required for all transactions. Choose a 4-6 digit PIN that you can remember."
+              },
+              {
+                "type": "TextInput",
+                "name": "pin",
+                "label": "Enter PIN",
+                "input-type": "passcode",
+                "min-chars": 4,
+                "max-chars": 6,
+                "required": true,
+                "helper-text": "4-6 digits"
+              },
+              {
+                "type": "TextInput",
+                "name": "confirm_pin",
+                "label": "Confirm PIN",
+                "input-type": "passcode",
+                "min-chars": 4,
+                "max-chars": 6,
+                "required": true,
+                "helper-text": "Re-enter your PIN"
+              },
+              {
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "pin": "${form.pin}",
+                    "confirm_pin": "${form.confirm_pin}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "SECURITY_QUESTIONS",
+      "title": "Security Questions",
+      "terminal": true,
+      "data": {
+        "pin": {
+          "type": "number",
+          "__example__": 1234
+        },
+        "confirm_pin": {
+          "type": "number",
+          "__example__": 1234
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "security_form",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "Security Questions"
+              },
+              {
+                "type": "TextBody",
+                "text": "Answer at least 2 security questions. These will help you recover your account if you forget your PIN."
+              },
+              {
+                "type": "Dropdown",
+                "name": "question_1",
+                "label": "Question 1",
+                "required": true,
+                "data-source": [
+                  {
+                    "id": "mother_maiden",
+                    "title": "Mother's maiden name?"
+                  },
+                  {
+                    "id": "first_pet",
+                    "title": "First pet's name?"
+                  },
+                  {
+                    "id": "birth_city",
+                    "title": "City of birth?"
+                  },
+                  {
+                    "id": "favorite_teacher",
+                    "title": "Favorite teacher's name?"
+                  }
+                ]
+              },
+              {
+                "type": "TextInput",
+                "name": "answer_1",
+                "label": "Answer 1",
+                "input-type": "text",
+                "required": true,
+                "helper-text": "Your answer to question 1"
+              },
+              {
+                "type": "Dropdown",
+                "name": "question_2",
+                "label": "Question 2",
+                "required": true,
+                "data-source": [
+                  {
+                    "id": "first_school",
+                    "title": "First school's name?"
+                  },
+                  {
+                    "id": "childhood_friend",
+                    "title": "Childhood best friend?"
+                  },
+                  {
+                    "id": "first_job",
+                    "title": "First job title?"
+                  },
+                  {
+                    "id": "favorite_book",
+                    "title": "Favorite book?"
+                  }
+                ]
+              },
+              {
+                "type": "TextInput",
+                "name": "answer_2",
+                "label": "Answer 2",
+                "input-type": "text",
+                "required": true,
+                "helper-text": "Your answer to question 2"
+              },
+              {
+                "type": "Dropdown",
+                "name": "question_3",
+                "label": "Question 3 (Optional)",
+                "required": false,
+                "data-source": [
+                  {
+                    "id": "favorite_food",
+                    "title": "Favorite food?"
+                  },
+                  {
+                    "id": "dream_job",
+                    "title": "Childhood dream job?"
+                  },
+                  {
+                    "id": "first_car",
+                    "title": "First car model?"
+                  }
+                ]
+              },
+              {
+                "type": "TextInput",
+                "name": "answer_3",
+                "label": "Answer 3 (Optional)",
+                "input-type": "text",
+                "required": false,
+                "helper-text": "Your answer to question 3"
+              },
+              {
+                "type": "Footer",
+                "label": "Complete Setup",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {
+                    "pin": "${data.pin}",
+                    "confirm_pin": "${data.confirm_pin}",
+                    "question_1": "${form.question_1}",
+                    "answer_1": "${form.answer_1}",
+                    "question_2": "${form.question_2}",
+                    "answer_2": "${form.answer_2}",
+                    "question_3": "${form.question_3}",
+                    "answer_3": "${form.answer_3}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

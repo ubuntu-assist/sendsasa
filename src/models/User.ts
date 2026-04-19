@@ -132,6 +132,9 @@ const UserSchema = new Schema<IUser>({
     type: Boolean,
     default: false,
   },
+  fund_migration_at: {
+    type: Date,
+  },
 })
 
 UserSchema.index({ phoneNumber: 1, xrplAddress: 1 })

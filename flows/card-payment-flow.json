@@ -10,7 +10,20 @@
     {
       "id": "CARD_PAYMENT_DETAILS",
       "title": "Pay with Card",
-      "data": {},
+      "data": {
+        "error_usd_amount": {
+          "type": "string",
+          "__example__": ""
+        },
+        "error_mm_provider": {
+          "type": "string",
+          "__example__": ""
+        },
+        "error_recipient_phone": {
+          "type": "string",
+          "__example__": ""
+        }
+      },
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
@@ -25,6 +38,11 @@
           {
             "type": "Form",
             "name": "card_payment_details_form",
+            "error-messages": {
+              "usd_amount": "${data.error_usd_amount}",
+              "mm_provider": "${data.error_mm_provider}",
+              "recipient_phone": "${data.error_recipient_phone}"
+            },
             "children": [
               {
                 "type": "TextInput",
@@ -43,15 +61,7 @@
                   { "id": "mtn", "title": "MTN Mobile Money" },
                   { "id": "orange", "title": "Orange Money" },
                   { "id": "uba", "title": "UBA M2U" }
-                ],
-                "on-select-action": {
-                  "name": "data_exchange",
-                  "payload": {
-                    "usd_amount": "${form.usd_amount}",
-                    "mm_provider": "${form.mm_provider}",
-                    "recipient_phone": "${form.recipient_phone}"
-                  }
-                }
+                ]
               },
               {
                 "type": "TextInput",

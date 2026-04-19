@@ -43,6 +43,18 @@ export class FlowDataExchangeService {
     return Number.parseInt(pin.toString(), 10).toString()
   }
 
+  /** Convert { fieldName: errorMsg } → { error_fieldName: errorMsg, error_other: '' } */
+  private static errorFields(
+    errors: Record<string, string>,
+    fields: string[],
+  ): Record<string, string> {
+    const result: Record<string, string> = {}
+    for (const field of fields) {
+      result[`error_${field}`] = errors[field] ?? ''
+    }
+    return result
+  }
+
   /**
    * Decrypt incoming request from WhatsApp
    */
@@ -310,7 +322,10 @@ export class FlowDataExchangeService {
       return {
         version: flowData.version,
         screen: 'PIN_SETUP',
-        data: { ...flowData.data, __errors__: errors },
+        data: {
+          ...flowData.data,
+          ...FlowDataExchangeService.errorFields(errors, ['pin', 'confirm_pin']),
+        },
       }
     }
 
@@ -352,7 +367,10 @@ export class FlowDataExchangeService {
       return {
         version: flowData.version,
         screen: 'SECURITY_QUESTIONS',
-        data: { ...flowData.data, __errors__: errors },
+        data: {
+          ...flowData.data,
+          ...FlowDataExchangeService.errorFields(errors, ['answer_1', 'answer_2']),
+        },
       }
     }
 
@@ -388,7 +406,10 @@ export class FlowDataExchangeService {
           available_balance_xrp: '0',
           available_balance_rlusd: '0',
           available_balance_usdc: '0',
-          __errors__: { amount: 'User not found' },
+          ...FlowDataExchangeService.errorFields(
+            { amount: 'User not found' },
+            ['currency', 'amount', 'recipient_type', 'recipient'],
+          ),
         },
       }
     }
@@ -448,7 +469,11 @@ export class FlowDataExchangeService {
       return {
         version: flowData.version,
         screen: flowData.screen,
-        data: { ...flowData.data, ...balanceData, __errors__: errors },
+        data: {
+          ...flowData.data,
+          ...balanceData,
+          ...FlowDataExchangeService.errorFields(errors, ['currency', 'amount', 'recipient_type', 'recipient']),
+        },
       }
     }
 
@@ -500,59 +525,26 @@ export class FlowDataExchangeService {
     )
     const user = await User.findOne({ whatsappId })
 
-    if (!user) {
-      return {
-        version: flowData.version,
-        screen: flowData.screen,
-        data: {
-          ...flowData.data,
-          __errors__: { transaction_pin: 'User not found' },
-        },
-      }
-    }
+    const pinError = (msg: string) => ({
+      version: flowData.version,
+      screen: flowData.screen,
+      data: { ...flowData.data, error_transaction_pin: msg },
+    })
 
-    if (!user.pinHash) {
-      return {
-        version: flowData.version,
-        screen: flowData.screen,
-        data: {
-          ...flowData.data,
-          __errors__: { transaction_pin: 'PIN not set up yet' },
-        },
-      }
-    }
+    if (!user) return pinError('User not found')
+    if (!user.pinHash) return pinError('PIN not set up yet')
 
     // Check lockout
     if (user.pinLockedUntil && user.pinLockedUntil > new Date()) {
       const minutesLeft = Math.ceil(
         (user.pinLockedUntil.getTime() - Date.now()) / 60000,
       )
-      return {
-        version: flowData.version,
-        screen: flowData.screen,
-        data: {
-          ...flowData.data,
-          __errors__: {
-            transaction_pin: `Account locked. Try again in ${minutesLeft} minute${minutesLeft > 1 ? 's' : ''}`,
-          },
-        },
-      }
+      return pinError(`Account locked. Try again in ${minutesLeft} minute${minutesLeft > 1 ? 's' : ''}`)
     }
 
     // Require PIN
-    if (
-      transaction_pin === undefined ||
-      transaction_pin === null ||
-      transaction_pin === ''
-    ) {
-      return {
-        version: flowData.version,
-        screen: flowData.screen,
-        data: {
-          ...flowData.data,
-          __errors__: { transaction_pin: 'Transaction PIN is required' },
-        },
-      }
+    if (transaction_pin === undefined || transaction_pin === null || transaction_pin === '') {
+      return pinError('Transaction PIN is required')
     }
 
     // Validate PIN
@@ -571,31 +563,12 @@ export class FlowDataExchangeService {
         user.pinLockedUntil = new Date(Date.now() + 15 * 60 * 1000)
         user.pinAttempts = 0
         await user.save()
-        return {
-          version: flowData.version,
-          screen: flowData.screen,
-          data: {
-            ...flowData.data,
-            __errors__: {
-              transaction_pin:
-                'Too many incorrect attempts. Account locked for 15 minutes',
-            },
-          },
-        }
+        return pinError('Too many incorrect attempts. Account locked for 15 minutes')
       }
 
       await user.save()
       const attemptsLeft = 3 - user.pinAttempts
-      return {
-        version: flowData.version,
-        screen: flowData.screen,
-        data: {
-          ...flowData.data,
-          __errors__: {
-            transaction_pin: `Incorrect PIN. ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} remaining`,
-          },
-        },
-      }
+      return pinError(`Incorrect PIN. ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} remaining`)
     }
 
     // PIN correct — reset attempts
@@ -617,16 +590,7 @@ export class FlowDataExchangeService {
         Number.parseFloat(total || '0') || Number.parseFloat(amount) * 1.001
 
       if (numTotal > balance) {
-        return {
-          version: flowData.version,
-          screen: flowData.screen,
-          data: {
-            ...flowData.data,
-            __errors__: {
-              transaction_pin: `Insufficient ${currency} balance. Available: ${balance.toFixed(6)}`,
-            },
-          },
-        }
+        return pinError(`Insufficient ${currency} balance. Available: ${balance.toFixed(6)}`)
       }
     } catch (error) {
       console.error('Balance re-check failed:', error)
@@ -639,16 +603,7 @@ export class FlowDataExchangeService {
       recipient_type,
     )
     if (!validation.valid) {
-      return {
-        version: flowData.version,
-        screen: flowData.screen,
-        data: {
-          ...flowData.data,
-          __errors__: {
-            transaction_pin: validation.error || 'Invalid recipient',
-          },
-        },
-      }
+      return pinError(validation.error || 'Invalid recipient')
     }
 
     // All valid — navigate to SEND_MONEY_SUCCESS
@@ -706,7 +661,10 @@ export class FlowDataExchangeService {
       return {
         version: flowData.version,
         screen: flowData.screen,
-        data: { ...flowData.data, __errors__: errors },
+        data: {
+          ...flowData.data,
+          ...FlowDataExchangeService.errorFields(errors, ['currency', 'amount', 'recipient_type', 'recipient']),
+        },
       }
     }
 
@@ -766,16 +724,13 @@ export class FlowDataExchangeService {
   ): Promise<FlowDataExchangeResponse> {
     const { seed } = flowData.data
 
-    if (!seed || seed.trim() === '') {
-      return {
-        version: flowData.version,
-        screen: 'IMPORT_WALLET_SEED',
-        data: {
-          ...flowData.data,
-          __errors__: { seed: 'Seed is required' },
-        },
-      }
-    }
+    const seedError = (msg: string) => ({
+      version: flowData.version,
+      screen: 'IMPORT_WALLET_SEED' as const,
+      data: { ...flowData.data, error_seed: msg },
+    })
+
+    if (!seed || seed.trim() === '') return seedError('Seed is required')
 
     // Validate seed format by attempting to derive the wallet
     let derivedAddress: string
@@ -783,44 +738,17 @@ export class FlowDataExchangeService {
       const wallet = Wallet.fromSeed(seed.trim())
       derivedAddress = wallet.classicAddress
     } catch {
-      return {
-        version: flowData.version,
-        screen: 'IMPORT_WALLET_SEED',
-        data: {
-          ...flowData.data,
-          __errors__: { seed: 'Invalid seed. Please check and try again.' },
-        },
-      }
+      return seedError('Invalid seed. Please check and try again.')
     }
 
     // Check if this address is already registered on SendSasa
     const existingUser = await User.findOne({ xrplAddress: derivedAddress })
-    if (existingUser) {
-      return {
-        version: flowData.version,
-        screen: 'IMPORT_WALLET_SEED',
-        data: {
-          ...flowData.data,
-          __errors__: {
-            seed: 'This wallet is already registered on SendSasa.',
-          },
-        },
-      }
-    }
+    if (existingUser) return seedError('This wallet is already registered on SendSasa.')
 
     // Check if the account is activated on the ledger
     const activated = await isAccountActivated(derivedAddress)
     if (!activated) {
-      return {
-        version: flowData.version,
-        screen: 'IMPORT_WALLET_SEED',
-        data: {
-          ...flowData.data,
-          __errors__: {
-            seed: `Address ${derivedAddress} has no funds on the XRPL mainnet. Please fund it with at least 1 XRP first.`,
-          },
-        },
-      }
+      return seedError(`Address ${derivedAddress} has no funds on the XRPL mainnet. Please fund it with at least 1 XRP first.`)
     }
 
     // Fetch live XRP balance to show on confirm screen
@@ -883,7 +811,11 @@ export class FlowDataExchangeService {
       return {
         version: flowData.version,
         screen: flowData.screen,
-        data: { ...flowData.data, ...balanceData, __errors__: { amount: 'User not found' } },
+        data: {
+          ...flowData.data,
+          ...balanceData,
+          ...FlowDataExchangeService.errorFields({ crypto_amount: 'User not found' }, ['crypto_currency', 'crypto_amount', 'mm_provider', 'recipient_phone']),
+        },
       }
     }
 
@@ -932,7 +864,11 @@ export class FlowDataExchangeService {
       return {
         version: flowData.version,
         screen: flowData.screen,
-        data: { ...flowData.data, ...balanceData, __errors__: errors },
+        data: {
+          ...flowData.data,
+          ...balanceData,
+          ...FlowDataExchangeService.errorFields(errors, ['crypto_currency', 'crypto_amount', 'mm_provider', 'recipient_phone']),
+        },
       }
     }
 
@@ -947,7 +883,7 @@ export class FlowDataExchangeService {
         data: {
           ...flowData.data,
           ...balanceData,
-          __errors__: { amount: error.message || 'Failed to fetch exchange rate' },
+          ...FlowDataExchangeService.errorFields({ crypto_amount: error.message || 'Failed to fetch exchange rate' }, ['crypto_currency', 'crypto_amount', 'mm_provider', 'recipient_phone']),
         },
       }
     }
@@ -992,37 +928,24 @@ export class FlowDataExchangeService {
     )
     const user = await User.findOne({ whatsappId })
 
-    if (!user) {
-      return {
-        version: flowData.version,
-        screen: flowData.screen,
-        data: { ...flowData.data, __errors__: { transaction_pin: 'User not found' } },
-      }
-    }
+    const pinError = (msg: string) => ({
+      version: flowData.version,
+      screen: flowData.screen,
+      data: { ...flowData.data, error_transaction_pin: msg },
+    })
+
+    if (!user) return pinError('User not found')
 
     // Check lockout
     if (user.pinLockedUntil && user.pinLockedUntil > new Date()) {
       const minutesLeft = Math.ceil(
         (user.pinLockedUntil.getTime() - Date.now()) / 60000,
       )
-      return {
-        version: flowData.version,
-        screen: flowData.screen,
-        data: {
-          ...flowData.data,
-          __errors__: {
-            transaction_pin: `Account locked. Try again in ${minutesLeft} minute${minutesLeft > 1 ? 's' : ''}`,
-          },
-        },
-      }
+      return pinError(`Account locked. Try again in ${minutesLeft} minute${minutesLeft > 1 ? 's' : ''}`)
     }
 
     if (transaction_pin === undefined || transaction_pin === null || transaction_pin === '') {
-      return {
-        version: flowData.version,
-        screen: flowData.screen,
-        data: { ...flowData.data, __errors__: { transaction_pin: 'Transaction PIN is required' } },
-      }
+      return pinError('Transaction PIN is required')
     }
 
     const pinStr = Number.parseInt(transaction_pin.toString(), 10).toString()
@@ -1035,28 +958,12 @@ export class FlowDataExchangeService {
         user.pinLockedUntil = new Date(Date.now() + 15 * 60 * 1000)
         user.pinAttempts = 0
         await user.save()
-        return {
-          version: flowData.version,
-          screen: flowData.screen,
-          data: {
-            ...flowData.data,
-            __errors__: { transaction_pin: 'Too many incorrect attempts. Account locked for 15 minutes' },
-          },
-        }
+        return pinError('Too many incorrect attempts. Account locked for 15 minutes')
       }
 
       await user.save()
       const attemptsLeft = 3 - user.pinAttempts
-      return {
-        version: flowData.version,
-        screen: flowData.screen,
-        data: {
-          ...flowData.data,
-          __errors__: {
-            transaction_pin: `Incorrect PIN. ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} remaining`,
-          },
-        },
-      }
+      return pinError(`Incorrect PIN. ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} remaining`)
     }
 
     // PIN correct — reset attempts
@@ -1116,7 +1023,11 @@ export class FlowDataExchangeService {
     }
 
     if (Object.keys(errors).length > 0) {
-      return { version: flowData.version, screen: flowData.screen, data: { ...flowData.data, __errors__: errors } }
+      return {
+        version: flowData.version,
+        screen: flowData.screen,
+        data: { ...flowData.data, ...FlowDataExchangeService.errorFields(errors, ['usd_amount', 'mm_provider', 'recipient_phone']) },
+      }
     }
 
     // Calculate quote (stablecoins are 1:1 USD; no XRP conversion needed here)
@@ -1128,7 +1039,10 @@ export class FlowDataExchangeService {
       return {
         version: flowData.version,
         screen: flowData.screen,
-        data: { ...flowData.data, __errors__: { usd_amount: err.message || 'Failed to fetch exchange rate' } },
+        data: {
+          ...flowData.data,
+          ...FlowDataExchangeService.errorFields({ usd_amount: err.message || 'Failed to fetch exchange rate' }, ['usd_amount', 'mm_provider', 'recipient_phone']),
+        },
       }
     }
 
@@ -1179,23 +1093,19 @@ export class FlowDataExchangeService {
     const whatsappId = FlowDataExchangeService.extractWhatsappIdFromToken(flowData.flow_token)
     const user = await User.findOne({ whatsappId })
 
-    if (!user) {
-      return {
-        version: flowData.version,
-        screen: flowData.screen,
-        data: { ...flowData.data, __errors__: { usd_amount: 'Session expired. Please restart.' } },
-      }
-    }
+    const cardError = (msg: string) => ({
+      version: flowData.version,
+      screen: flowData.screen,
+      data: { ...flowData.data, error_usd_amount: msg },
+    })
+
+    if (!user) return cardError('Session expired. Please restart.')
 
     let adminAddress: string
     try {
       adminAddress = await getAdminEVMAddress()
     } catch (err: any) {
-      return {
-        version: flowData.version,
-        screen: flowData.screen,
-        data: { ...flowData.data, __errors__: { usd_amount: 'Service temporarily unavailable. Please try again.' } },
-      }
+      return cardError('Service temporarily unavailable. Please try again.')
     }
 
     // Re-derive rates — fixer_rate/sendsasa_rate are not in the flow JSON's
@@ -1245,11 +1155,7 @@ export class FlowDataExchangeService {
       onRamp.status = 'failed'
       onRamp.failureReason = err.message
       await onRamp.save()
-      return {
-        version: flowData.version,
-        screen: flowData.screen,
-        data: { ...flowData.data, __errors__: { usd_amount: 'Failed to create payment session. Please try again.' } },
-      }
+      return cardError('Failed to create payment session. Please try again.')
     }
 
     const paymentURL = buildPaymentURL(sessionToken)

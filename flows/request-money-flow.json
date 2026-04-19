@@ -1,0 +1,183 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "REQUEST_MONEY_DETAILS": ["REQUEST_MONEY_CONFIRM"],
+    "REQUEST_MONEY_CONFIRM": []
+  },
+  "screens": [
+    {
+      "id": "REQUEST_MONEY_DETAILS",
+      "title": "Request Money",
+      "data": {
+        "error_currency": {
+          "type": "string",
+          "__example__": ""
+        },
+        "error_amount": {
+          "type": "string",
+          "__example__": ""
+        },
+        "error_recipient_type": {
+          "type": "string",
+          "__example__": ""
+        },
+        "error_recipient": {
+          "type": "string",
+          "__example__": ""
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Request Payment"
+          },
+          {
+            "type": "Form",
+            "name": "request_money_form",
+            "error-messages": {
+              "currency": "${data.error_currency}",
+              "amount": "${data.error_amount}",
+              "recipient_type": "${data.error_recipient_type}",
+              "recipient": "${data.error_recipient}"
+            },
+            "children": [
+              {
+                "type": "Dropdown",
+                "name": "currency",
+                "label": "Currency",
+                "required": true,
+                "data-source": [
+                  { "id": "XRP", "title": "XRP" },
+                  { "id": "RLUSD", "title": "RLUSD (Ripple USD)" },
+                  { "id": "USDC", "title": "USDC (USD Coin)" }
+                ]
+              },
+              {
+                "type": "TextInput",
+                "name": "amount",
+                "label": "Amount",
+                "input-type": "number",
+                "required": true
+              },
+              {
+                "type": "Dropdown",
+                "name": "recipient_type",
+                "label": "Request From",
+                "required": true,
+                "data-source": [
+                  { "id": "Phone Number", "title": "Phone Number" },
+                  { "id": "SendSasa Username", "title": "SendSasa Username" }
+                ]
+              },
+              {
+                "type": "TextInput",
+                "name": "recipient",
+                "label": "Request From",
+                "input-type": "text",
+                "required": true,
+                "helper-text": "Enter phone (+237...) or username (@john)"
+              },
+              {
+                "type": "TextInput",
+                "name": "note",
+                "label": "Note (Optional)",
+                "input-type": "text",
+                "required": false,
+                "helper-text": "Add a message about this request"
+              },
+              {
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "currency": "${form.currency}",
+                    "amount": "${form.amount}",
+                    "recipient_type": "${form.recipient_type}",
+                    "recipient": "${form.recipient}",
+                    "note": "${form.note}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "REQUEST_MONEY_CONFIRM",
+      "title": "Confirm Request",
+      "terminal": true,
+      "data": {
+        "currency": {
+          "type": "string",
+          "__example__": "XRP"
+        },
+        "amount": {
+          "type": "string",
+          "__example__": "10.5"
+        },
+        "recipient_type": {
+          "type": "string",
+          "__example__": "Phone Number"
+        },
+        "recipient": {
+          "type": "string",
+          "__example__": "+237676535501"
+        },
+        "recipient_display": {
+          "type": "string",
+          "__example__": "+237676535501"
+        },
+        "note": {
+          "type": "string",
+          "__example__": "Lunch money"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Review Payment Request"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'Amount: ' ${data.amount} ' ' ${data.currency}`"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'From: ' ${data.recipient_display}`"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'Note: ' ${data.note}`"
+          },
+          {
+            "type": "Form",
+            "name": "confirm_form",
+            "children": [
+              {
+                "type": "Footer",
+                "label": "Send Request",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {
+                    "currency": "${data.currency}",
+                    "amount": "${data.amount}",
+                    "recipient_type": "${data.recipient_type}",
+                    "recipient": "${data.recipient}",
+                    "note": "${data.note}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

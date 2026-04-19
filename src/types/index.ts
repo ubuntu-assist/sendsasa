@@ -216,6 +216,7 @@ export interface IUser extends Document {
   wallet_created_at?: Date
   migration_status?: 'pending' | 'completed' | 'n/a'
   old_wallet_exists?: boolean
+  fund_migration_at?: Date
 }
 
 export interface ITransaction extends Document {
