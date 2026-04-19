@@ -27,11 +27,12 @@ export async function sendMainMenu(
       header: { type: 'text', text: 'SendSasa Wallet' },
       body: {
         text:
-          `Sasaname: ${username}\n\n` +
+          `*${username}*\n\n` +
           `*XRPL*\nXRP: ${xrp} | RLUSD: ${rlusd} | USDC: ${usdc}\n\n` +
           `*BSC*\nBNB: ${bnb} | USDT: ${bscUsdt}\n\n` +
           `*Base*\nETH: ${baseEth}\n\n` +
           `*Solana*\nSOL: ${sol} | USDC: ${solUsdc}\n\n` +
+          `· · · · · · · · · ·\n` +
           `What would you like to do?`,
       },
       footer: { text: 'Powered by XRPL' },
@@ -111,7 +112,11 @@ export async function sendWelcomeMessage(
         image: { link: 'https://i.ibb.co/kgBsTrcR/welcome-sasa.jpg' },
       },
       body: {
-        text: `${greeting}\n\nSend money home faster than saying "I love you".\n\nSendSasa lets you send cash to Africa via WhatsApp — lands in M-Pesa, MTN MoMo, or Orange Money in under 60 seconds, for under 1% fee.`,
+        text:
+          `*${greeting}*\n\n` +
+          `Send money home faster than saying "I love you".\n\n` +
+          `· · · · · · · · · ·\n` +
+          `_Lands in MTN MoMo, M-Pesa or Orange Money in under 60 seconds · Under 1% fee_`,
       },
       action: {
         buttons: [
@@ -145,10 +150,10 @@ export async function sendFundingMessage(
       body: {
         text:
           `*Your wallet has been created!*\n\n` +
-          `To activate it, send at least *1 XRP* to your wallet address:\n\n` +
+          `To activate it, send at least *1 XRP* to:\n\n` +
           `\`${xrplAddress}\`\n\n` +
-          `You can buy XRP on any exchange (Binance, Coinbase, Kraken) and send it to this address.\n\n` +
-          `Once funded, tap *Check Activation* and we'll set up your security and stablecoin support.`,
+          `· · · · · · · · · ·\n` +
+          `_You can buy XRP on Binance, Coinbase or Kraken and send it to this address._`,
       },
       footer: { text: 'Minimum 1 XRP required' },
       action: {
@@ -226,7 +231,10 @@ export async function sendRecipientTypeMenu(
       type: 'list',
       header: { type: 'text', text: 'Choose Recipient' },
       body: {
-        text: `Sending ${amount} ${currency}\n\nHow would you like to identify the recipient?`,
+        text:
+          `*Sending ${amount} ${currency}*\n\n` +
+          `· · · · · · · · · ·\n` +
+          `How would you like to identify the recipient?`,
       },
       footer: { text: 'Powered by XRPL' },
       action: {
@@ -276,11 +284,12 @@ export async function sendWalletMenu(
       header: { type: 'text', text: 'My Wallet' },
       body: {
         text:
-          `${username}\n\n` +
+          `*${username}*\n\n` +
           `*XRPL*\nXRP: ${xrp} | RLUSD: ${rlusd} | USDC: ${usdc}\n\n` +
           `*BSC*\nBNB: ${bnb} | USDT: ${bscUsdt}\n\n` +
           `*Base*\nETH: ${baseEth}\n\n` +
           `*Solana*\nSOL: ${sol} | USDC: ${solUsdc}\n\n` +
+          `· · · · · · · · · ·\n` +
           `What would you like to do?`,
       },
       footer: { text: 'Powered by XRPL' },

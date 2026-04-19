@@ -365,7 +365,7 @@ async function handleGetStarted(
 
     await sendTextMessage(
       phoneNumber,
-      '⏳ Creating your wallet...\n\nPlease wait a moment.',
+      '⏳ *Creating your wallet...*\n\n_Please wait a moment._',
     )
 
     const e164Phone = normalizeToE164(phoneNumber)
@@ -544,7 +544,7 @@ async function handleWalletImportComplete(
 
     await sendTextMessage(
       phoneNumber,
-      '⏳ Importing your wallet...\n\nSetting up stablecoin support...',
+      '⏳ *Importing your wallet...*\n\n_Setting up stablecoin support..._',
     )
 
     const defaultPinHash = await bcrypt.hash('0000', 10)
@@ -636,7 +636,7 @@ async function handleCheckActivation(
       return
     }
 
-    await sendTextMessage(phoneNumber, '⏳ Checking your wallet activation...')
+    await sendTextMessage(phoneNumber, '⏳ _Checking your wallet activation..._')
 
     const activated = await isAccountActivated(user.xrplAddress)
 
@@ -761,8 +761,10 @@ async function handlePinSetupComplete(
     await sendTextMessage(
       phoneNumber,
       `✅ *Account Secured!*\n\n` +
-        `Your transaction PIN has been set successfully.\n` +
-        `You can now send and receive money securely! 🔐`,
+        `Your transaction PIN has been set.\n` +
+        `You can now send and receive money.\n\n` +
+        `· · · · · · · · · ·\n` +
+        `_Keep your PIN private and never share it._`,
     )
 
     await sendMainMenu(phoneNumber, balances, user.username)
@@ -892,13 +894,14 @@ async function handleSendMoneyComplete(
       await sendTextMessage(
         phoneNumber,
         '⚠️ *Wallet Migration Required*\n\n' +
-          'Your wallet needs to be upgraded to the new system before you can send money.\n\n' +
-          'Please contact support to complete your migration.',
+          'Your wallet needs to be upgraded before you can send money.\n\n' +
+          '· · · · · · · · · ·\n' +
+          '_Please contact support to complete your migration._',
       )
       return
     }
 
-    await sendTextMessage(phoneNumber, '⏳ Processing transaction...')
+    await sendTextMessage(phoneNumber, '⏳ _Processing transaction..._')
 
     const senderKey = await walletService.getPrivateKey(user.phoneNumber)
     const senderXRPLAddress = getEffectiveXRPLAddress(user)
@@ -964,7 +967,11 @@ async function handleSendMoneyComplete(
 
       await sendTextMessage(
         phoneNumber,
-        `✅ Payment Successful!\n\n💸 Sent ${amount} ${currency} to ${recipient_display || recipient}\n\n📄 Your receipt is ready!`,
+        `✅ *Payment Successful!*\n\n` +
+        `*Sent*   ${amount} ${currency}\n` +
+        `*To*     ${recipient_display || recipient}\n\n` +
+        `· · · · · · · · · ·\n` +
+        `_Your receipt is attached._`,
       )
 
       await sendDocumentByMediaId(
@@ -977,7 +984,11 @@ async function handleSendMoneyComplete(
       console.error('⚠️ Error generating sender receipt:', receiptError)
       await sendTextMessage(
         phoneNumber,
-        `✅ Payment Successful!\n\n💸 Sent ${amount} ${currency} to ${recipient_display || recipient}\n\n🔖 TX: ${txHash.slice(0, 8)}...${txHash.slice(-6)}`,
+        `✅ *Payment Successful!*\n\n` +
+          `*Sent*   ${amount} ${currency}\n` +
+          `*To*     ${recipient_display || recipient}\n\n` +
+          `· · · · · · · · · ·\n` +
+          `_TX: \`${txHash.slice(0, 8)}...${txHash.slice(-6)}\`_`,
       )
     }
 
@@ -998,7 +1009,11 @@ async function handleSendMoneyComplete(
 
         await sendTextMessage(
           recipientPhone,
-          `✅ Payment Received!\n\n${amount} ${currency} from ${user.username}\n\n📄 Your receipt is ready!`,
+          `✅ *Payment Received!*\n\n` +
+            `*Amount*   ${amount} ${currency}\n` +
+            `*From*     ${user.username}\n\n` +
+            `· · · · · · · · · ·\n` +
+            `_Your receipt is attached._`,
         )
 
         await sendDocumentByMediaId(
@@ -1011,7 +1026,11 @@ async function handleSendMoneyComplete(
         console.error('⚠️ Error sending receipt to recipient:', recipientError)
         await sendTextMessage(
           recipientPhone,
-          `✅ Payment Received!\n\n${amount} ${currency} from ${user.username}\n\n🔖 TX: ${txHash.slice(0, 8)}...${txHash.slice(-6)}`,
+          `✅ *Payment Received!*\n\n` +
+            `*Amount*   ${amount} ${currency}\n` +
+            `*From*     ${user.username}\n\n` +
+            `· · · · · · · · · ·\n` +
+            `_TX: \`${txHash.slice(0, 8)}...${txHash.slice(-6)}\`_`,
         )
       }
     }
@@ -1101,10 +1120,11 @@ async function handleRequestMoneyComplete(
     await sendTextMessage(
       phoneNumber,
       `✅ *Payment Request Sent!*\n\n` +
-        `Amount: ${amount} ${currency}\n` +
-        `To: ${recipientUsername}\n` +
-        `Note: ${note || 'N/A'}\n\n` +
-        `You'll be notified when they respond.`,
+        `*Amount*   ${amount} ${currency}\n` +
+        `*To*       ${recipientUsername}\n` +
+        `*Note*     ${note || '—'}\n\n` +
+        `· · · · · · · · · ·\n` +
+        `_We'll notify you when they respond._`,
     )
 
     await sendPaymentRequestButtons(
@@ -1244,18 +1264,19 @@ async function handleTransactionHistory(
       return
     }
 
-    let message = '📜 *Transaction History* (Last 5)\n\n'
+    let message = '📜 *Transaction History*\n\n'
 
     transactions.forEach((tx, index) => {
       const isSent = tx.fromAddress === user.xrplAddress
 
-      message += `*${isSent ? 'Sent' : 'Received'}*\n`
-      message += `${tx.amount} ${tx.currency}\n`
-      message += `${isSent ? 'To' : 'From'}: ${isSent ? tx.toAddress.slice(0, 8) : tx.fromAddress.slice(0, 8)}...\n`
-      message += `${new Date(tx.timestamp).toLocaleDateString()}\n`
+      message += `*${isSent ? 'Sent' : 'Received'}*   ${tx.amount} ${tx.currency}\n`
+      message += `*${isSent ? 'To' : 'From'}*      \`${isSent ? tx.toAddress.slice(0, 8) : tx.fromAddress.slice(0, 8)}...\`\n`
+      message += `_${new Date(tx.timestamp).toLocaleDateString()}_`
 
-      if (index < transactions.length - 1) message += '\n'
+      if (index < transactions.length - 1) message += '\n\n· · · · · · · · · ·\n\n'
     })
+
+    message += '\n\n· · · · · · · · · ·\n_Last 5 transactions_'
 
     await sendTextMessage(phoneNumber, message)
   } catch (error) {
@@ -1298,13 +1319,14 @@ async function handlePendingRequests(
         xrplAddress: req.requesterAddress,
       })
 
-      message += `${req.amount} ${req.currency}\n`
-      message += `From: ${requester?.username || 'Unknown'}\n`
-      message += `${req.message ? `Note: ${req.message}\n` : ''}`
-      message += `ID: ${req.requestId.slice(-8)}\n\n`
+      message += `*Amount*   ${req.amount} ${req.currency}\n`
+      message += `*From*     ${requester?.username || 'Unknown'}\n`
+      if (req.message) message += `*Note*     ${req.message}\n`
+      message += `_Ref: ${req.requestId.slice(-8)}_\n\n· · · · · · · · · ·\n\n`
     }
 
-    message += 'Check WhatsApp for approval buttons.'
+    message = message.trimEnd()
+    message += '\n\n· · · · · · · · · ·\n_Tap the approval buttons above to respond._'
 
     await sendTextMessage(phoneNumber, message)
   } catch (error) {
@@ -1377,7 +1399,8 @@ async function handleApproveRequest(
         phoneNumber,
         '⚠️ *Wallet Migration Required*\n\n' +
           'Your wallet needs to be upgraded before you can approve payment requests.\n\n' +
-          'Please contact support to complete your migration.',
+          '· · · · · · · · · ·\n' +
+          '_Please contact support to complete your migration._',
       )
       return
     }
@@ -1425,17 +1448,19 @@ async function handleApproveRequest(
     await sendTextMessage(
       phoneNumber,
       `✅ *Payment Sent!*\n\n` +
-        `Amount: ${paymentRequest.amount} ${paymentRequest.currency}\n` +
-        `To: ${requester.username}\n` +
-        `TX Hash: ${result.hash.slice(0, 8)}...${result.hash.slice(-6)}`,
+        `*Amount*   ${paymentRequest.amount} ${paymentRequest.currency}\n` +
+        `*To*       ${requester.username}\n\n` +
+        `· · · · · · · · · ·\n` +
+        `_TX: \`${result.hash.slice(0, 8)}...${result.hash.slice(-6)}\`_`,
     )
 
     await sendTextMessage(
       requester.phoneNumber,
       `✅ *Payment Received!*\n\n` +
-        `Amount: ${paymentRequest.amount} ${paymentRequest.currency}\n` +
-        `From: ${user.username}\n` +
-        `TX Hash: ${result.hash.slice(0, 8)}...${result.hash.slice(-6)}`,
+        `*Amount*   ${paymentRequest.amount} ${paymentRequest.currency}\n` +
+        `*From*     ${user.username}\n\n` +
+        `· · · · · · · · · ·\n` +
+        `_TX: \`${result.hash.slice(0, 8)}...${result.hash.slice(-6)}\`_`,
     )
   } catch (error) {
     console.error('❌ Error approving request:', error)
@@ -1481,7 +1506,9 @@ async function handleRejectRequest(
       await sendTextMessage(
         requester.phoneNumber,
         `❌ *Payment Request Declined*\n\n` +
-          `Your request for ${paymentRequest.amount} ${paymentRequest.currency} was declined.`,
+          `Your request for *${paymentRequest.amount} ${paymentRequest.currency}* was declined.\n\n` +
+          `· · · · · · · · · ·\n` +
+          `_You can send a new request at any time._`,
       )
     }
 
@@ -1510,7 +1537,10 @@ async function handleOffRamp(
     if (requiresMigration(user)) {
       await sendTextMessage(
         phoneNumber,
-        '⚠️ *Wallet Migration Required*\n\nPlease contact support to upgrade your wallet before using Cash Out.',
+        `⚠️ *Wallet Migration Required*\n\n` +
+          `Your wallet needs to be upgraded before using Cash Out.\n\n` +
+          `· · · · · · · · · ·\n` +
+          `_Please contact support to complete the upgrade._`,
       )
       return
     }
@@ -1581,7 +1611,7 @@ async function handleOffRampComplete(
     return
   }
 
-  await sendTextMessage(phoneNumber, '⏳ Processing your cash out...')
+  await sendTextMessage(phoneNumber, '_Processing your cash out..._')
 
   const numAmount = Number.parseFloat(crypto_amount)
   const numXAF = Number.parseInt(xaf_amount, 10)
@@ -1656,7 +1686,11 @@ async function handleOffRampComplete(
     console.error('❌ Off-ramp crypto transfer failed:', error)
     await sendTextMessage(
       phoneNumber,
-      `❌ *Transfer Failed*\n\nCould not send ${crypto_currency} to our wallet.\n\n${error.message || 'Please try again.'}\n\nRef: ${refId}`,
+      `❌ *Transfer Failed*\n\n` +
+        `Could not send ${crypto_currency} to our wallet.\n` +
+        `${error.message || 'Please try again.'}\n\n` +
+        `· · · · · · · · · ·\n` +
+        `*Ref:* \`${refId}\``,
     )
     return
   }
@@ -1685,10 +1719,11 @@ async function handleOffRampComplete(
     await sendTextMessage(
       phoneNumber,
       `⚠️ *Crypto Received — Payout Pending*\n\n` +
-        `We received your ${numAmount} ${crypto_currency}.\n` +
+        `We received your *${numAmount} ${crypto_currency}*.\n` +
         `The Mobile Money payout is being processed manually.\n\n` +
-        `Reference: \`${refId}\`\n` +
-        `Our team will complete your payout shortly.`,
+        `· · · · · · · · · ·\n` +
+        `*Ref:* \`${refId}\`\n` +
+        `_Our team will complete your payout shortly._`,
     )
     return
   }
@@ -1703,11 +1738,12 @@ async function handleOffRampComplete(
   await sendTextMessage(
     phoneNumber,
     `✅ *Cash Out Successful!*\n\n` +
-      `💸 Sent: ${numAmount} ${crypto_currency}\n` +
-      `💵 Delivered: ${numXAF.toLocaleString()} XAF\n` +
-      `📱 To: ${providerName} ${recipient_phone}\n` +
-      `🕐 ${dateTime}\n\n` +
-      `🔖 Ref: \`${refId}\``,
+      `*Sent:* ${numAmount} ${crypto_currency}\n` +
+      `*Delivered:* ${numXAF.toLocaleString()} XAF\n` +
+      `*To:* ${providerName} ${recipient_phone}\n` +
+      `*Time:* ${dateTime}\n\n` +
+      `· · · · · · · · · ·\n` +
+      `*Ref:* \`${refId}\``,
   )
 
   const balances = await fetchAllBalances(user)

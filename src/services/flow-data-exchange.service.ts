@@ -1092,7 +1092,9 @@ export class FlowDataExchangeService {
       errors['recipient_phone'] = 'Recipient phone is required'
     } else {
       try {
-        normalizedPhone = normalizeToE164(recipient_phone, undefined, { strict: true })
+        normalizedPhone = normalizeToE164(recipient_phone, undefined, {
+          strict: true,
+        })
       } catch {
         errors['recipient_phone'] =
           'Invalid phone number format (e.g. +237612345678)'
@@ -1255,13 +1257,13 @@ export class FlowDataExchangeService {
       `💳 *Your SendSasa Payment Link*\n\n` +
         `Tap the link below to pay with your card:\n` +
         `${paymentURL}\n\n` +
-        `*Summary:*\n` +
-        `• You pay: $${total_usd_charged} (incl. 3.99% card fee)\n` +
-        `• ${xaf_amount} XAF → ${recipient_phone}\n` +
-        `• Via: ${mm_provider_name}\n` +
-        `• Rate: ${rate_display}\n\n` +
-        `⚠️ Link expires in 5 minutes. Do not share it.\n` +
-        `Ref: ${refId}`,
+        `· · · · · · · · · ·\n` +
+        `*You pay:* $${total_usd_charged} _(incl. 3.99% card fee)_\n` +
+        `*Delivers:* ${xaf_amount} XAF → ${recipient_phone}\n` +
+        `*Via:* ${mm_provider_name}\n` +
+        `*Rate:* ${rate_display}\n\n` +
+        `*Ref:* \`${refId}\`\n` +
+        `_⚠️ Link expires in 5 minutes. Do not share it._`,
     ).catch((err) => console.error('Failed to send payment link message:', err))
 
     return {
