@@ -8,7 +8,10 @@ import { isPhoneNumber } from './message-parser.service'
 import { getAllBalances, isAccountActivated } from './xrpl.service'
 import { fxRateService } from './fx-rate.service'
 import { normalizeToE164 } from './phone-number.service'
-import { PROVIDER_DISPLAY, type MobileMoneyProvider } from './mobile-money.service'
+import {
+  PROVIDER_DISPLAY,
+  type MobileMoneyProvider,
+} from './mobile-money.service'
 import {
   calculateCardQuote,
   createSessionToken,
@@ -324,7 +327,10 @@ export class FlowDataExchangeService {
         screen: 'PIN_SETUP',
         data: {
           ...flowData.data,
-          ...FlowDataExchangeService.errorFields(errors, ['pin', 'confirm_pin']),
+          ...FlowDataExchangeService.errorFields(errors, [
+            'pin',
+            'confirm_pin',
+          ]),
         },
       }
     }
@@ -369,7 +375,10 @@ export class FlowDataExchangeService {
         screen: 'SECURITY_QUESTIONS',
         data: {
           ...flowData.data,
-          ...FlowDataExchangeService.errorFields(errors, ['answer_1', 'answer_2']),
+          ...FlowDataExchangeService.errorFields(errors, [
+            'answer_1',
+            'answer_2',
+          ]),
         },
       }
     }
@@ -406,10 +415,12 @@ export class FlowDataExchangeService {
           available_balance_xrp: '0',
           available_balance_rlusd: '0',
           available_balance_usdc: '0',
-          ...FlowDataExchangeService.errorFields(
-            { amount: 'User not found' },
-            ['currency', 'amount', 'recipient_type', 'recipient'],
-          ),
+          ...FlowDataExchangeService.errorFields({ amount: 'User not found' }, [
+            'currency',
+            'amount',
+            'recipient_type',
+            'recipient',
+          ]),
         },
       }
     }
@@ -472,7 +483,12 @@ export class FlowDataExchangeService {
         data: {
           ...flowData.data,
           ...balanceData,
-          ...FlowDataExchangeService.errorFields(errors, ['currency', 'amount', 'recipient_type', 'recipient']),
+          ...FlowDataExchangeService.errorFields(errors, [
+            'currency',
+            'amount',
+            'recipient_type',
+            'recipient',
+          ]),
         },
       }
     }
@@ -539,11 +555,17 @@ export class FlowDataExchangeService {
       const minutesLeft = Math.ceil(
         (user.pinLockedUntil.getTime() - Date.now()) / 60000,
       )
-      return pinError(`Account locked. Try again in ${minutesLeft} minute${minutesLeft > 1 ? 's' : ''}`)
+      return pinError(
+        `Account locked. Try again in ${minutesLeft} minute${minutesLeft > 1 ? 's' : ''}`,
+      )
     }
 
     // Require PIN
-    if (transaction_pin === undefined || transaction_pin === null || transaction_pin === '') {
+    if (
+      transaction_pin === undefined ||
+      transaction_pin === null ||
+      transaction_pin === ''
+    ) {
       return pinError('Transaction PIN is required')
     }
 
@@ -563,12 +585,16 @@ export class FlowDataExchangeService {
         user.pinLockedUntil = new Date(Date.now() + 15 * 60 * 1000)
         user.pinAttempts = 0
         await user.save()
-        return pinError('Too many incorrect attempts. Account locked for 15 minutes')
+        return pinError(
+          'Too many incorrect attempts. Account locked for 15 minutes',
+        )
       }
 
       await user.save()
       const attemptsLeft = 3 - user.pinAttempts
-      return pinError(`Incorrect PIN. ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} remaining`)
+      return pinError(
+        `Incorrect PIN. ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} remaining`,
+      )
     }
 
     // PIN correct — reset attempts
@@ -580,7 +606,9 @@ export class FlowDataExchangeService {
 
     // Re-check balance in real time
     try {
-      const balances = await getAllBalances(user.xrpl_address || user.xrplAddress)
+      const balances = await getAllBalances(
+        user.xrpl_address || user.xrplAddress,
+      )
       let balance = 0
       if (currency === 'XRP') balance = Number.parseFloat(balances.xrp)
       else if (currency === 'RLUSD') balance = Number.parseFloat(balances.rlusd)
@@ -590,7 +618,9 @@ export class FlowDataExchangeService {
         Number.parseFloat(total || '0') || Number.parseFloat(amount) * 1.001
 
       if (numTotal > balance) {
-        return pinError(`Insufficient ${currency} balance. Available: ${balance.toFixed(6)}`)
+        return pinError(
+          `Insufficient ${currency} balance. Available: ${balance.toFixed(6)}`,
+        )
       }
     } catch (error) {
       console.error('Balance re-check failed:', error)
@@ -663,7 +693,12 @@ export class FlowDataExchangeService {
         screen: flowData.screen,
         data: {
           ...flowData.data,
-          ...FlowDataExchangeService.errorFields(errors, ['currency', 'amount', 'recipient_type', 'recipient']),
+          ...FlowDataExchangeService.errorFields(errors, [
+            'currency',
+            'amount',
+            'recipient_type',
+            'recipient',
+          ]),
         },
       }
     }
@@ -743,12 +778,15 @@ export class FlowDataExchangeService {
 
     // Check if this address is already registered on SendSasa
     const existingUser = await User.findOne({ xrplAddress: derivedAddress })
-    if (existingUser) return seedError('This wallet is already registered on SendSasa.')
+    if (existingUser)
+      return seedError('This wallet is already registered on SendSasa.')
 
     // Check if the account is activated on the ledger
     const activated = await isAccountActivated(derivedAddress)
     if (!activated) {
-      return seedError(`Address ${derivedAddress} has no funds on the XRPL mainnet. Please fund it with at least 1 XRP first.`)
+      return seedError(
+        `Address ${derivedAddress} has no funds on the XRPL mainnet. Please fund it with at least 1 XRP first.`,
+      )
     }
 
     // Fetch live XRP balance to show on confirm screen
@@ -814,7 +852,15 @@ export class FlowDataExchangeService {
         data: {
           ...flowData.data,
           ...balanceData,
-          ...FlowDataExchangeService.errorFields({ crypto_amount: 'User not found' }, ['crypto_currency', 'crypto_amount', 'mm_provider', 'recipient_phone']),
+          ...FlowDataExchangeService.errorFields(
+            { crypto_amount: 'User not found' },
+            [
+              'crypto_currency',
+              'crypto_amount',
+              'mm_provider',
+              'recipient_phone',
+            ],
+          ),
         },
       }
     }
@@ -840,11 +886,13 @@ export class FlowDataExchangeService {
       if (currency !== 'USDT') {
         let balance = 0
         if (currency === 'XRP') balance = Number.parseFloat(balances.xrp)
-        else if (currency === 'RLUSD') balance = Number.parseFloat(balances.rlusd)
+        else if (currency === 'RLUSD')
+          balance = Number.parseFloat(balances.rlusd)
         else if (currency === 'USDC') balance = Number.parseFloat(balances.usdc)
 
         if (numAmount > balance) {
-          errors['amount'] = `Insufficient ${currency} balance. Available: ${balance.toFixed(6)}`
+          errors['amount'] =
+            `Insufficient ${currency} balance. Available: ${balance.toFixed(6)}`
         }
       }
     }
@@ -854,9 +902,10 @@ export class FlowDataExchangeService {
       errors['recipient_phone'] = 'Recipient phone is required'
     } else {
       try {
-        normalizeToE164(recipient_phone)
+        normalizeToE164(recipient_phone, undefined, { strict: true })
       } catch {
-        errors['recipient_phone'] = 'Invalid phone number format (e.g. +237612345678)'
+        errors['recipient_phone'] =
+          'Invalid phone number format (e.g. +237612345678)'
       }
     }
 
@@ -867,7 +916,12 @@ export class FlowDataExchangeService {
         data: {
           ...flowData.data,
           ...balanceData,
-          ...FlowDataExchangeService.errorFields(errors, ['crypto_currency', 'crypto_amount', 'mm_provider', 'recipient_phone']),
+          ...FlowDataExchangeService.errorFields(errors, [
+            'crypto_currency',
+            'crypto_amount',
+            'mm_provider',
+            'recipient_phone',
+          ]),
         },
       }
     }
@@ -883,7 +937,15 @@ export class FlowDataExchangeService {
         data: {
           ...flowData.data,
           ...balanceData,
-          ...FlowDataExchangeService.errorFields({ crypto_amount: error.message || 'Failed to fetch exchange rate' }, ['crypto_currency', 'crypto_amount', 'mm_provider', 'recipient_phone']),
+          ...FlowDataExchangeService.errorFields(
+            { crypto_amount: error.message || 'Failed to fetch exchange rate' },
+            [
+              'crypto_currency',
+              'crypto_amount',
+              'mm_provider',
+              'recipient_phone',
+            ],
+          ),
         },
       }
     }
@@ -941,10 +1003,16 @@ export class FlowDataExchangeService {
       const minutesLeft = Math.ceil(
         (user.pinLockedUntil.getTime() - Date.now()) / 60000,
       )
-      return pinError(`Account locked. Try again in ${minutesLeft} minute${minutesLeft > 1 ? 's' : ''}`)
+      return pinError(
+        `Account locked. Try again in ${minutesLeft} minute${minutesLeft > 1 ? 's' : ''}`,
+      )
     }
 
-    if (transaction_pin === undefined || transaction_pin === null || transaction_pin === '') {
+    if (
+      transaction_pin === undefined ||
+      transaction_pin === null ||
+      transaction_pin === ''
+    ) {
       return pinError('Transaction PIN is required')
     }
 
@@ -958,12 +1026,16 @@ export class FlowDataExchangeService {
         user.pinLockedUntil = new Date(Date.now() + 15 * 60 * 1000)
         user.pinAttempts = 0
         await user.save()
-        return pinError('Too many incorrect attempts. Account locked for 15 minutes')
+        return pinError(
+          'Too many incorrect attempts. Account locked for 15 minutes',
+        )
       }
 
       await user.save()
       const attemptsLeft = 3 - user.pinAttempts
-      return pinError(`Incorrect PIN. ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} remaining`)
+      return pinError(
+        `Incorrect PIN. ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} remaining`,
+      )
     }
 
     // PIN correct — reset attempts
@@ -995,7 +1067,11 @@ export class FlowDataExchangeService {
     // Partial submit (dropdown on-select)
     const isFullSubmit = usd_amount && mm_provider && recipient_phone
     if (!isFullSubmit) {
-      return { version: flowData.version, screen: flowData.screen, data: flowData.data }
+      return {
+        version: flowData.version,
+        screen: flowData.screen,
+        data: flowData.data,
+      }
     }
 
     const errors: Record<string, string> = {}
@@ -1016,9 +1092,10 @@ export class FlowDataExchangeService {
       errors['recipient_phone'] = 'Recipient phone is required'
     } else {
       try {
-        normalizedPhone = normalizeToE164(recipient_phone)
+        normalizedPhone = normalizeToE164(recipient_phone, undefined, { strict: true })
       } catch {
-        errors['recipient_phone'] = 'Invalid phone number format (e.g. +237612345678)'
+        errors['recipient_phone'] =
+          'Invalid phone number format (e.g. +237612345678)'
       }
     }
 
@@ -1026,7 +1103,14 @@ export class FlowDataExchangeService {
       return {
         version: flowData.version,
         screen: flowData.screen,
-        data: { ...flowData.data, ...FlowDataExchangeService.errorFields(errors, ['usd_amount', 'mm_provider', 'recipient_phone']) },
+        data: {
+          ...flowData.data,
+          ...FlowDataExchangeService.errorFields(errors, [
+            'usd_amount',
+            'mm_provider',
+            'recipient_phone',
+          ]),
+        },
       }
     }
 
@@ -1041,7 +1125,10 @@ export class FlowDataExchangeService {
         screen: flowData.screen,
         data: {
           ...flowData.data,
-          ...FlowDataExchangeService.errorFields({ usd_amount: err.message || 'Failed to fetch exchange rate' }, ['usd_amount', 'mm_provider', 'recipient_phone']),
+          ...FlowDataExchangeService.errorFields(
+            { usd_amount: err.message || 'Failed to fetch exchange rate' },
+            ['usd_amount', 'mm_provider', 'recipient_phone'],
+          ),
         },
       }
     }
@@ -1090,7 +1177,9 @@ export class FlowDataExchangeService {
       recipient_phone,
     } = flowData.data
 
-    const whatsappId = FlowDataExchangeService.extractWhatsappIdFromToken(flowData.flow_token)
+    const whatsappId = FlowDataExchangeService.extractWhatsappIdFromToken(
+      flowData.flow_token,
+    )
     const user = await User.findOne({ whatsappId })
 
     const cardError = (msg: string) => ({
@@ -1133,12 +1222,12 @@ export class FlowDataExchangeService {
       cardFeePct: CARD_FEE_PCT,
       cardFeeUSD: Number.parseFloat(card_fee_usd),
       totalUSDCharged: Number.parseFloat(total_usd_charged),
-      xafAmount: parseInt(xaf_amount, 10),
-      feeXAF: parseInt(fee_xaf, 10),
+      xafAmount: Number.parseInt(xaf_amount, 10),
+      feeXAF: Number.parseInt(fee_xaf, 10),
       fixerRate,
       sendSasaRate,
       adminAddress,
-      coinbaseSessionToken: 'pending',   // filled in below
+      coinbaseSessionToken: 'pending', // filled in below
       status: 'pending',
     })
     await onRamp.save()
@@ -1164,16 +1253,16 @@ export class FlowDataExchangeService {
     sendTextMessage(
       user.whatsappId,
       `💳 *Your SendSasa Payment Link*\n\n` +
-      `Tap the link below to pay with your card:\n` +
-      `${paymentURL}\n\n` +
-      `*Summary:*\n` +
-      `• You pay: $${total_usd_charged} (incl. 3.99% card fee)\n` +
-      `• ${xaf_amount} XAF → ${recipient_phone}\n` +
-      `• Via: ${mm_provider_name}\n` +
-      `• Rate: ${rate_display}\n\n` +
-      `⚠️ Link expires in 5 minutes. Do not share it.\n` +
-      `Ref: ${refId}`,
-    ).catch(err => console.error('Failed to send payment link message:', err))
+        `Tap the link below to pay with your card:\n` +
+        `${paymentURL}\n\n` +
+        `*Summary:*\n` +
+        `• You pay: $${total_usd_charged} (incl. 3.99% card fee)\n` +
+        `• ${xaf_amount} XAF → ${recipient_phone}\n` +
+        `• Via: ${mm_provider_name}\n` +
+        `• Rate: ${rate_display}\n\n` +
+        `⚠️ Link expires in 5 minutes. Do not share it.\n` +
+        `Ref: ${refId}`,
+    ).catch((err) => console.error('Failed to send payment link message:', err))
 
     return {
       version: flowData.version,
