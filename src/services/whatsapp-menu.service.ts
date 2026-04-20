@@ -18,7 +18,18 @@ export async function sendMainMenu(
   balances: MenuBalances,
   username: string,
 ): Promise<void> {
-  const { xrp, rlusd, usdc, bnb, bscUsdt, bscUsdc, sol, solUsdc, solUsdt, solEurc } = balances
+  const {
+    xrp,
+    rlusd,
+    usdc,
+    bnb,
+    bscUsdt,
+    bscUsdc,
+    sol,
+    solUsdc,
+    solUsdt,
+    solEurc,
+  } = balances
   const payload = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
@@ -125,10 +136,10 @@ export async function sendWelcomeMessage(
             type: 'reply',
             reply: { id: 'get_started', title: 'Get Started 🚀' },
           },
-          {
-            type: 'reply',
-            reply: { id: 'import_wallet', title: 'Import Wallet 📥' },
-          },
+          // {
+          //   type: 'reply',
+          //   reply: { id: 'import_wallet', title: 'Import Wallet 📥' },
+          // },
         ],
       },
     },
@@ -274,7 +285,18 @@ export async function sendWalletMenu(
   balances: MenuBalances,
   username: string,
 ): Promise<void> {
-  const { xrp, rlusd, usdc, bnb, bscUsdt, bscUsdc, sol, solUsdc, solUsdt, solEurc } = balances
+  const {
+    xrp,
+    rlusd,
+    usdc,
+    bnb,
+    bscUsdt,
+    bscUsdc,
+    sol,
+    solUsdc,
+    solUsdt,
+    solEurc,
+  } = balances
   const payload = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
