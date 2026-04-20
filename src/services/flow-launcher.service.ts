@@ -1,5 +1,7 @@
 import { FlowDataExchangeService } from './flow-data-exchange.service'
 import { getAllBalances } from './xrpl.service'
+import { evmService } from './evm.service'
+import { getAllBalances as getSolanaBalances } from './solana.service'
 import { WhatsAppService } from './whatsapp.service'
 import { IUser } from '../types'
 
@@ -14,10 +16,26 @@ export class FlowLauncherService {
   static async launchSendMoneyFlow(user: IUser): Promise<void> {
     try {
       const xrplAddress = (user as any).xrpl_address || user.xrplAddress
-      const balances = await getAllBalances(xrplAddress)
-      const flowToken = FlowDataExchangeService.generateFlowToken(
-        user.whatsappId,
-      )
+      const evmAddress: string | undefined = (user as any).evm_address
+      const solanaAddress: string | undefined = (user as any).solana_address
+
+      const safe = (fn: () => Promise<string>) => fn().catch(() => '0')
+
+      const [xrplBals, bnb, bscUsdt, bscUsdc, solanaBals] = await Promise.all([
+        getAllBalances(xrplAddress),
+        evmAddress ? safe(() => evmService.getBalance(evmAddress, 'bsc')) : Promise.resolve('0'),
+        evmAddress ? safe(() => evmService.getBalance(evmAddress, 'bsc', 'USDT')) : Promise.resolve('0'),
+        evmAddress ? safe(() => evmService.getBalance(evmAddress, 'bsc', 'USDC')) : Promise.resolve('0'),
+        solanaAddress
+          ? getSolanaBalances(solanaAddress).catch(() => ({ sol: '0', usdc: '0', usdt: '0', eurc: '0' }))
+          : Promise.resolve({ sol: '0', usdc: '0', usdt: '0', eurc: '0' }),
+      ])
+
+      const xrpl_balances = `XRP: ${xrplBals.xrp} · RLUSD: ${xrplBals.rlusd} · USDC: ${xrplBals.usdc}`
+      const bsc_balances = `BNB: ${bnb} · USDT: ${bscUsdt} · USDC: ${bscUsdc}`
+      const solana_balances = `SOL: ${solanaBals.sol} · USDC: ${solanaBals.usdc} · USDT: ${solanaBals.usdt} · EURC: ${solanaBals.eurc}`
+
+      const flowToken = FlowDataExchangeService.generateFlowToken(user.whatsappId)
 
       const flowMessage = {
         messaging_product: 'whatsapp',
@@ -27,7 +45,7 @@ export class FlowLauncherService {
         interactive: {
           type: 'flow',
           header: { type: 'text', text: '💸 Send Money' },
-          body: { text: 'Send XRP, RLUSD, or USDC instantly to anyone' },
+          body: { text: 'Send crypto instantly to anyone on any chain' },
           footer: { text: 'Secure & Fast' },
           action: {
             name: 'flow',
@@ -41,9 +59,10 @@ export class FlowLauncherService {
               flow_action_payload: {
                 screen: 'SEND_MONEY_DETAILS',
                 data: {
-                  available_balance_xrp: balances.xrp,
-                  available_balance_rlusd: balances.rlusd,
-                  available_balance_usdc: balances.usdc,
+                  xrpl_balances,
+                  bsc_balances,
+                  solana_balances,
+                  available_balance: 'Select a currency',
                 },
               },
             },

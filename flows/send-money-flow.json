@@ -11,6 +11,18 @@
       "id": "SEND_MONEY_DETAILS",
       "title": "Send Money",
       "data": {
+        "xrpl_balances": {
+          "type": "string",
+          "__example__": "XRP: 12.50 · RLUSD: 0.00 · USDC: 5.00"
+        },
+        "bsc_balances": {
+          "type": "string",
+          "__example__": "BNB: 0.12 · USDT: 10.00 · USDC: 0.00"
+        },
+        "solana_balances": {
+          "type": "string",
+          "__example__": "SOL: 0.80 · USDC: 2.00 · USDT: 0.00 · EURC: 0.00"
+        },
         "available_balance": {
           "type": "string",
           "__example__": "100.50 XRP"
@@ -37,7 +49,35 @@
         "children": [
           {
             "type": "TextHeading",
-            "text": "Available Balance"
+            "text": "Balances"
+          },
+          {
+            "type": "TextCaption",
+            "text": "XRPL"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.xrpl_balances}"
+          },
+          {
+            "type": "TextCaption",
+            "text": "BSC"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.bsc_balances}"
+          },
+          {
+            "type": "TextCaption",
+            "text": "Solana"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.solana_balances}"
+          },
+          {
+            "type": "TextCaption",
+            "text": "Selected"
           },
           {
             "type": "TextBody",

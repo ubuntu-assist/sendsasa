@@ -478,6 +478,9 @@ export class FlowDataExchangeService {
       : '0'
     const balanceData = {
       available_balance: currency ? `${rawBalance} ${currency}` : 'Select a currency',
+      xrpl_balances: flowData.data.xrpl_balances,
+      bsc_balances: flowData.data.bsc_balances,
+      solana_balances: flowData.data.solana_balances,
     }
 
     // Partial submit (dropdown on-select) — return screen as-is with fresh balance
