@@ -60,14 +60,19 @@ export async function getSPLTokenBalance(
   }
 }
 
-export async function getAllBalances(
-  address: string,
-): Promise<{ sol: string; usdc: string }> {
-  const [sol, usdc] = await Promise.all([
+export async function getAllBalances(address: string): Promise<{
+  sol: string
+  usdc: string
+  usdt: string
+  eurc: string
+}> {
+  const [sol, usdc, usdt, eurc] = await Promise.all([
     getSOLBalance(address),
     getSPLTokenBalance(address, solanaTokens.USDC),
+    getSPLTokenBalance(address, solanaTokens.USDT),
+    getSPLTokenBalance(address, solanaTokens.EURC),
   ])
-  return { sol, usdc }
+  return { sol, usdc, usdt, eurc }
 }
 
 // ─── Payments ────────────────────────────────────────────────────────────────
@@ -93,42 +98,45 @@ export async function sendSOL(
   return { hash: signature }
 }
 
-export async function sendUSDC(
+async function sendSPLToken(
   seedHex: string,
   to: string,
   amount: number,
+  mintAddress: string,
+  label: string,
 ): Promise<{ hash: string }> {
   const connection = getConnection()
   const keypair = keypairFromSeed(seedHex)
-  const mint = new PublicKey(solanaTokens.USDC)
+  const mint = new PublicKey(mintAddress)
   const recipient = new PublicKey(to)
 
   const mintInfo = await getMint(connection, mint)
   const atomicAmount = BigInt(Math.round(amount * 10 ** mintInfo.decimals))
 
-  // Get sender ATA — must already exist (sender holds USDC)
   const senderAta = await getAssociatedTokenAddress(mint, keypair.publicKey)
-
-  // Get or create recipient ATA — sender pays rent if account doesn't exist
   const recipientAta = await getOrCreateAssociatedTokenAccount(
-    connection,
-    keypair,
-    mint,
-    recipient,
+    connection, keypair, mint, recipient,
   )
 
   const tx = new Transaction().add(
-    createTransferInstruction(
-      senderAta,
-      recipientAta.address,
-      keypair.publicKey,
-      atomicAmount,
-    ),
+    createTransferInstruction(senderAta, recipientAta.address, keypair.publicKey, atomicAmount),
   )
 
   const signature = await sendAndConfirmTransaction(connection, tx, [keypair])
-  logger.info(`Solana USDC sent: ${signature}`)
+  logger.info(`Solana ${label} sent: ${signature}`)
   return { hash: signature }
+}
+
+export function sendUSDC(seedHex: string, to: string, amount: number) {
+  return sendSPLToken(seedHex, to, amount, solanaTokens.USDC, 'USDC')
+}
+
+export function sendUSDT(seedHex: string, to: string, amount: number) {
+  return sendSPLToken(seedHex, to, amount, solanaTokens.USDT, 'USDT')
+}
+
+export function sendEURC(seedHex: string, to: string, amount: number) {
+  return sendSPLToken(seedHex, to, amount, solanaTokens.EURC, 'EURC')
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

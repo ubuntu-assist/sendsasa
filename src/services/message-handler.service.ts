@@ -27,7 +27,7 @@ import {
 } from './xrpl.service'
 import { walletService } from './wallet.service'
 import { evmService } from './evm.service'
-import { getAllBalances as getSolanaBalances } from './solana.service'
+import { getAllBalances as getSolanaBalances, sendSOL, sendUSDC as sendSolanaUSDC, sendUSDT as sendSolanaUSDT, sendEURC as sendSolanaEURC } from './solana.service'
 import { normalizeToE164 } from './phone-number.service'
 import { mobileMoneyService, PROVIDER_DISPLAY, type MobileMoneyProvider } from './mobile-money.service'
 import { OffRampTransaction } from '../models'
@@ -68,9 +68,11 @@ async function fetchAllBalances(user: any): Promise<{
   usdc: string
   bnb: string
   bscUsdt: string
-  baseEth: string
+  bscUsdc: string
   sol: string
   solUsdc: string
+  solUsdt: string
+  solEurc: string
 }> {
   const xrplAddress = getEffectiveXRPLAddress(user)
   const evmAddress: string | undefined = user.evm_address
@@ -84,24 +86,24 @@ async function fetchAllBalances(user: any): Promise<{
     }
   }
 
-  const safeSolana = async (): Promise<{ sol: string; usdc: string }> => {
-    if (!solanaAddress) return { sol: '0', usdc: '0' }
+  const safeSolana = async (): Promise<{ sol: string; usdc: string; usdt: string; eurc: string }> => {
+    if (!solanaAddress) return { sol: '0', usdc: '0', usdt: '0', eurc: '0' }
     try {
       return await getSolanaBalances(solanaAddress)
     } catch {
-      return { sol: '0', usdc: '0' }
+      return { sol: '0', usdc: '0', usdt: '0', eurc: '0' }
     }
   }
 
-  const [xrplBalances, bnb, bscUsdt, baseEth, solana] = await Promise.all([
+  const [xrplBalances, bnb, bscUsdt, bscUsdc, solana] = await Promise.all([
     getAllBalances(xrplAddress),
     evmAddress ? safe(() => evmService.getBalance(evmAddress, 'bsc')) : Promise.resolve('0'),
     evmAddress ? safe(() => evmService.getBalance(evmAddress, 'bsc', 'USDT')) : Promise.resolve('0'),
-    evmAddress ? safe(() => evmService.getBalance(evmAddress, 'base')) : Promise.resolve('0'),
+    evmAddress ? safe(() => evmService.getBalance(evmAddress, 'bsc', 'USDC')) : Promise.resolve('0'),
     safeSolana(),
   ])
 
-  return { ...xrplBalances, bnb, bscUsdt, baseEth, sol: solana.sol, solUsdc: solana.usdc }
+  return { ...xrplBalances, bnb, bscUsdt, bscUsdc, sol: solana.sol, solUsdc: solana.usdc, solUsdt: solana.usdt, solEurc: solana.eurc }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -787,6 +789,28 @@ async function handlePinSetupComplete(
  * nfm_reply payload: currency, amount, total, recipient_display,
  *                    recipient_type, recipient
  */
+type ChainId = 'xrpl' | 'bsc' | 'solana'
+
+const CURRENCY_CHAIN: Record<string, ChainId> = {
+  XRP:      'xrpl',
+  RLUSD:    'xrpl',
+  USDC:     'xrpl',
+  BNB:      'bsc',
+  USDT:     'bsc',
+  USDC_BSC: 'bsc',
+  SOL:      'solana',
+  USDC_SOL: 'solana',
+  USDT_SOL: 'solana',
+  EURC_SOL: 'solana',
+}
+
+function getAddressForChain(user: any, chain: ChainId): string | undefined {
+  if (chain === 'xrpl') return user.xrpl_address || user.xrplAddress
+  if (chain === 'bsc') return user.evm_address
+  if (chain === 'solana') return user.solana_address
+  return undefined
+}
+
 async function handleSendMoneyComplete(
   whatsappId: string,
   phoneNumber: string,
@@ -802,6 +826,8 @@ async function handleSendMoneyComplete(
       return
     }
 
+    const chain = CURRENCY_CHAIN[currency] ?? 'xrpl'
+
     // Resolve recipient address
     let recipientAddress: string
     let recipientPhone: string | undefined
@@ -811,80 +837,79 @@ async function handleSendMoneyComplete(
       const recipientUser = await User.findOne({ whatsappId: cleanPhone })
 
       if (!recipientUser) {
-        await sendTextMessage(
-          phoneNumber,
-          '❌ Recipient not found on SendSasa.',
-        )
+        await sendTextMessage(phoneNumber, '❌ Recipient not found on SendSasa.')
         return
       }
 
-      if (currency === 'RLUSD' && !recipientUser.rlusdTrustLineCreated) {
+      if (chain === 'xrpl') {
+        if (currency === 'RLUSD' && !recipientUser.rlusdTrustLineCreated) {
+          await sendTextMessage(phoneNumber, `❌ Recipient doesn't have RLUSD enabled.`)
+          return
+        }
+        if (currency === 'USDC' && !recipientUser.usdcTrustLineCreated) {
+          await sendTextMessage(phoneNumber, `❌ Recipient doesn't have USDC enabled.`)
+          return
+        }
+      }
+
+      const addr = getAddressForChain(recipientUser, chain)
+      if (!addr) {
         await sendTextMessage(
           phoneNumber,
-          `❌ Recipient doesn't have RLUSD enabled.`,
+          `❌ Recipient doesn't have a ${chain.toUpperCase()} wallet on SendSasa.`,
         )
         return
       }
-
-      if (currency === 'USDC' && !recipientUser.usdcTrustLineCreated) {
-        await sendTextMessage(
-          phoneNumber,
-          `❌ Recipient doesn't have USDC enabled.`,
-        )
-        return
-      }
-
-      recipientAddress = recipientUser.xrplAddress
+      recipientAddress = addr
       recipientPhone = recipientUser.phoneNumber
+
     } else if (recipient_type === 'SendSasa Username') {
-      const recipientUser = await User.findOne({
-        username: recipient.toLowerCase(),
-      })
+      const recipientUser = await User.findOne({ username: recipient.toLowerCase() })
 
       if (!recipientUser) {
         await sendTextMessage(phoneNumber, '❌ Username not found on SendSasa.')
         return
       }
 
-      if (currency === 'RLUSD' && !recipientUser.rlusdTrustLineCreated) {
-        await sendTextMessage(
-          phoneNumber,
-          `❌ Recipient doesn't have RLUSD enabled.`,
-        )
-        return
-      }
-
-      if (currency === 'USDC' && !recipientUser.usdcTrustLineCreated) {
-        await sendTextMessage(
-          phoneNumber,
-          `❌ Recipient doesn't have USDC enabled.`,
-        )
-        return
-      }
-
-      recipientAddress = recipientUser.xrplAddress
-      recipientPhone = recipientUser.phoneNumber
-    } else {
-      // Wallet Address
-      recipientAddress = recipient
-
-      if (currency === 'RLUSD') {
-        const hasTrustLine = await hasRLUSDTrustLine(recipientAddress)
-        if (!hasTrustLine) {
-          await sendTextMessage(
-            phoneNumber,
-            `❌ Recipient doesn't have RLUSD trust line.`,
-          )
+      if (chain === 'xrpl') {
+        if (currency === 'RLUSD' && !recipientUser.rlusdTrustLineCreated) {
+          await sendTextMessage(phoneNumber, `❌ Recipient doesn't have RLUSD enabled.`)
           return
         }
-      } else if (currency === 'USDC') {
-        const hasTrustLine = await hasUSDCTrustLine(recipientAddress)
-        if (!hasTrustLine) {
-          await sendTextMessage(
-            phoneNumber,
-            `❌ Recipient doesn't have USDC trust line.`,
-          )
+        if (currency === 'USDC' && !recipientUser.usdcTrustLineCreated) {
+          await sendTextMessage(phoneNumber, `❌ Recipient doesn't have USDC enabled.`)
           return
+        }
+      }
+
+      const addr = getAddressForChain(recipientUser, chain)
+      if (!addr) {
+        await sendTextMessage(
+          phoneNumber,
+          `❌ Recipient doesn't have a ${chain.toUpperCase()} wallet on SendSasa.`,
+        )
+        return
+      }
+      recipientAddress = addr
+      recipientPhone = recipientUser.phoneNumber
+
+    } else {
+      // Wallet Address — use directly; trust-line checks only apply to XRPL tokens
+      recipientAddress = recipient
+
+      if (chain === 'xrpl') {
+        if (currency === 'RLUSD') {
+          const hasTrustLine = await hasRLUSDTrustLine(recipientAddress)
+          if (!hasTrustLine) {
+            await sendTextMessage(phoneNumber, `❌ Recipient doesn't have RLUSD trust line.`)
+            return
+          }
+        } else if (currency === 'USDC') {
+          const hasTrustLine = await hasUSDCTrustLine(recipientAddress)
+          if (!hasTrustLine) {
+            await sendTextMessage(phoneNumber, `❌ Recipient doesn't have USDC trust line.`)
+            return
+          }
         }
       }
     }
@@ -901,41 +926,49 @@ async function handleSendMoneyComplete(
       return
     }
 
-    await sendTextMessage(phoneNumber, '⏳ _Processing transaction..._')
+    await sendTextMessage(phoneNumber, '_Processing transaction..._')
 
-    const senderKey = await walletService.getPrivateKey(user.phoneNumber)
-    const senderXRPLAddress = getEffectiveXRPLAddress(user)
-    let result: { hash: string; result: string }
+    const numAmount = Number.parseFloat(amount)
+    const senderAddress = getAddressForChain(user, chain) ?? getEffectiveXRPLAddress(user)
+    let txHash: string
 
-    if (currency === 'XRP') {
-      result = await sendXRP(
-        senderKey,
-        recipientAddress,
-        Number.parseFloat(amount),
-      )
-    } else if (currency === 'RLUSD') {
-      result = await sendRLUSD(
-        senderKey,
-        recipientAddress,
-        Number.parseFloat(amount),
-      )
+    if (chain === 'xrpl') {
+      const senderKey = await walletService.getPrivateKey(user.phoneNumber)
+      let result: { hash: string }
+      if (currency === 'XRP') result = await sendXRP(senderKey, recipientAddress, numAmount)
+      else if (currency === 'RLUSD') result = await sendRLUSD(senderKey, recipientAddress, numAmount)
+      else result = await sendUSDC(senderKey, recipientAddress, numAmount)
+      txHash = result.hash
+    } else if (chain === 'bsc') {
+      const senderKey = await walletService.getPrivateKey(user.phoneNumber)
+      let receipt: { hash: string }
+      if (currency === 'BNB') {
+        receipt = await evmService.transferNative(senderKey, 'bsc', recipientAddress, amount)
+      } else if (currency === 'USDT') {
+        receipt = await evmService.transferToken(senderKey, 'bsc', 'USDT', recipientAddress, amount)
+      } else {
+        // USDC_BSC
+        receipt = await evmService.transferToken(senderKey, 'bsc', 'USDC', recipientAddress, amount)
+      }
+      txHash = receipt.hash
     } else {
-      result = await sendUSDC(
-        senderKey,
-        recipientAddress,
-        Number.parseFloat(amount),
-      )
+      // Solana
+      const solanaSeed = await walletService.getSolanaPrivateKey(user.phoneNumber)
+      let result: { hash: string }
+      if (currency === 'USDC_SOL') result = await sendSolanaUSDC(solanaSeed, recipientAddress, numAmount)
+      else if (currency === 'USDT_SOL') result = await sendSolanaUSDT(solanaSeed, recipientAddress, numAmount)
+      else if (currency === 'EURC_SOL') result = await sendSolanaEURC(solanaSeed, recipientAddress, numAmount)
+      else result = await sendSOL(solanaSeed, recipientAddress, numAmount)
+      txHash = result.hash
     }
-
-    const txHash = result.hash
 
     await Transaction.create({
       txHash,
-      fromAddress: senderXRPLAddress,
+      fromAddress: senderAddress,
       toAddress: recipientAddress,
       fromPhone: user.phoneNumber,
       toPhone: recipientPhone,
-      amount: Number.parseFloat(amount),
+      amount: numAmount,
       currency,
       status: 'success',
       timestamp: new Date(),

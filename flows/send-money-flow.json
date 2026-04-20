@@ -11,17 +11,9 @@
       "id": "SEND_MONEY_DETAILS",
       "title": "Send Money",
       "data": {
-        "available_balance_xrp": {
+        "available_balance": {
           "type": "string",
-          "__example__": "100.50"
-        },
-        "available_balance_rlusd": {
-          "type": "string",
-          "__example__": "50.25"
-        },
-        "available_balance_usdc": {
-          "type": "string",
-          "__example__": "75.00"
+          "__example__": "100.50 XRP"
         },
         "error_currency": {
           "type": "string",
@@ -45,19 +37,11 @@
         "children": [
           {
             "type": "TextHeading",
-            "text": "Available Balances"
+            "text": "Available Balance"
           },
           {
             "type": "TextBody",
-            "text": "`'XRP: ' ${data.available_balance_xrp}`"
-          },
-          {
-            "type": "TextBody",
-            "text": "`'RLUSD: ' ${data.available_balance_rlusd}`"
-          },
-          {
-            "type": "TextBody",
-            "text": "`'USDC: ' ${data.available_balance_usdc}`"
+            "text": "${data.available_balance}"
           },
           {
             "type": "Form",
@@ -75,9 +59,16 @@
                 "label": "Currency",
                 "required": true,
                 "data-source": [
-                  { "id": "XRP", "title": "XRP" },
-                  { "id": "RLUSD", "title": "RLUSD (Ripple USD)" },
-                  { "id": "USDC", "title": "USDC (USD Coin)" }
+                  { "id": "XRP",      "title": "XRP (XRPL)" },
+                  { "id": "RLUSD",    "title": "RLUSD (Ripple USD)" },
+                  { "id": "USDC",     "title": "USDC (XRPL)" },
+                  { "id": "BNB",      "title": "BNB (BSC)" },
+                  { "id": "USDT",     "title": "USDT (BSC)" },
+                  { "id": "USDC_BSC", "title": "USDC (BSC)" },
+                  { "id": "SOL",      "title": "SOL (Solana)" },
+                  { "id": "USDC_SOL", "title": "USDC (Solana)" },
+                  { "id": "USDT_SOL", "title": "USDT (Solana)" },
+                  { "id": "EURC_SOL", "title": "EURC (Solana)" }
                 ]
               },
               {
@@ -93,9 +84,9 @@
                 "label": "Send To",
                 "required": true,
                 "data-source": [
-                  { "id": "Phone Number", "title": "Phone Number" },
+                  { "id": "Phone Number",      "title": "Phone Number" },
                   { "id": "SendSasa Username", "title": "SendSasa Username" },
-                  { "id": "Wallet Address", "title": "Wallet Address" }
+                  { "id": "Wallet Address",    "title": "Wallet Address" }
                 ]
               },
               {
@@ -104,7 +95,7 @@
                 "label": "Recipient",
                 "input-type": "text",
                 "required": true,
-                "helper-text": "Enter phone (+237...), username (@john) or wallet address (rXXX...)"
+                "helper-text": "Phone (+237...), username (@john) or wallet address"
               },
               {
                 "type": "Footer",
@@ -112,10 +103,10 @@
                 "on-click-action": {
                   "name": "data_exchange",
                   "payload": {
-                    "currency": "${form.currency}",
-                    "amount": "${form.amount}",
+                    "currency":       "${form.currency}",
+                    "amount":         "${form.amount}",
                     "recipient_type": "${form.recipient_type}",
-                    "recipient": "${form.recipient}"
+                    "recipient":      "${form.recipient}"
                   }
                 }
               }
@@ -207,14 +198,14 @@
                 "on-click-action": {
                   "name": "data_exchange",
                   "payload": {
-                    "currency": "${data.currency}",
-                    "amount": "${data.amount}",
-                    "recipient_type": "${data.recipient_type}",
-                    "recipient": "${data.recipient}",
+                    "currency":          "${data.currency}",
+                    "amount":            "${data.amount}",
+                    "recipient_type":    "${data.recipient_type}",
+                    "recipient":         "${data.recipient}",
                     "recipient_display": "${data.recipient_display}",
-                    "fee": "${data.fee}",
-                    "total": "${data.total}",
-                    "transaction_pin": "${form.transaction_pin}"
+                    "fee":               "${data.fee}",
+                    "total":             "${data.total}",
+                    "transaction_pin":   "${form.transaction_pin}"
                   }
                 }
               }
@@ -279,12 +270,12 @@
                 "on-click-action": {
                   "name": "complete",
                   "payload": {
-                    "currency": "${data.currency}",
-                    "amount": "${data.amount}",
-                    "total": "${data.total}",
+                    "currency":          "${data.currency}",
+                    "amount":            "${data.amount}",
+                    "total":             "${data.total}",
                     "recipient_display": "${data.recipient_display}",
-                    "recipient_type": "${data.recipient_type}",
-                    "recipient": "${data.recipient}"
+                    "recipient_type":    "${data.recipient_type}",
+                    "recipient":         "${data.recipient}"
                   }
                 }
               }

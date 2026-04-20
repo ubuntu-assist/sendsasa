@@ -6,6 +6,8 @@ import { User } from '../models/User'
 import { OnRampTransaction } from '../models/OnRampTransaction'
 import { isPhoneNumber } from './message-parser.service'
 import { getAllBalances, isAccountActivated } from './xrpl.service'
+import { evmService } from './evm.service'
+import { getSOLBalance, getAllBalances as getSolanaBalances, isValidSolanaAddress } from './solana.service'
 import { fxRateService } from './fx-rate.service'
 import { normalizeToE164 } from './phone-number.service'
 import {
@@ -24,6 +26,21 @@ import config from '../utils/config'
 
 const OFFRAMP_CURRENCIES = ['XRP', 'RLUSD', 'USDC', 'USDT']
 const OFFRAMP_PROVIDERS: MobileMoneyProvider[] = ['mtn', 'orange', 'uba']
+
+type ChainId = 'xrpl' | 'bsc' | 'solana'
+
+const CURRENCY_CHAIN: Record<string, ChainId> = {
+  XRP:      'xrpl',
+  RLUSD:    'xrpl',
+  USDC:     'xrpl',
+  BNB:      'bsc',
+  USDT:     'bsc',
+  USDC_BSC: 'bsc',
+  SOL:      'solana',
+  USDC_SOL: 'solana',
+  USDT_SOL: 'solana',
+  EURC_SOL: 'solana',
+}
 
 interface FlowDataExchangeRequest {
   version: string
@@ -390,11 +407,44 @@ export class FlowDataExchangeService {
     }
   }
 
+  // ── Send Money Helpers ───────────────────────────────────────────────────
+
+  private static async getBalanceForCurrency(user: any, currency: string): Promise<string> {
+    try {
+      const chain = CURRENCY_CHAIN[currency]
+      if (!chain || chain === 'xrpl') {
+        const balances = await getAllBalances(user.xrpl_address || user.xrplAddress)
+        if (currency === 'RLUSD') return balances.rlusd
+        if (currency === 'USDC') return balances.usdc
+        return balances.xrp
+      }
+      if (chain === 'bsc') {
+        if (!user.evm_address) return '0'
+        if (currency === 'USDT') return evmService.getBalance(user.evm_address, 'bsc', 'USDT')
+        if (currency === 'USDC_BSC') return evmService.getBalance(user.evm_address, 'bsc', 'USDC')
+        return evmService.getBalance(user.evm_address, 'bsc')
+      }
+      if (chain === 'solana') {
+        if (!user.solana_address) return '0'
+        if (currency === 'USDC_SOL' || currency === 'USDT_SOL' || currency === 'EURC_SOL') {
+          const bals = await getSolanaBalances(user.solana_address)
+          if (currency === 'USDC_SOL') return bals.usdc
+          if (currency === 'USDT_SOL') return bals.usdt
+          return bals.eurc
+        }
+        return getSOLBalance(user.solana_address)
+      }
+      return '0'
+    } catch {
+      return '0'
+    }
+  }
+
   // ── Send Money Details ───────────────────────────────────────────────────
 
   /**
    * Called for both dropdown on-select (partial) and footer submit (full).
-   * Always re-fetches balances so balance TextBody components stay populated.
+   * Re-fetches balance for the selected currency on every interaction.
    */
   private static async handleSendMoneyDetails(
     flowData: FlowDataExchangeRequest,
@@ -412,9 +462,7 @@ export class FlowDataExchangeService {
         screen: flowData.screen,
         data: {
           ...flowData.data,
-          available_balance_xrp: '0',
-          available_balance_rlusd: '0',
-          available_balance_usdc: '0',
+          available_balance: '—',
           ...FlowDataExchangeService.errorFields({ amount: 'User not found' }, [
             'currency',
             'amount',
@@ -425,20 +473,14 @@ export class FlowDataExchangeService {
       }
     }
 
-    let balances = { xrp: '0', rlusd: '0', usdc: '0' }
-    try {
-      balances = await getAllBalances(user.xrpl_address || user.xrplAddress)
-    } catch (error) {
-      console.error('Failed to fetch balances:', error)
-    }
-
+    const rawBalance = currency
+      ? await FlowDataExchangeService.getBalanceForCurrency(user, currency)
+      : '0'
     const balanceData = {
-      available_balance_xrp: balances.xrp,
-      available_balance_rlusd: balances.rlusd,
-      available_balance_usdc: balances.usdc,
+      available_balance: currency ? `${rawBalance} ${currency}` : 'Select a currency',
     }
 
-    // Partial submit (dropdown on-select) — return screen as-is with fresh balances
+    // Partial submit (dropdown on-select) — return screen as-is with fresh balance
     const isFullSubmit = currency && amount && recipient_type && recipient
     if (!isFullSubmit) {
       return {
@@ -455,22 +497,18 @@ export class FlowDataExchangeService {
     if (Number.isNaN(numAmount) || numAmount <= 0) {
       errors['amount'] = 'Amount must be greater than 0'
     } else {
-      let balance = 0
-      if (currency === 'XRP') balance = Number.parseFloat(balances.xrp)
-      else if (currency === 'RLUSD') balance = Number.parseFloat(balances.rlusd)
-      else if (currency === 'USDC') balance = Number.parseFloat(balances.usdc)
-
+      const balance = Number.parseFloat(rawBalance)
       const total = numAmount + numAmount * 0.001
       if (total > balance) {
-        errors['amount'] =
-          `Insufficient ${currency} balance. Available: ${balance.toFixed(6)}`
+        errors['amount'] = `Insufficient ${currency} balance. Available: ${balance.toFixed(6)}`
       }
     }
 
-    // Validate recipient exists
+    // Validate recipient (chain-aware for wallet addresses)
     const validation = await FlowDataExchangeService.validateRecipient(
       recipient,
       recipient_type,
+      currency,
     )
     if (!validation.valid) {
       errors['recipient'] = validation.error || 'Invalid recipient'
@@ -606,14 +644,8 @@ export class FlowDataExchangeService {
 
     // Re-check balance in real time
     try {
-      const balances = await getAllBalances(
-        user.xrpl_address || user.xrplAddress,
-      )
-      let balance = 0
-      if (currency === 'XRP') balance = Number.parseFloat(balances.xrp)
-      else if (currency === 'RLUSD') balance = Number.parseFloat(balances.rlusd)
-      else if (currency === 'USDC') balance = Number.parseFloat(balances.usdc)
-
+      const rawBalance = await FlowDataExchangeService.getBalanceForCurrency(user, currency)
+      const balance = Number.parseFloat(rawBalance)
       const numTotal =
         Number.parseFloat(total || '0') || Number.parseFloat(amount) * 1.001
 
@@ -631,6 +663,7 @@ export class FlowDataExchangeService {
     const validation = await FlowDataExchangeService.validateRecipient(
       recipient,
       recipient_type,
+      currency,
     )
     if (!validation.valid) {
       return pinError(validation.error || 'Invalid recipient')
@@ -1287,6 +1320,7 @@ export class FlowDataExchangeService {
   private static async validateRecipient(
     recipient: string,
     type: string,
+    currency?: string,
   ): Promise<{ valid: boolean; error?: string }> {
     try {
       if (type === 'Phone Number') {
@@ -1306,8 +1340,19 @@ export class FlowDataExchangeService {
         }
         return { valid: true }
       } else if (type === 'Wallet Address') {
-        if (!/^r[1-9A-HJ-NP-Za-km-z]{25,34}$/.test(recipient)) {
-          return { valid: false, error: 'Invalid XRPL wallet address format' }
+        const chain = currency ? (CURRENCY_CHAIN[currency] ?? 'xrpl') : 'xrpl'
+        if (chain === 'xrpl') {
+          if (!/^r[1-9A-HJ-NP-Za-km-z]{25,34}$/.test(recipient)) {
+            return { valid: false, error: 'Invalid XRPL wallet address (r...)' }
+          }
+        } else if (chain === 'bsc') {
+          if (!/^0x[a-fA-F0-9]{40}$/.test(recipient)) {
+            return { valid: false, error: 'Invalid EVM wallet address (0x...)' }
+          }
+        } else if (chain === 'solana') {
+          if (!isValidSolanaAddress(recipient)) {
+            return { valid: false, error: 'Invalid Solana wallet address' }
+          }
         }
         return { valid: true }
       }

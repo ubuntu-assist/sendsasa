@@ -50,9 +50,16 @@
                 "label": "Currency",
                 "required": true,
                 "data-source": [
-                  { "id": "XRP", "title": "XRP" },
-                  { "id": "RLUSD", "title": "RLUSD (Ripple USD)" },
-                  { "id": "USDC", "title": "USDC (USD Coin)" }
+                  { "id": "XRP",      "title": "XRP (XRPL)" },
+                  { "id": "RLUSD",    "title": "RLUSD (Ripple USD)" },
+                  { "id": "USDC",     "title": "USDC (XRPL)" },
+                  { "id": "BNB",      "title": "BNB (BSC)" },
+                  { "id": "USDT",     "title": "USDT (BSC)" },
+                  { "id": "USDC_BSC", "title": "USDC (BSC)" },
+                  { "id": "SOL",      "title": "SOL (Solana)" },
+                  { "id": "USDC_SOL", "title": "USDC (Solana)" },
+                  { "id": "USDT_SOL", "title": "USDT (Solana)" },
+                  { "id": "EURC_SOL", "title": "EURC (Solana)" }
                 ]
               },
               {

@@ -6,9 +6,11 @@ export interface MenuBalances {
   usdc: string
   bnb: string
   bscUsdt: string
-  baseEth: string
+  bscUsdc: string
   sol: string
   solUsdc: string
+  solUsdt: string
+  solEurc: string
 }
 
 export async function sendMainMenu(
@@ -16,7 +18,7 @@ export async function sendMainMenu(
   balances: MenuBalances,
   username: string,
 ): Promise<void> {
-  const { xrp, rlusd, usdc, bnb, bscUsdt, baseEth, sol, solUsdc } = balances
+  const { xrp, rlusd, usdc, bnb, bscUsdt, bscUsdc, sol, solUsdc, solUsdt, solEurc } = balances
   const payload = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
@@ -29,9 +31,8 @@ export async function sendMainMenu(
         text:
           `*${username}*\n\n` +
           `*XRPL*\nXRP: ${xrp} | RLUSD: ${rlusd} | USDC: ${usdc}\n\n` +
-          `*BSC*\nBNB: ${bnb} | USDT: ${bscUsdt}\n\n` +
-          `*Base*\nETH: ${baseEth}\n\n` +
-          `*Solana*\nSOL: ${sol} | USDC: ${solUsdc}\n\n` +
+          `*BSC*\nBNB: ${bnb} | USDT: ${bscUsdt} | USDC: ${bscUsdc}\n\n` +
+          `*Solana*\nSOL: ${sol} | USDC: ${solUsdc} | USDT: ${solUsdt} | EURC: ${solEurc}\n\n` +
           `· · · · · · · · · ·\n` +
           `What would you like to do?`,
       },
@@ -273,7 +274,7 @@ export async function sendWalletMenu(
   balances: MenuBalances,
   username: string,
 ): Promise<void> {
-  const { xrp, rlusd, usdc, bnb, bscUsdt, baseEth, sol, solUsdc } = balances
+  const { xrp, rlusd, usdc, bnb, bscUsdt, bscUsdc, sol, solUsdc, solUsdt, solEurc } = balances
   const payload = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
@@ -286,9 +287,8 @@ export async function sendWalletMenu(
         text:
           `*${username}*\n\n` +
           `*XRPL*\nXRP: ${xrp} | RLUSD: ${rlusd} | USDC: ${usdc}\n\n` +
-          `*BSC*\nBNB: ${bnb} | USDT: ${bscUsdt}\n\n` +
-          `*Base*\nETH: ${baseEth}\n\n` +
-          `*Solana*\nSOL: ${sol} | USDC: ${solUsdc}\n\n` +
+          `*BSC*\nBNB: ${bnb} | USDT: ${bscUsdt} | USDC: ${bscUsdc}\n\n` +
+          `*Solana*\nSOL: ${sol} | USDC: ${solUsdc} | USDT: ${solUsdt} | EURC: ${solEurc}\n\n` +
           `· · · · · · · · · ·\n` +
           `What would you like to do?`,
       },

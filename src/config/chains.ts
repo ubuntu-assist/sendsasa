@@ -60,11 +60,14 @@ export const solanaConfig: SolanaConfig = {
 
 // SPL token mint addresses
 export const solanaTokens: Record<string, string> = {
-  // USDC mainnet: Circle's official mint
-  // USDC devnet:  Circle's devnet mint
+  // USDC  — Circle's official mint
   USDC: isSolanaDevnet
     ? '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
     : 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  // USDT  — Tether's official Solana mint (mainnet only; no official devnet mint)
+  USDT: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+  // EURC  — Circle's Euro Coin on Solana
+  EURC: 'HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr',
 }
 
 // ERC-20 token contract addresses per chain
