@@ -25,6 +25,10 @@ const PORT = config.PORT
 const NODE_ENV = process.env.NODE_ENV || 'development'
 const SELF_URL = process.env.SELF_URL || `http://localhost:${PORT}`
 
+// Render (and most PaaS) sit behind a reverse proxy that sets X-Forwarded-For.
+// Without this, express-rate-limit throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
+app.set('trust proxy', 1)
+
 app.use(helmet())
 app.use(cors())
 
