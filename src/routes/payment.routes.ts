@@ -23,6 +23,7 @@
  * Docs: https://docs.cdp.coinbase.com/onramp/headless-onramp/overview
  */
 
+import crypto from 'node:crypto'
 import { Router, Request, Response } from 'express'
 import { OnRampTransaction } from '../models/OnRampTransaction'
 import {
@@ -62,7 +63,7 @@ function openInBrowserPage(fullUrl: string): string {
 </html>`
 }
 
-function errorPage(message: string): string {
+function errorPage(message: string, retryUrl: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -81,7 +82,7 @@ function errorPage(message: string): string {
 <body>
   <div class="logo">Send<span>Sasa</span></div>
   <div class="error-box"><p>${message}</p></div>
-  <a class="btn" href="javascript:location.reload()">Try Again</a>
+  <a class="btn" href="${retryUrl}">Try Again</a>
 </body>
 </html>`
 }
@@ -93,6 +94,7 @@ function paymentPage(params: {
   recipientPhone: string
   mmProvider: string
   paymentLinkUrl: string
+  nonce: string
 }): string {
   const {
     refId,
@@ -101,6 +103,7 @@ function paymentPage(params: {
     recipientPhone,
     mmProvider,
     paymentLinkUrl,
+    nonce,
   } = params
 
   return `<!DOCTYPE html>
@@ -179,7 +182,7 @@ function paymentPage(params: {
   <!-- Blocking error (load_error, commit_error, polling_error) -->
   <div id="error-box">
     <p id="error-message">Payment failed. Please try again.</p>
-    <button class="btn-retry" onclick="location.reload()">Try Again</button>
+    <button id="btn-retry" class="btn-retry">Try Again</button>
   </div>
 
   <!-- Final success screen (polling_success) -->
@@ -197,8 +200,9 @@ function paymentPage(params: {
     and <a href="https://www.coinbase.com/legal/privacy" target="_blank">Privacy Policy</a>.
   </p>
 
-  <script>
+  <script nonce="${nonce}">
     const REF = ${JSON.stringify(refId)};
+    document.getElementById('btn-retry').addEventListener('click', () => location.reload());
 
     // ── Error code → user-friendly message map ──────────────────────────────
     const ERROR_MESSAGES = {
@@ -453,10 +457,26 @@ router.get('/card', async (req: Request, res: Response): Promise<void> => {
         'Failed to create payment session.'
       logger.error(`[Headless] Order creation failed for ref ${ref}: ${msg}`)
       res.setHeader('Content-Type', 'text/html')
-      res.send(errorPage(msg))
+      res.send(errorPage(msg, req.originalUrl))
       return
     }
   }
+
+  const nonce = crypto.randomBytes(16).toString('base64')
+
+  // Override Helmet's default CSP for this page:
+  // - nonce allows the inline event-listener script
+  // - frame-src allows the Coinbase payment iframe
+  res.setHeader('Content-Security-Policy', [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}'`,
+    "script-src-attr 'none'",
+    "style-src 'self' 'unsafe-inline'",
+    "frame-src https://*.coinbase.com",
+    "connect-src 'self'",
+    "img-src 'self' data:",
+    "frame-ancestors 'none'",
+  ].join('; '))
 
   res.setHeader('Content-Type', 'text/html')
   res.send(
@@ -467,6 +487,7 @@ router.get('/card', async (req: Request, res: Response): Promise<void> => {
       recipientPhone: onRamp.recipientPhone,
       mmProvider: onRamp.mmProvider.toUpperCase(),
       paymentLinkUrl,
+      nonce,
     }),
   )
 })
