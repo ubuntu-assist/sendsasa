@@ -2,23 +2,25 @@
  * Headless Coinbase Onramp — Payment Page Route
  *
  * GET  /pay/card?ref=<OnRampTransaction_id>
- *   Serves a branded HTML page that detects Apple Pay vs Google Pay,
- *   calls /pay/card/init to create the Coinbase headless order lazily,
- *   and embeds the returned paymentLink.url in an iframe with allow="payment".
+ *   Detects device type from User-Agent server-side, creates (or reuses) a
+ *   Coinbase headless order, then serves the branded HTML with the Coinbase
+ *   iframe URL already embedded — no client-side API call on page load.
  *
- * POST /pay/card/init
- *   Called by the hosted page to create the Coinbase order for the detected
- *   payment method. Returns the paymentLink URL and order summary.
+ *   - WebView (WhatsApp/Instagram in-app): serves "open in browser" page.
+ *   - iOS / macOS Safari: GUEST_CHECKOUT_APPLE_PAY
+ *   - Everything else (Android, desktop): GUEST_CHECKOUT_GOOGLE_PAY
+ *     Coinbase's iframe shows a QR-code fallback automatically on desktop.
  *
  * POST /pay/card/events
- *   Receives postMessage events relayed from the iframe by the hosted page.
- *   On commit_success / polling_success: triggers Mobile Money payout.
+ *   Receives postMessage events relayed from the iframe.
+ *   Triggers Mobile Money payout ONLY on polling_success (funds confirmed sent).
  *
- * NOTE: Apple Pay on web requires domain registration with the Coinbase CDP
- * portal. Contact Coinbase to whitelist your domain and obtain the
- * .well-known/apple-developer-merchantid-domain-association file.
+ * Sandbox mode (COINBASE_HEADLESS_SANDBOX=true):
+ *   - partnerUserRef prefixed with "sandbox-"
+ *   - Uses a dummy US phone number (required format for sandbox)
+ *   - Appends useApplePaySandbox / useGooglePaySandbox to the payment link
  *
- * NOTE: Coinbase headless onramp is currently US-only (valid US cell phones).
+ * Docs: https://docs.cdp.coinbase.com/onramp/headless-onramp/overview
  */
 
 import { Router, Request, Response } from 'express'
@@ -33,7 +35,56 @@ import config from '../utils/config'
 
 const router = Router()
 
-// ── HTML template ─────────────────────────────────────────────────────────────
+const IS_SANDBOX = process.env.COINBASE_HEADLESS_SANDBOX === 'true'
+
+// ── HTML helpers ──────────────────────────────────────────────────────────────
+
+function openInBrowserPage(fullUrl: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SendSasa – Open in Browser</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#f1f5f9;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;text-align:center}
+    .logo{font-size:22px;font-weight:700;color:#fff;letter-spacing:-0.5px;margin-bottom:32px}.logo span{color:#38bdf8}
+    p{color:#94a3b8;font-size:14px;line-height:1.6;max-width:320px;margin-bottom:24px}
+    .btn{display:inline-block;background:#38bdf8;color:#0f172a;font-weight:700;font-size:16px;padding:14px 32px;border-radius:12px;text-decoration:none}
+  </style>
+</head>
+<body>
+  <div class="logo">Send<span>Sasa</span></div>
+  <p>Apple Pay and Google Pay aren't available inside WhatsApp or social app browsers.<br><br>Open this link in Safari or Chrome to complete your payment.</p>
+  <a class="btn" href="${fullUrl}">Open in Browser ↗</a>
+</body>
+</html>`
+}
+
+function errorPage(message: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SendSasa – Payment Error</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#f1f5f9;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;text-align:center}
+    .logo{font-size:22px;font-weight:700;color:#fff;letter-spacing:-0.5px;margin-bottom:32px}.logo span{color:#38bdf8}
+    .error-box{background:#450a0a;border:1px solid #7f1d1d;border-radius:12px;padding:20px;max-width:380px;margin-bottom:24px}
+    p{color:#fca5a5;font-size:14px;line-height:1.6}
+    .btn{display:inline-block;background:#1e293b;border:1px solid #334155;color:#f1f5f9;font-weight:600;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none;cursor:pointer}
+  </style>
+</head>
+<body>
+  <div class="logo">Send<span>Sasa</span></div>
+  <div class="error-box"><p>${message}</p></div>
+  <a class="btn" href="javascript:location.reload()">Try Again</a>
+</body>
+</html>`
+}
 
 function paymentPage(params: {
   refId: string
@@ -41,9 +92,17 @@ function paymentPage(params: {
   xafAmount: string
   recipientPhone: string
   mmProvider: string
-  domain: string
+  paymentLinkUrl: string
 }): string {
-  const { refId, totalUSD, xafAmount, recipientPhone, mmProvider, domain } = params
+  const {
+    refId,
+    totalUSD,
+    xafAmount,
+    recipientPhone,
+    mmProvider,
+    paymentLinkUrl,
+  } = params
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -60,16 +119,18 @@ function paymentPage(params: {
     .value{font-size:15px;color:#f1f5f9;margin-bottom:14px}
     .value.large{font-size:22px;font-weight:700;color:#38bdf8}
     .divider{height:1px;background:#334155;margin:8px 0 14px}
-    #payment-container{width:100%;max-width:420px}
-    #payment-frame{width:100%;min-height:80px;border:none;display:none;border-radius:12px;overflow:hidden}
-    #loading-msg{text-align:center;color:#94a3b8;font-size:14px;padding:20px 0}
-    #loading-msg .dot{animation:blink 1.4s infinite both}
-    #loading-msg .dot:nth-child(2){animation-delay:.2s}
-    #loading-msg .dot:nth-child(3){animation-delay:.4s}
+    #payment-wrap{position:relative;width:100%;max-width:420px}
+    #loading-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#0f172a;z-index:10;border-radius:12px;min-height:100px}
+    #loading-overlay span{color:#94a3b8;font-size:14px}
+    #loading-overlay .dot{animation:blink 1.4s infinite both}
+    #loading-overlay .dot:nth-child(2){animation-delay:.2s}
+    #loading-overlay .dot:nth-child(3){animation-delay:.4s}
     @keyframes blink{0%,80%,100%{opacity:0}40%{opacity:1}}
-    #open-browser{display:none;text-align:center;padding:16px}
-    #open-browser p{color:#94a3b8;font-size:13px;margin-bottom:12px;line-height:1.5}
-    .btn-open{display:inline-block;background:#38bdf8;color:#0f172a;font-weight:700;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none}
+    #payment-frame{display:block;width:100%;min-height:120px;border:none;border-radius:12px;overflow:hidden}
+    #processing{display:none;text-align:center;padding:20px 0}
+    #processing p{color:#94a3b8;font-size:14px}
+    #processing .spinner{width:32px;height:32px;border:3px solid #334155;border-top-color:#38bdf8;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+    @keyframes spin{to{transform:rotate(360deg)}}
     #success{display:none;text-align:center;padding:24px 0}
     #success .check{font-size:52px;margin-bottom:12px}
     #success h2{font-size:20px;font-weight:700;color:#34d399;margin-bottom:8px}
@@ -77,7 +138,8 @@ function paymentPage(params: {
     #error-box{display:none;background:#450a0a;border:1px solid #7f1d1d;border-radius:12px;padding:16px;width:100%;max-width:420px;margin-bottom:16px}
     #error-box p{color:#fca5a5;font-size:14px;margin-bottom:12px}
     .btn-retry{background:#1e293b;border:1px solid #334155;color:#f1f5f9;font-size:14px;font-weight:600;padding:10px 20px;border-radius:8px;cursor:pointer;width:100%}
-    .terms{font-size:11px;color:#475569;text-align:center;max-width:360px;line-height:1.5;margin-top:8px}
+    #cancel-toast{display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:13px;padding:10px 20px;border-radius:8px;white-space:nowrap}
+    .terms{font-size:11px;color:#475569;text-align:center;max-width:360px;line-height:1.5;margin-top:12px}
     .terms a{color:#38bdf8;text-decoration:none}
   </style>
 </head>
@@ -94,31 +156,41 @@ function paymentPage(params: {
     <div class="value">${recipientPhone}</div>
   </div>
 
-  <div id="payment-container">
-    <div id="loading-msg">Preparing payment<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>
+  <!-- Payment iframe — src pre-populated server-side, no client fetch needed -->
+  <div id="payment-wrap">
+    <div id="loading-overlay">
+      <span>Loading<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></span>
+    </div>
     <iframe
       id="payment-frame"
-      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+      src="${paymentLinkUrl}"
+      sandbox="allow-scripts allow-same-origin"
       referrerpolicy="no-referrer"
       allow="payment">
     </iframe>
   </div>
 
-  <div id="open-browser">
-    <p>For the best experience with Apple Pay or Google Pay, open this link in Safari or Chrome.</p>
-    <a id="browser-link" class="btn-open" href="#">Open in Browser ↗</a>
+  <!-- Shows after commit_success while polling for on-chain confirmation -->
+  <div id="processing">
+    <div class="spinner"></div>
+    <p>Processing your payment…</p>
   </div>
 
+  <!-- Blocking error (load_error, commit_error, polling_error) -->
   <div id="error-box">
     <p id="error-message">Payment failed. Please try again.</p>
-    <button class="btn-retry" onclick="retry()">Try Again</button>
+    <button class="btn-retry" onclick="location.reload()">Try Again</button>
   </div>
 
+  <!-- Final success screen (polling_success) -->
   <div id="success">
     <div class="check">✅</div>
     <h2>Payment Successful!</h2>
     <p>Your funds are on the way.<br>You'll receive a confirmation on WhatsApp shortly.</p>
   </div>
+
+  <!-- Brief toast for onramp_api.cancel — does NOT block the iframe -->
+  <div id="cancel-toast">Payment cancelled — tap the button to try again</div>
 
   <p class="terms">By completing payment you agree to
     <a href="https://www.coinbase.com/legal/guest-checkout/us" target="_blank">Coinbase Guest Checkout Terms</a>
@@ -127,119 +199,143 @@ function paymentPage(params: {
 
   <script>
     const REF = ${JSON.stringify(refId)};
-    const DOMAIN = ${JSON.stringify(domain)};
 
-    const ua = navigator.userAgent || '';
-    // Must test ua BEFORE any async call — in-app browsers (WhatsApp, Instagram)
-    // hang on external script loads like Google Pay
-    const isWebView = /WhatsApp|FBAN|FBIOS|Instagram|Line|\bwv\b/.test(ua);
-    const isIOS = /iPhone|iPad|iPod/.test(ua);
-    const isMacSafari = /Macintosh/.test(ua) && /Safari/.test(ua) && !/Chrome/.test(ua);
+    // ── Error code → user-friendly message map ──────────────────────────────
+    const ERROR_MESSAGES = {
+      ERROR_CODE_INIT:
+        'Payment session expired. Please go back and start again.',
+      ERROR_CODE_GUEST_APPLE_PAY_NOT_SETUP:
+        'Please set up Apple Pay on your device, then try again.',
+      ERROR_CODE_GUEST_GOOGLE_PAY_NOT_SUPPORTED:
+        'Google Pay is not supported on this device.',
+      ERROR_CODE_GUEST_CARD_SOFT_DECLINED:
+        'Your card was declined by your bank. Please contact your bank or try a different debit card.',
+      ERROR_CODE_GUEST_INVALID_CARD:
+        'Invalid card or billing address.',
+      ERROR_CODE_GUEST_CARD_INSUFFICIENT_BALANCE:
+        'Your card has insufficient funds.',
+      ERROR_CODE_GUEST_CARD_HARD_DECLINED:
+        'Your card was declined. Please try a different card.',
+      ERROR_CODE_GUEST_CARD_RISK_DECLINED:
+        'Transaction flagged by our security system. Please try again later.',
+      ERROR_CODE_GUEST_REGION_MISMATCH:
+        'Payments are not supported in your current region.',
+      ERROR_CODE_GUEST_PERMISSION_DENIED:
+        'Your account is blocked from making purchases.',
+      ERROR_CODE_GUEST_CARD_PREPAID_DECLINED:
+        'Prepaid cards are not supported. Please use a regular debit card.',
+      ERROR_CODE_GUEST_TRANSACTION_LIMIT:
+        'This exceeds your weekly transaction limit.',
+      ERROR_CODE_GUEST_TRANSACTION_COUNT:
+        'You have reached the lifetime transaction count limit (15).',
+      ERROR_CODE_INVALID_BILLING_ZIP:
+        'Invalid billing ZIP code. Please verify your billing address.',
+      ERROR_CODE_INVALID_BILLING_ADDRESS:
+        'Incomplete billing address.',
+      ERROR_CODE_INVALID_BILLING_NAME:
+        'Invalid cardholder name.',
+      ERROR_CODE_GUEST_TRANSACTION_BUY_FAILED:
+        'Purchase failed. Your card was not charged.',
+      ERROR_CODE_GUEST_TRANSACTION_SEND_FAILED:
+        'Failed to send funds — your card will be refunded.',
+      ERROR_CODE_GUEST_TRANSACTION_TRANSACTION_FAILED:
+        'An internal error occurred. The Coinbase team has been notified.',
+      ERROR_CODE_GUEST_TRANSACTION_AVS_VALIDATION_FAILED:
+        'Billing address validation failed. Your card was not charged. Please verify your billing address with your bank.',
+    };
 
-    async function init() {
-      try {
-        if (isWebView) {
-          showOpenBrowser();
-          return;
-        }
-
-        // iOS/macOS Safari → Apple Pay (native sheet); everything else → Google Pay.
-        // The Coinbase iframe shows a QR-code fallback on desktop for Google Pay —
-        // no client-side payment-method detection needed or desired (it hangs).
-        const method = (isIOS || isMacSafari) ? 'GUEST_CHECKOUT_APPLE_PAY' : 'GUEST_CHECKOUT_GOOGLE_PAY';
-
-        let data;
-        try {
-          const resp = await fetch('/pay/card/init', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ref: REF, method, domain: DOMAIN }),
-          });
-          if (!resp.ok) {
-            const err = await resp.json().catch(() => ({}));
-            showError(err.message || 'Could not create payment session. Please try again.');
-            return;
-          }
-          data = await resp.json();
-        } catch {
-          showError('Network error. Please check your connection and try again.');
-          return;
-        }
-
-        const frame = document.getElementById('payment-frame');
-        frame.src = data.paymentLinkUrl;
-        frame.style.display = 'block';
-        document.getElementById('loading-msg').style.display = 'none';
-      } catch (err) {
-        console.error('Payment init error:', err);
-        showError('Something went wrong. Please try again.');
-      }
+    function resolveMessage(errorCode, errorMessage) {
+      return ERROR_MESSAGES[errorCode] || errorMessage || 'An error occurred. Please try again.';
     }
 
-    // Relay postMessage events from the Coinbase iframe to our backend
+    function showError(errorCode, errorMessage) {
+      document.getElementById('error-message').textContent = resolveMessage(errorCode, errorMessage);
+      document.getElementById('error-box').style.display = 'block';
+      document.getElementById('payment-wrap').style.display = 'none';
+      document.getElementById('processing').style.display = 'none';
+    }
+
+    function showCancelToast() {
+      const toast = document.getElementById('cancel-toast');
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    // ── postMessage event handler ───────────────────────────────────────────
+    // Docs: https://docs.cdp.coinbase.com/onramp/headless-onramp/overview
     window.addEventListener('message', async (event) => {
       const payload = event.data;
       if (!payload || typeof payload.eventName !== 'string') return;
       if (!payload.eventName.startsWith('onramp_api.')) return;
 
       const { eventName, data: evData } = payload;
+      const errorCode = evData?.errorCode;
+      const errorMessage = evData?.errorMessage;
 
-      // Adjust iframe height on load
-      if (eventName === 'onramp_api.load_success') {
-        document.getElementById('payment-frame').style.minHeight = '120px';
+      switch (eventName) {
+
+        // Iframe JS initialised, data fetching started
+        case 'onramp_api.load_pending':
+          // Loading overlay is already visible — nothing to do
+          break;
+
+        // Pay button rendered and ready for user interaction
+        case 'onramp_api.load_success':
+          document.getElementById('loading-overlay').style.display = 'none';
+          break;
+
+        // Pay button failed to initialise
+        case 'onramp_api.load_error':
+          // ERROR_CODE_GUEST_APPLE_PAY_NOT_SUPPORTED is safe to ignore on web —
+          // the iframe falls back to an Apple Pay QR code automatically.
+          if (errorCode !== 'ERROR_CODE_GUEST_APPLE_PAY_NOT_SUPPORTED') {
+            showError(errorCode, errorMessage);
+          } else {
+            document.getElementById('loading-overlay').style.display = 'none';
+          }
+          break;
+
+        // User pressed the pay button and transaction was successfully started
+        case 'onramp_api.commit_success':
+          document.getElementById('payment-wrap').style.display = 'none';
+          document.getElementById('summary-card').style.display = 'none';
+          document.getElementById('processing').style.display = 'block';
+          break;
+
+        // Transaction could not be started (card declined, etc.)
+        case 'onramp_api.commit_error':
+          showError(errorCode, errorMessage);
+          break;
+
+        // User dismissed the Apple Pay / Google Pay popup — can retry via iframe
+        case 'onramp_api.cancel':
+          showCancelToast();
+          break;
+
+        // Iframe started polling Coinbase for on-chain confirmation
+        case 'onramp_api.polling_start':
+          // Processing state already showing from commit_success — nothing to do
+          break;
+
+        // Funds confirmed sent to destination wallet — transaction complete
+        case 'onramp_api.polling_success':
+          document.getElementById('processing').style.display = 'none';
+          document.getElementById('success').style.display = 'block';
+          break;
+
+        // Polling detected a failure (buy failed, send failed, internal error)
+        case 'onramp_api.polling_error':
+          showError(errorCode, errorMessage);
+          break;
       }
 
-      if (eventName === 'onramp_api.load_error') {
-        showError(evData?.errorMessage || 'Payment method not available.');
-        showOpenBrowser();
-      }
-
-      if (eventName === 'onramp_api.commit_success' || eventName === 'onramp_api.polling_success') {
-        document.getElementById('summary-card').style.display = 'none';
-        document.getElementById('payment-container').style.display = 'none';
-        document.getElementById('success').style.display = 'block';
-      }
-
-      if (eventName === 'onramp_api.commit_error') {
-        showError(evData?.errorMessage || 'Payment declined. Please try again.');
-      }
-
-      if (eventName === 'onramp_api.polling_error') {
-        showError(evData?.errorMessage || 'Payment could not be confirmed. Please contact support with your reference.');
-      }
-
-      if (eventName === 'onramp_api.cancel') {
-        document.getElementById('loading-msg').style.display = 'none';
-        document.getElementById('error-message').textContent = 'Payment cancelled. Tap below to try again.';
-        document.getElementById('error-box').style.display = 'block';
-      }
-
-      // Relay to backend regardless of event type
+      // Relay every event to the backend for logging and payout triggering
       await fetch('/pay/card/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ref: REF, eventName, data: evData }),
       }).catch(() => {});
     });
-
-    function showOpenBrowser() {
-      document.getElementById('loading-msg').style.display = 'none';
-      const el = document.getElementById('open-browser');
-      el.style.display = 'block';
-      document.getElementById('browser-link').href = window.location.href;
-    }
-
-    function showError(msg) {
-      document.getElementById('loading-msg').style.display = 'none';
-      document.getElementById('error-message').textContent = msg;
-      document.getElementById('error-box').style.display = 'block';
-    }
-
-    function retry() {
-      window.location.reload();
-    }
-
-    init();
   </script>
 </body>
 </html>`
@@ -247,11 +343,28 @@ function paymentPage(params: {
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
-/** Serve the branded headless payment page. */
+/**
+ * Serve the branded headless payment page.
+ *
+ * Detects device type from the request User-Agent, creates (or reuses) a
+ * Coinbase headless order, and embeds the iframe URL directly in the HTML.
+ * No client-side API call is needed — the iframe loads immediately.
+ */
 router.get('/card', async (req: Request, res: Response): Promise<void> => {
   const ref = req.query['ref'] as string | undefined
   if (!ref) {
     res.status(400).send('Missing payment reference.')
+    return
+  }
+
+  const ua = req.headers['user-agent'] || ''
+
+  // In-app browsers (WhatsApp, Instagram, etc.) cannot trigger payment sheets
+  const isWebView = /WhatsApp|FBAN|FBIOS|Instagram|Line|\bwv\b/.test(ua)
+  if (isWebView) {
+    const fullUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`
+    res.setHeader('Content-Type', 'text/html')
+    res.send(openInBrowserPage(fullUrl))
     return
   }
 
@@ -261,133 +374,150 @@ router.get('/card', async (req: Request, res: Response): Promise<void> => {
     return
   }
 
-  const domain = (config.JWT_ISSUER || 'https://api.sendsasa.com').replace(/^https?:\/\//, '')
+  // iOS / macOS Safari → Apple Pay; everything else → Google Pay.
+  // Coinbase's iframe automatically shows a QR-code fallback on desktop.
+  const isIOS = /iPhone|iPad|iPod/.test(ua)
+  const isMacSafari =
+    /Macintosh/.test(ua) && /Safari/.test(ua) && !/Chrome/.test(ua)
+  const method: HeadlessPaymentMethod =
+    isIOS || isMacSafari
+      ? 'GUEST_CHECKOUT_APPLE_PAY'
+      : 'GUEST_CHECKOUT_GOOGLE_PAY'
 
-  res.setHeader('Content-Type', 'text/html')
-  res.send(paymentPage({
-    refId: ref,
-    totalUSD: onRamp.totalUSDCharged.toFixed(2),
-    xafAmount: onRamp.xafAmount.toLocaleString(),
-    recipientPhone: onRamp.recipientPhone,
-    mmProvider: onRamp.mmProvider.toUpperCase(),
-    domain,
-  }))
-})
-
-/**
- * Create a Coinbase headless order for the detected payment method.
- * Called by the hosted payment page just-in-time when user opens the link.
- */
-router.post('/card/init', async (req: Request, res: Response): Promise<void> => {
-  const { ref, method, domain } = req.body as {
-    ref?: string
-    method?: string
-    domain?: string
-  }
-
-  if (!ref || !method) {
-    res.status(400).json({ message: 'Missing ref or method.' })
-    return
-  }
-
-  const validMethods: HeadlessPaymentMethod[] = [
-    'GUEST_CHECKOUT_APPLE_PAY',
-    'GUEST_CHECKOUT_GOOGLE_PAY',
-  ]
-  if (!validMethods.includes(method as HeadlessPaymentMethod)) {
-    res.status(400).json({ message: 'Invalid payment method.' })
-    return
-  }
-
-  const onRamp = await OnRampTransaction.findById(ref).catch(() => null)
-  if (!onRamp) {
-    res.status(404).json({ message: 'Payment session not found.' })
-    return
-  }
-
-  if (onRamp.status === 'completed' || onRamp.status === 'expired') {
-    res.status(409).json({ message: 'Payment session already completed or expired.' })
-    return
-  }
-
-  // Idempotent — reuse existing order if already created for same method
-  if (onRamp.headlessOrderId && onRamp.headlessPaymentMethod === method && onRamp.headlessPaymentLinkUrl) {
-    logger.info(`[Headless] Reusing existing order ${onRamp.headlessOrderId} for ref ${ref}`)
-    res.json({ paymentLinkUrl: onRamp.headlessPaymentLinkUrl })
-    return
-  }
-
-  const now = new Date().toISOString()
-
-  try {
-    const result = await createHeadlessOrder({
-      paymentMethod: method as HeadlessPaymentMethod,
-      paymentAmount: onRamp.totalUSDCharged.toFixed(2),
-      purchaseCurrency: 'USDC',
-      destinationAddress: onRamp.adminAddress,
-      destinationNetwork: 'base',
-      phoneNumber: onRamp.senderPhone.startsWith('+')
-        ? onRamp.senderPhone
-        : `+${onRamp.senderPhone}`,
-      email: onRamp.userEmail || '',
-      agreementAcceptedAt: now,
-      phoneNumberVerifiedAt: now,
-      partnerUserRef: ref,
-      domain,
-    })
-
-    onRamp.headlessOrderId = result.orderId
-    onRamp.headlessPaymentMethod = method as HeadlessPaymentMethod
-    onRamp.headlessPaymentLinkUrl = result.paymentLinkUrl
-    await onRamp.save()
-
-    logger.info(`[Headless] Order created: ${result.orderId} (ref: ${ref})`)
-    res.json({ paymentLinkUrl: result.paymentLinkUrl })
-  } catch (err: any) {
-    logger.error(`[Headless] Order creation failed for ref ${ref}: ${err.message}`)
-    const cbError = err.response?.data?.message || err.message
-    res.status(502).json({ message: cbError || 'Failed to create payment session.' })
-  }
-})
-
-/**
- * Receive postMessage events relayed from the hosted payment page.
- * Triggers Mobile Money payout on commit_success / polling_success.
- */
-router.post('/card/events', async (req: Request, res: Response): Promise<void> => {
-  const { ref, eventName, data: evData } = req.body as {
-    ref?: string
-    eventName?: string
-    data?: Record<string, string>
-  }
-
-  res.status(204).end()
-
-  if (!ref || !eventName) return
-
-  logger.info(`[Headless] Event ${eventName} for ref ${ref}`)
-
+  // Idempotent — reuse an existing Coinbase order for the same payment method
+  let paymentLinkUrl: string
   if (
-    eventName === 'onramp_api.commit_success' ||
-    eventName === 'onramp_api.polling_success'
+    onRamp.headlessOrderId &&
+    onRamp.headlessPaymentMethod === method &&
+    onRamp.headlessPaymentLinkUrl
   ) {
-    executeOnRampPayout(ref).catch((err) =>
-      logger.error(`[Headless] Payout error for ref ${ref}: ${err.message}`),
+    logger.info(
+      `[Headless] Reusing order ${onRamp.headlessOrderId} for ref ${ref}`,
     )
-    return
-  }
+    paymentLinkUrl = onRamp.headlessPaymentLinkUrl
+  } else {
+    const domain = (config.JWT_ISSUER || 'https://api.sendsasa.com').replace(
+      /^https?:\/\//,
+      '',
+    )
+    const now = new Date().toISOString()
 
-  if (
-    eventName === 'onramp_api.commit_error' ||
-    eventName === 'onramp_api.load_error' ||
-    eventName === 'onramp_api.polling_error'
-  ) {
-    const onRamp = await OnRampTransaction.findById(ref).catch(() => null)
-    if (onRamp?.status === 'pending') {
-      onRamp.failureReason = evData?.errorCode || eventName
-      await onRamp.save().catch(() => {})
+    // Sandbox: any valid US-format number works; prefix partnerUserRef with "sandbox-"
+    const partnerUserRef = IS_SANDBOX ? `sandbox-${ref}` : ref
+    const phoneNumber = IS_SANDBOX
+      ? '+12345678901'
+      : onRamp.senderPhone.startsWith('+')
+        ? onRamp.senderPhone
+        : `+${onRamp.senderPhone}`
+
+    try {
+      const result = await createHeadlessOrder({
+        paymentMethod: method,
+        paymentAmount: onRamp.totalUSDCharged.toFixed(2),
+        purchaseCurrency: 'USDC',
+        destinationAddress: onRamp.adminAddress,
+        destinationNetwork: 'base',
+        phoneNumber,
+        email: onRamp.userEmail || '',
+        agreementAcceptedAt: now,
+        phoneNumberVerifiedAt: now,
+        partnerUserRef,
+        domain,
+      })
+
+      paymentLinkUrl = result.paymentLinkUrl
+
+      // Sandbox: append the required sandbox query parameter to the payment link
+      if (IS_SANDBOX) {
+        const sandboxParam =
+          method === 'GUEST_CHECKOUT_APPLE_PAY'
+            ? 'useApplePaySandbox=true'
+            : 'useGooglePaySandbox=true'
+        paymentLinkUrl += paymentLinkUrl.includes('?')
+          ? `&${sandboxParam}`
+          : `?${sandboxParam}`
+      }
+
+      onRamp.headlessOrderId = result.orderId
+      onRamp.headlessPaymentMethod = method
+      onRamp.headlessPaymentLinkUrl = paymentLinkUrl
+      await onRamp.save()
+
+      logger.info(
+        `[Headless] Order created: ${result.orderId} (${method}, ref: ${ref}, sandbox: ${IS_SANDBOX})`,
+      )
+    } catch (err: any) {
+      const msg =
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to create payment session.'
+      logger.error(`[Headless] Order creation failed for ref ${ref}: ${msg}`)
+      res.setHeader('Content-Type', 'text/html')
+      res.send(errorPage(msg))
+      return
     }
   }
+
+  res.setHeader('Content-Type', 'text/html')
+  res.send(
+    paymentPage({
+      refId: ref,
+      totalUSD: onRamp.totalUSDCharged.toFixed(2),
+      xafAmount: onRamp.xafAmount.toLocaleString(),
+      recipientPhone: onRamp.recipientPhone,
+      mmProvider: onRamp.mmProvider.toUpperCase(),
+      paymentLinkUrl,
+    }),
+  )
 })
+
+/**
+ * Receive postMessage events relayed from the Coinbase iframe.
+ *
+ * Payout is triggered ONLY on polling_success — this is when Coinbase confirms
+ * funds have been sent to the destination wallet. commit_success only means the
+ * user pressed the pay button; funds have not moved yet at that point.
+ */
+router.post(
+  '/card/events',
+  async (req: Request, res: Response): Promise<void> => {
+    const {
+      ref,
+      eventName,
+      data: evData,
+    } = req.body as {
+      ref?: string
+      eventName?: string
+      data?: Record<string, string>
+    }
+
+    res.status(204).end()
+
+    if (!ref || !eventName) return
+
+    logger.info(`[Headless] Event ${eventName} for ref ${ref}`)
+
+    // Funds confirmed on-chain — trigger Mobile Money payout
+    if (eventName === 'onramp_api.polling_success') {
+      executeOnRampPayout(ref).catch((err) =>
+        logger.error(`[Headless] Payout error for ref ${ref}: ${err.message}`),
+      )
+      return
+    }
+
+    // Record failure reason for error events
+    if (
+      eventName === 'onramp_api.commit_error' ||
+      eventName === 'onramp_api.load_error' ||
+      eventName === 'onramp_api.polling_error'
+    ) {
+      const onRamp = await OnRampTransaction.findById(ref).catch(() => null)
+      if (onRamp?.status === 'pending') {
+        onRamp.failureReason = evData?.errorCode || eventName
+        await onRamp.save().catch(() => {})
+      }
+    }
+  },
+)
 
 export default router
