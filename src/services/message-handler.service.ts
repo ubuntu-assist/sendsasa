@@ -6,6 +6,7 @@ import { FlowLauncherService } from './flow-launcher.service'
 import {
   sendTextMessage,
   sendPaymentRequestButtons,
+  sendCardPaymentTypeButtons,
   sendDocumentByMediaId,
 } from './whatsapp.service'
 import {
@@ -212,7 +213,15 @@ export async function handleInteraction(
         break
 
       case 'card_payment':
-        await handleCardPayment(phoneNumber, user)
+        await handleCardPayment(phoneNumber)
+        break
+
+      case 'card_pay_hosted':
+        await handleLaunchCardPaymentFlow(phoneNumber, user, 'hosted')
+        break
+
+      case 'card_pay_headless':
+        await handleLaunchCardPaymentFlow(phoneNumber, user, 'headless')
         break
 
       case 'request_money':
@@ -1596,15 +1605,29 @@ async function handleOffRamp(
 }
 
 /**
- * Handle "Pay with Card" menu selection.
- *
- * Launches the Coinbase Onramp WhatsApp Flow. No PIN check needed here —
- * the card payment itself authenticates the sender via Coinbase's KYC.
- * No migration check either — card payments don't touch the user's crypto wallet.
+ * "Pay with Card" menu entry — show payment method choice buttons.
  */
-async function handleCardPayment(phoneNumber: string, user: any): Promise<void> {
+async function handleCardPayment(phoneNumber: string): Promise<void> {
   try {
-    await FlowLauncherService.launchCardPaymentFlow(user)
+    await sendCardPaymentTypeButtons(phoneNumber)
+  } catch (error) {
+    console.error('❌ Error sending card payment type buttons:', error)
+    await sendTextMessage(phoneNumber, '❌ An error occurred. Please try again.')
+  }
+}
+
+/**
+ * User tapped "Pay with Card" or "Apple / Google Pay" — launch the flow.
+ * No PIN check — card payment authenticates the sender via Coinbase KYC.
+ * No migration check — card payments don't touch the user's crypto wallet.
+ */
+async function handleLaunchCardPaymentFlow(
+  phoneNumber: string,
+  user: any,
+  paymentType: 'hosted' | 'headless',
+): Promise<void> {
+  try {
+    await FlowLauncherService.launchCardPaymentFlow(user, paymentType)
   } catch (error) {
     console.error('❌ Error launching card payment flow:', error)
     await sendTextMessage(phoneNumber, '❌ An error occurred. Please try again.')

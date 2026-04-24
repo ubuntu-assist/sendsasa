@@ -27,9 +27,14 @@ export interface IOnRampTransaction extends Document {
   sendSasaRate: number        // after 0.5% spread
   feeXAF: number              // SendSasa fee in XAF
 
-  // Coinbase Onramp session
-  coinbaseSessionToken: string   // short-lived token (for reference only)
-  coinbaseTxId?: string          // transaction ID from webhook
+  // Coinbase transaction ID (from webhook)
+  coinbaseTxId?: string
+
+  // Headless onramp fields
+  userEmail?: string
+  headlessOrderId?: string
+  headlessPaymentMethod?: 'GUEST_CHECKOUT_APPLE_PAY' | 'GUEST_CHECKOUT_GOOGLE_PAY'
+  headlessPaymentLinkUrl?: string
 
   // Admin wallet that receives USDC
   adminAddress: string           // EVM (Base) address
@@ -57,8 +62,12 @@ const OnRampTransactionSchema = new Schema<IOnRampTransaction>({
   sendSasaRate: { type: Number, required: true },
   feeXAF: { type: Number, required: true },
 
-  coinbaseSessionToken: { type: String, required: true },
   coinbaseTxId: { type: String, sparse: true, trim: true },
+
+  userEmail: { type: String, sparse: true, trim: true },
+  headlessOrderId: { type: String, sparse: true, trim: true },
+  headlessPaymentMethod: { type: String, enum: ['GUEST_CHECKOUT_APPLE_PAY', 'GUEST_CHECKOUT_GOOGLE_PAY'] },
+  headlessPaymentLinkUrl: { type: String, trim: true },
 
   adminAddress: { type: String, required: true, trim: true },
   cryptoTxHash: { type: String, sparse: true, trim: true },

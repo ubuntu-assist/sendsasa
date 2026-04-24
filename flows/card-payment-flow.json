@@ -11,18 +11,11 @@
       "id": "CARD_PAYMENT_DETAILS",
       "title": "Pay with Card",
       "data": {
-        "error_usd_amount": {
-          "type": "string",
-          "__example__": ""
-        },
-        "error_mm_provider": {
-          "type": "string",
-          "__example__": ""
-        },
-        "error_recipient_phone": {
-          "type": "string",
-          "__example__": ""
-        }
+        "payment_type":          { "type": "string", "__example__": "hosted" },
+        "error_usd_amount":      { "type": "string", "__example__": "" },
+        "error_mm_provider":     { "type": "string", "__example__": "" },
+        "error_recipient_phone": { "type": "string", "__example__": "" },
+        "error_email":           { "type": "string", "__example__": "" }
       },
       "layout": {
         "type": "SingleColumnLayout",
@@ -39,9 +32,10 @@
             "type": "Form",
             "name": "card_payment_details_form",
             "error-messages": {
-              "usd_amount": "${data.error_usd_amount}",
-              "mm_provider": "${data.error_mm_provider}",
-              "recipient_phone": "${data.error_recipient_phone}"
+              "usd_amount":      "${data.error_usd_amount}",
+              "mm_provider":     "${data.error_mm_provider}",
+              "recipient_phone": "${data.error_recipient_phone}",
+              "email":           "${data.error_email}"
             },
             "children": [
               {
@@ -58,9 +52,9 @@
                 "label": "Mobile Money provider",
                 "required": true,
                 "data-source": [
-                  { "id": "mtn", "title": "MTN Mobile Money" },
+                  { "id": "mtn",    "title": "MTN Mobile Money" },
                   { "id": "orange", "title": "Orange Money" },
-                  { "id": "uba", "title": "UBA M2U" }
+                  { "id": "uba",    "title": "UBA M2U" }
                 ]
               },
               {
@@ -72,14 +66,24 @@
                 "helper-text": "Mobile Money number (e.g. +237 6XX XXX XXX)"
               },
               {
+                "type": "TextInput",
+                "name": "email",
+                "label": "Your email address",
+                "input-type": "email",
+                "required": false,
+                "helper-text": "Required for Apple Pay / Google Pay sessions"
+              },
+              {
                 "type": "Footer",
                 "label": "Get Quote",
                 "on-click-action": {
                   "name": "data_exchange",
                   "payload": {
-                    "usd_amount": "${form.usd_amount}",
-                    "mm_provider": "${form.mm_provider}",
-                    "recipient_phone": "${form.recipient_phone}"
+                    "payment_type":    "${data.payment_type}",
+                    "usd_amount":      "${form.usd_amount}",
+                    "mm_provider":     "${form.mm_provider}",
+                    "recipient_phone": "${form.recipient_phone}",
+                    "email":           "${form.email}"
                   }
                 }
               }
@@ -92,50 +96,19 @@
       "id": "CARD_PAYMENT_CONFIRM",
       "title": "Review Payment",
       "data": {
-        "usd_amount": {
-          "type": "string",
-          "__example__": "100.00"
-        },
-        "card_fee_usd": {
-          "type": "string",
-          "__example__": "3.99"
-        },
-        "total_usd_charged": {
-          "type": "string",
-          "__example__": "103.99"
-        },
-        "xaf_amount": {
-          "type": "string",
-          "__example__": "59700"
-        },
-        "fee_xaf": {
-          "type": "string",
-          "__example__": "299"
-        },
-        "rate_display": {
-          "type": "string",
-          "__example__": "1 USDC = 597.00 XAF"
-        },
-        "mm_provider": {
-          "type": "string",
-          "__example__": "mtn"
-        },
-        "mm_provider_name": {
-          "type": "string",
-          "__example__": "MTN Mobile Money"
-        },
-        "recipient_phone": {
-          "type": "string",
-          "__example__": "+237612345678"
-        },
-        "fixer_rate": {
-          "type": "string",
-          "__example__": "612.0000"
-        },
-        "sendsasa_rate": {
-          "type": "string",
-          "__example__": "608.9400"
-        }
+        "payment_type":       { "type": "string", "__example__": "hosted" },
+        "usd_amount":         { "type": "string", "__example__": "100.00" },
+        "card_fee_usd":       { "type": "string", "__example__": "3.99" },
+        "total_usd_charged":  { "type": "string", "__example__": "103.99" },
+        "xaf_amount":         { "type": "string", "__example__": "59700" },
+        "fee_xaf":            { "type": "string", "__example__": "299" },
+        "rate_display":       { "type": "string", "__example__": "1 USDC = 597.00 XAF" },
+        "mm_provider":        { "type": "string", "__example__": "mtn" },
+        "mm_provider_name":   { "type": "string", "__example__": "MTN Mobile Money" },
+        "recipient_phone":    { "type": "string", "__example__": "+237612345678" },
+        "fixer_rate":         { "type": "string", "__example__": "612.0000" },
+        "sendsasa_rate":      { "type": "string", "__example__": "608.9400" },
+        "email":              { "type": "string", "__example__": "user@example.com" }
       },
       "layout": {
         "type": "SingleColumnLayout",
@@ -189,6 +162,10 @@
             "text": "`'To: ' ${data.recipient_phone}`"
           },
           {
+            "type": "TextCaption",
+            "text": "By tapping Get Payment Link you agree to Coinbase's Guest Checkout Terms and Privacy Policy."
+          },
+          {
             "type": "Form",
             "name": "confirm_form",
             "children": [
@@ -198,17 +175,19 @@
                 "on-click-action": {
                   "name": "data_exchange",
                   "payload": {
-                    "usd_amount": "${data.usd_amount}",
-                    "card_fee_usd": "${data.card_fee_usd}",
+                    "payment_type":      "${data.payment_type}",
+                    "usd_amount":        "${data.usd_amount}",
+                    "card_fee_usd":      "${data.card_fee_usd}",
                     "total_usd_charged": "${data.total_usd_charged}",
-                    "xaf_amount": "${data.xaf_amount}",
-                    "fee_xaf": "${data.fee_xaf}",
-                    "rate_display": "${data.rate_display}",
-                    "mm_provider": "${data.mm_provider}",
-                    "mm_provider_name": "${data.mm_provider_name}",
-                    "recipient_phone": "${data.recipient_phone}",
-                    "fixer_rate": "${data.fixer_rate}",
-                    "sendsasa_rate": "${data.sendsasa_rate}"
+                    "xaf_amount":        "${data.xaf_amount}",
+                    "fee_xaf":           "${data.fee_xaf}",
+                    "rate_display":      "${data.rate_display}",
+                    "mm_provider":       "${data.mm_provider}",
+                    "mm_provider_name":  "${data.mm_provider_name}",
+                    "recipient_phone":   "${data.recipient_phone}",
+                    "fixer_rate":        "${data.fixer_rate}",
+                    "sendsasa_rate":     "${data.sendsasa_rate}",
+                    "email":             "${data.email}"
                   }
                 }
               }
@@ -223,26 +202,11 @@
       "terminal": true,
       "success": true,
       "data": {
-        "usd_amount": {
-          "type": "string",
-          "__example__": "100.00"
-        },
-        "total_usd_charged": {
-          "type": "string",
-          "__example__": "103.99"
-        },
-        "xaf_amount": {
-          "type": "string",
-          "__example__": "59700"
-        },
-        "mm_provider_name": {
-          "type": "string",
-          "__example__": "MTN Mobile Money"
-        },
-        "recipient_phone": {
-          "type": "string",
-          "__example__": "+237612345678"
-        }
+        "usd_amount":        { "type": "string", "__example__": "100.00" },
+        "total_usd_charged": { "type": "string", "__example__": "103.99" },
+        "xaf_amount":        { "type": "string", "__example__": "59700" },
+        "mm_provider_name":  { "type": "string", "__example__": "MTN Mobile Money" },
+        "recipient_phone":   { "type": "string", "__example__": "+237612345678" }
       },
       "layout": {
         "type": "SingleColumnLayout",
@@ -253,15 +217,11 @@
           },
           {
             "type": "TextBody",
-            "text": "`'Check your WhatsApp — we sent you a secure Coinbase payment link for $' ${data.total_usd_charged} '.'`"
+            "text": "`'Check your WhatsApp — we sent you a secure payment link for $' ${data.total_usd_charged} '.'`"
           },
           {
             "type": "TextBody",
             "text": "`'Once payment is complete, ' ${data.xaf_amount} ' XAF will be sent to ' ${data.recipient_phone} ' via ' ${data.mm_provider_name} '.'`"
-          },
-          {
-            "type": "TextBody",
-            "text": "The link expires in 5 minutes. You can pay with Apple Pay, Google Pay, or any debit card."
           },
           {
             "type": "Form",
@@ -273,11 +233,11 @@
                 "on-click-action": {
                   "name": "complete",
                   "payload": {
-                    "usd_amount": "${data.usd_amount}",
+                    "usd_amount":        "${data.usd_amount}",
                     "total_usd_charged": "${data.total_usd_charged}",
-                    "xaf_amount": "${data.xaf_amount}",
-                    "mm_provider_name": "${data.mm_provider_name}",
-                    "recipient_phone": "${data.recipient_phone}"
+                    "xaf_amount":        "${data.xaf_amount}",
+                    "mm_provider_name":  "${data.mm_provider_name}",
+                    "recipient_phone":   "${data.recipient_phone}"
                   }
                 }
               }

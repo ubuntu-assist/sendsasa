@@ -18,6 +18,7 @@ import {
   calculateCardQuote,
   createSessionToken,
   buildPaymentURL,
+  buildHeadlessPaymentURL,
   CARD_FEE_PCT,
 } from './coinbase-onramp.service'
 import { getAdminEVMAddress } from '../config/admin-wallet'
@@ -1098,7 +1099,8 @@ export class FlowDataExchangeService {
   private static async handleCardPaymentDetails(
     flowData: FlowDataExchangeRequest,
   ): Promise<FlowDataExchangeResponse> {
-    const { usd_amount, mm_provider, recipient_phone } = flowData.data
+    const { payment_type, usd_amount, mm_provider, recipient_phone, email } = flowData.data
+    const isHeadless = payment_type === 'headless'
 
     // Partial submit (dropdown on-select)
     const isFullSubmit = usd_amount && mm_provider && recipient_phone
@@ -1128,13 +1130,15 @@ export class FlowDataExchangeService {
       errors['recipient_phone'] = 'Recipient phone is required'
     } else {
       try {
-        normalizedPhone = normalizeToE164(recipient_phone, undefined, {
-          strict: true,
-        })
+        normalizedPhone = normalizeToE164(recipient_phone, undefined, { strict: true })
       } catch {
-        errors['recipient_phone'] =
-          'Invalid phone number format (e.g. +237612345678)'
+        errors['recipient_phone'] = 'Invalid phone number format (e.g. +237612345678)'
       }
+    }
+
+    // Email is only required for headless (Apple/Google Pay)
+    if (isHeadless && (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))) {
+      errors['email'] = 'Please enter a valid email address'
     }
 
     if (Object.keys(errors).length > 0) {
@@ -1147,12 +1151,12 @@ export class FlowDataExchangeService {
             'usd_amount',
             'mm_provider',
             'recipient_phone',
+            'email',
           ]),
         },
       }
     }
 
-    // Calculate quote (stablecoins are 1:1 USD; no XRP conversion needed here)
     let quote
     try {
       const rates = await fxRateService.getRates()
@@ -1177,6 +1181,7 @@ export class FlowDataExchangeService {
       version: flowData.version,
       screen: 'CARD_PAYMENT_CONFIRM',
       data: {
+        payment_type: payment_type ?? 'hosted',
         usd_amount: numAmount.toFixed(2),
         card_fee_usd: quote.cardFeeUSD.toFixed(2),
         total_usd_charged: quote.totalUSDCharged.toFixed(2),
@@ -1186,7 +1191,7 @@ export class FlowDataExchangeService {
         mm_provider: mm_provider as MobileMoneyProvider,
         mm_provider_name: providerName,
         recipient_phone: normalizedPhone,
-        // Snapshot for OnRampTransaction record
+        email: email?.trim().toLowerCase() ?? '',
         fixer_rate: quote.fixerRate.toFixed(4),
         sendsasa_rate: quote.sendSasaRate.toFixed(4),
       },
@@ -1204,6 +1209,7 @@ export class FlowDataExchangeService {
     flowData: FlowDataExchangeRequest,
   ): Promise<FlowDataExchangeResponse> {
     const {
+      payment_type,
       usd_amount,
       card_fee_usd,
       total_usd_charged,
@@ -1213,11 +1219,12 @@ export class FlowDataExchangeService {
       mm_provider,
       mm_provider_name,
       recipient_phone,
+      email,
     } = flowData.data
 
-    const whatsappId = FlowDataExchangeService.extractWhatsappIdFromToken(
-      flowData.flow_token,
-    )
+    const isHeadless = payment_type === 'headless'
+
+    const whatsappId = FlowDataExchangeService.extractWhatsappIdFromToken(flowData.flow_token)
     const user = await User.findOne({ whatsappId })
 
     const cardError = (msg: string) => ({
@@ -1231,27 +1238,21 @@ export class FlowDataExchangeService {
     let adminAddress: string
     try {
       adminAddress = await getAdminEVMAddress()
-    } catch (err: any) {
+    } catch {
       return cardError('Service temporarily unavailable. Please try again.')
     }
 
-    // Re-derive rates — fixer_rate/sendsasa_rate are not in the flow JSON's
-    // CARD_PAYMENT_CONFIRM data schema so they're not passed back on submit.
-    // Rates are cached for 1 hour so this is essentially free.
-    let fixerRate: number
-    let sendSasaRate: number
+    let fixerRate = 0
+    let sendSasaRate = 0
     try {
       const rates = await fxRateService.getRates()
       fixerRate = rates.fixerRate
       sendSasaRate = rates.sendSasaRate
-    } catch {
-      fixerRate = 0
-      sendSasaRate = 0
-    }
+    } catch { /* use 0 — non-critical for record keeping */ }
 
     const numUSD = Number.parseFloat(usd_amount)
 
-    // Create DB record BEFORE calling Coinbase — crash-safe
+    // Create DB record first — crash-safe regardless of which path follows
     const onRamp = new OnRampTransaction({
       senderPhone: user.whatsappId,
       recipientPhone: recipient_phone,
@@ -1265,42 +1266,57 @@ export class FlowDataExchangeService {
       fixerRate,
       sendSasaRate,
       adminAddress,
-      coinbaseSessionToken: 'pending', // filled in below
+      userEmail: isHeadless ? (email?.trim().toLowerCase() ?? '') : undefined,
       status: 'pending',
     })
     await onRamp.save()
 
     const refId = (onRamp._id as { toString(): string }).toString()
+    const baseUrl = config.JWT_ISSUER || 'https://api.sendsasa.com'
 
-    // Generate Coinbase session token
-    let sessionToken: string
-    try {
-      sessionToken = await createSessionToken(numUSD, adminAddress, refId)
-      onRamp.coinbaseSessionToken = sessionToken
-      await onRamp.save()
-    } catch (err: any) {
-      onRamp.status = 'failed'
-      onRamp.failureReason = err.message
-      await onRamp.save()
-      return cardError('Failed to create payment session. Please try again.')
+    let paymentURL: string
+
+    if (isHeadless) {
+      // Headless: send URL to our self-hosted page which embeds the Coinbase iframe
+      paymentURL = buildHeadlessPaymentURL(refId, baseUrl)
+
+      sendTextMessage(
+        user.whatsappId,
+        `📱 *Your Apple / Google Pay Link*\n\n` +
+          `Tap to open the payment page:\n` +
+          `${paymentURL}\n\n` +
+          `· · · · · · · · · ·\n` +
+          `*You pay:* $${total_usd_charged} _(incl. 3.99% card fee)_\n` +
+          `*Delivers:* ${xaf_amount} XAF → ${recipient_phone}\n` +
+          `*Via:* ${mm_provider_name}\n` +
+          `*Rate:* ${rate_display}\n\n` +
+          `*Ref:* \`${refId}\``,
+      ).catch((err) => console.error('Failed to send headless payment link:', err))
+    } else {
+      // Hosted: create Coinbase session token → direct pay.coinbase.com URL
+      let sessionToken: string
+      try {
+        sessionToken = await createSessionToken(numUSD, adminAddress, refId)
+      } catch (err: any) {
+        await onRamp.deleteOne().catch(() => {})
+        return cardError(err.message || 'Could not create payment session. Please try again.')
+      }
+
+      paymentURL = buildPaymentURL(sessionToken)
+
+      sendTextMessage(
+        user.whatsappId,
+        `💳 *Your Card Payment Link*\n\n` +
+          `Tap to pay with your debit card:\n` +
+          `${paymentURL}\n\n` +
+          `· · · · · · · · · ·\n` +
+          `*You pay:* $${total_usd_charged} _(incl. 3.99% card fee)_\n` +
+          `*Delivers:* ${xaf_amount} XAF → ${recipient_phone}\n` +
+          `*Via:* ${mm_provider_name}\n` +
+          `*Rate:* ${rate_display}\n\n` +
+          `*Ref:* \`${refId}\``,
+      ).catch((err) => console.error('Failed to send hosted payment link:', err))
     }
-
-    const paymentURL = buildPaymentURL(sessionToken)
-
-    // Send payment link via WhatsApp (async — don't block the flow response)
-    sendTextMessage(
-      user.whatsappId,
-      `💳 *Your SendSasa Payment Link*\n\n` +
-        `Tap the link below to pay with your card:\n` +
-        `${paymentURL}\n\n` +
-        `· · · · · · · · · ·\n` +
-        `*You pay:* $${total_usd_charged} _(incl. 3.99% card fee)_\n` +
-        `*Delivers:* ${xaf_amount} XAF → ${recipient_phone}\n` +
-        `*Via:* ${mm_provider_name}\n` +
-        `*Rate:* ${rate_display}\n\n` +
-        `*Ref:* \`${refId}\`\n` +
-        `_⚠️ Link expires in 5 minutes. Do not share it._`,
-    ).catch((err) => console.error('Failed to send payment link message:', err))
 
     return {
       version: flowData.version,

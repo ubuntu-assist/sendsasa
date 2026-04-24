@@ -13,6 +13,8 @@ export function parseButtonInteraction(buttonId: string): ButtonInteraction {
   if (buttonId === 'request_money') return { action: 'request_money' }
   if (buttonId === 'offramp_money') return { action: 'offramp_money' }
   if (buttonId === 'card_payment') return { action: 'card_payment' }
+  if (buttonId === 'card_pay_hosted') return { action: 'card_pay_hosted' }
+  if (buttonId === 'card_pay_headless') return { action: 'card_pay_headless' }
   if (buttonId === 'my_wallet') return { action: 'my_wallet' }
   if (buttonId === 'transaction_history')
     return { action: 'transaction_history' }

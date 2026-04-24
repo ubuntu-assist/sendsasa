@@ -209,14 +209,20 @@ export class FlowLauncherService {
     }
   }
 
-  static async launchCardPaymentFlow(user: IUser): Promise<void> {
+  static async launchCardPaymentFlow(
+    user: IUser,
+    paymentType: 'hosted' | 'headless',
+  ): Promise<void> {
     if (!CARD_PAYMENT_FLOW_ID) {
       throw new Error('CARD_PAYMENT_FLOW_ID is not configured. Set it in your environment variables.')
     }
     try {
-      const flowToken = FlowDataExchangeService.generateFlowToken(
-        user.whatsappId,
-      )
+      const flowToken = FlowDataExchangeService.generateFlowToken(user.whatsappId)
+
+      const header = paymentType === 'headless' ? '📱 Apple / Google Pay' : '💳 Pay with Card'
+      const bodyText = paymentType === 'headless'
+        ? 'Pay with Apple Pay or Google Pay. A secure payment page will be sent to you via WhatsApp.'
+        : 'Pay with any debit card. No crypto wallet needed.'
 
       const flowMessage = {
         messaging_product: 'whatsapp',
@@ -225,10 +231,8 @@ export class FlowLauncherService {
         type: 'interactive',
         interactive: {
           type: 'flow',
-          header: { type: 'text', text: '💳 Pay with Card' },
-          body: {
-            text: 'Send money to Africa using your debit card, Apple Pay, or Google Pay. No crypto wallet needed.',
-          },
+          header: { type: 'text', text: header },
+          body: { text: bodyText },
           footer: { text: 'Powered by Coinbase' },
           action: {
             name: 'flow',
@@ -241,6 +245,7 @@ export class FlowLauncherService {
               flow_action: 'navigate',
               flow_action_payload: {
                 screen: 'CARD_PAYMENT_DETAILS',
+                data: { payment_type: paymentType },
               },
             },
           },

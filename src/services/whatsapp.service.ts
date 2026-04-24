@@ -78,6 +78,34 @@ export const sendMessage = WhatsAppService.sendMessage.bind(WhatsAppService)
 export const markAsReadWithTyping =
   WhatsAppService.markAsReadWithTyping.bind(WhatsAppService)
 
+export async function sendCardPaymentTypeButtons(to: string): Promise<void> {
+  const payload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: {
+        text: '💳 *Send Money via Card*\n\nHow would you like to pay?\n\n• *Pay with Card* — any debit card, works everywhere\n• *Apple / Google Pay* — native wallet, US phone required',
+      },
+      action: {
+        buttons: [
+          {
+            type: 'reply',
+            reply: { id: 'card_pay_hosted', title: 'Pay with Card' },
+          },
+          {
+            type: 'reply',
+            reply: { id: 'card_pay_headless', title: 'Apple / Google Pay' },
+          },
+        ],
+      },
+    },
+  }
+  await WhatsAppService.sendMessage(payload)
+}
+
 export async function sendPaymentRequestButtons(
   to: string,
   requester: string,

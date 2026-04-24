@@ -3,9 +3,9 @@
  *
  * Handles:
  * 1. CDP API JWT generation (auto-detects Ed25519 vs EC P-256 key type)
- * 2. Session token creation (POST /onramp/v1/token)
- * 3. Payment URL construction (pay.coinbase.com)
- * 4. Webhook signature verification (HMAC-SHA256)
+ * 2. Headless order creation (POST /platform/v2/onramp/orders)
+ * 3. Webhook signature verification (HMAC-SHA256)
+ * 4. Transaction status polling (GET /onramp/v1/buy/user/{ref}/transactions)
  *
  * Credentials are stored encrypted in MongoDB (ApiCredential model).
  * We load and cache them in memory for the process lifetime.
@@ -20,14 +20,15 @@ import config from '../utils/config'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-// Onramp API (session tokens, transaction status)
+// Onramp API (hosted session tokens, transaction status)
 const CDP_API_BASE = 'https://api.developer.coinbase.com'
 const ONRAMP_TOKEN_PATH = '/onramp/v1/token'
 const ONRAMP_STATUS_PATH = '/onramp/v1/buy/user' // GET /{ref}/transactions
 
-// Webhook subscription API (different host from onramp)
+// CDP Platform API (headless orders, webhook subscriptions)
 const CDP_PLATFORM_BASE = 'https://api.cdp.coinbase.com'
 const WEBHOOK_SUB_PATH = '/platform/v2/data/webhooks/subscriptions'
+const HEADLESS_ORDERS_PATH = '/platform/v2/onramp/orders'
 
 const PAYMENT_URL_BASE = 'https://pay.coinbase.com/buy/select-asset'
 
@@ -68,7 +69,10 @@ export function invalidateCredentialCache(): void {
 // ── JWT generation ───────────────────────────────────────────────────────────
 
 // PKCS#8 prefix for Ed25519 private key (RFC 8410)
-const ED25519_PKCS8_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex')
+const ED25519_PKCS8_PREFIX = Buffer.from(
+  '302e020100300506032b657004220420',
+  'hex',
+)
 
 /**
  * Convert a raw Ed25519 key exported by the Coinbase CDP portal into a
@@ -92,7 +96,11 @@ function ed25519KeyFromCDPPEM(pem: string): crypto.KeyObject {
   // raw is 64 bytes: [32-byte seed][32-byte pubkey]
   const seed = raw.subarray(0, 32)
   const pkcs8Der = Buffer.concat([ED25519_PKCS8_PREFIX, seed])
-  return crypto.createPrivateKey({ key: pkcs8Der, format: 'der', type: 'pkcs8' })
+  return crypto.createPrivateKey({
+    key: pkcs8Der,
+    format: 'der',
+    type: 'pkcs8',
+  })
 }
 
 /**
@@ -145,18 +153,16 @@ async function generateCDPJWT(
     .sign(privateKey)
 }
 
-// ── Session token ────────────────────────────────────────────────────────────
+// ── Hosted session token ─────────────────────────────────────────────────────
 
 interface SessionTokenResponse {
   token: string
 }
 
 /**
- * Create a Coinbase Onramp session token.
- *
- * @param usdAmount      - Amount of USDC the admin wallet should receive
- * @param adminAddress   - EVM address (Base) to receive USDC
- * @param partnerUserRef - Our internal reference (OnRampTransaction _id)
+ * Create a Coinbase Onramp hosted session token.
+ * Used for the standard hosted checkout flow (pay.coinbase.com).
+ * Supports any debit/credit card, ACH, etc.
  */
 export async function createSessionToken(
   usdAmount: number,
@@ -164,13 +170,11 @@ export async function createSessionToken(
   partnerUserRef: string,
 ): Promise<string> {
   const cred = await getCredential()
-  const apiKeyName = cred.apiKeyName
-  const privateKeyPEM = cred.getApiSecret()
-  const redirectBase = config.JWT_ISSUER
+  const redirectBase = config.JWT_ISSUER || 'https://api.sendsasa.com'
 
   const bearerToken = await generateCDPJWT(
-    apiKeyName,
-    privateKeyPEM,
+    cred.apiKeyName,
+    cred.getApiSecret(),
     'POST',
     ONRAMP_TOKEN_PATH,
   )
@@ -187,8 +191,6 @@ export async function createSessionToken(
     default_asset: 'USDC',
     default_network: 'base',
     partner_user_ref: partnerUserRef,
-    // After payment Coinbase redirects the browser here — used as fast-path trigger.
-    // The cron poller is the fallback for users who close the browser early.
     redirect_url: `${redirectBase}/coinbase/return?ref=${partnerUserRef}`,
   }
 
@@ -207,11 +209,8 @@ export async function createSessionToken(
   return response.data.token
 }
 
-// ── Payment URL ──────────────────────────────────────────────────────────────
-
 /**
- * Build the Coinbase Onramp payment URL from a session token.
- * After July 31 2025 all URLs must use sessionToken (legacy URLs deprecated).
+ * Build the Coinbase hosted checkout URL from a session token.
  */
 export function buildPaymentURL(sessionToken: string): string {
   const params = new URLSearchParams({ sessionToken })
@@ -244,8 +243,10 @@ export function calculateCardQuote(
   sendSasaRate: number,
   fixerRate: number,
 ): CardQuote {
-  const cardFeeUSD = parseFloat((usdAmount * (CARD_FEE_PCT / 100)).toFixed(2))
-  const totalUSDCharged = parseFloat((usdAmount + cardFeeUSD).toFixed(2))
+  const cardFeeUSD = Number.parseFloat(
+    (usdAmount * (CARD_FEE_PCT / 100)).toFixed(2),
+  )
+  const totalUSDCharged = Number.parseFloat((usdAmount + cardFeeUSD).toFixed(2))
 
   // XAF recipient receives = usdAmount × sendSasaRate (card fee is already on sender)
   const grossXAF = usdAmount * sendSasaRate
@@ -263,6 +264,106 @@ export function calculateCardQuote(
     feeXAF,
     rateDisplay: `1 USDC = ${sendSasaRate.toFixed(2)} XAF`,
   }
+}
+
+// ── Headless Onramp ──────────────────────────────────────────────────────────
+
+export type HeadlessPaymentMethod =
+  | 'GUEST_CHECKOUT_APPLE_PAY'
+  | 'GUEST_CHECKOUT_GOOGLE_PAY'
+
+export interface HeadlessOrderResult {
+  orderId: string
+  paymentLinkUrl: string
+  purchaseAmount: string
+  paymentTotal: string
+}
+
+/**
+ * Create a Coinbase Headless Onramp order.
+ *
+ * Returns a paymentLink.url that must be embedded in an iframe with
+ * allow="payment" so the browser can trigger the native Apple/Google Pay sheet.
+ *
+ * NOTE: Coinbase currently restricts headless onramp to US phone numbers.
+ * Non-US numbers will receive a guest_region_forbidden error in production.
+ *
+ * Apple Pay on web requires domain registration with Coinbase CDP portal.
+ * Contact Coinbase to whitelist your domain and obtain the domain verification file.
+ */
+export async function createHeadlessOrder(params: {
+  paymentMethod: HeadlessPaymentMethod
+  paymentAmount: string // total USD charged to card, inclusive of fees (e.g. "103.99")
+  purchaseCurrency: string // 'USDC'
+  destinationAddress: string // EVM (Base) admin wallet address
+  destinationNetwork: string // 'base'
+  phoneNumber: string // user E.164 phone
+  email: string
+  agreementAcceptedAt: string // ISO-8601 datetime
+  phoneNumberVerifiedAt: string
+  partnerUserRef: string // OnRampTransaction MongoDB _id
+  domain?: string // required for Apple Pay on web
+}): Promise<HeadlessOrderResult> {
+  const cred = await getCredential()
+
+  const bearerToken = await generateCDPJWT(
+    cred.apiKeyName,
+    cred.getApiSecret(),
+    'POST',
+    HEADLESS_ORDERS_PATH,
+    'api.cdp.coinbase.com',
+  )
+
+  const body: Record<string, unknown> = {
+    paymentCurrency: 'USD',
+    purchaseCurrency: params.purchaseCurrency,
+    paymentMethod: params.paymentMethod,
+    destinationAddress: params.destinationAddress,
+    destinationNetwork: params.destinationNetwork,
+    phoneNumber: params.phoneNumber,
+    email: params.email,
+    agreementAcceptedAt: params.agreementAcceptedAt,
+    phoneNumberVerifiedAt: params.phoneNumberVerifiedAt,
+    partnerUserRef: params.partnerUserRef,
+    paymentAmount: params.paymentAmount,
+  }
+  if (params.domain) body['domain'] = params.domain
+
+  const response = await axios.post<{
+    order: {
+      orderId: string
+      purchaseAmount: string
+      paymentTotal: string
+    }
+    paymentLink: { url: string }
+  }>(`${CDP_PLATFORM_BASE}${HEADLESS_ORDERS_PATH}`, body, {
+    headers: {
+      Authorization: `Bearer ${bearerToken}`,
+      'Content-Type': 'application/json',
+    },
+    timeout: 15_000,
+  })
+
+  const { order, paymentLink } = response.data
+  logger.info(`[Headless Onramp] Order created: ${order.orderId}`)
+
+  return {
+    orderId: order.orderId,
+    paymentLinkUrl: paymentLink.url,
+    purchaseAmount: order.purchaseAmount,
+    paymentTotal: order.paymentTotal,
+  }
+}
+
+/**
+ * Build the URL to our self-hosted headless payment page.
+ * The page embeds the Coinbase payment link in an iframe with allow="payment".
+ */
+export function buildHeadlessPaymentURL(
+  refId: string,
+  baseUrl: string,
+): string {
+  return `${baseUrl}/pay/card?ref=${encodeURIComponent(refId)}`
 }
 
 // ── Webhook verification ─────────────────────────────────────────────────────
@@ -324,7 +425,7 @@ export async function verifyWebhookSignature(
   }
 
   // Freshness check (reject replays older than 5 minutes)
-  const timestamp = parseInt(timestampStr, 10)
+  const timestamp = Number.parseInt(timestampStr, 10)
   const age = Date.now() - timestamp * 1000
   if (age > WEBHOOK_TIMESTAMP_TOLERANCE_MS) {
     throw new Error(
@@ -360,15 +461,13 @@ export async function verifyWebhookSignature(
 export async function saveCredentials(params: {
   label: string
   apiKeyName: string
-  apiSecret: string       // raw EC private key PEM — encrypted by pre-save hook
-  webhookSecret?: string  // raw secret — encrypted by pre-save hook
+  apiSecret: string // raw EC private key PEM — encrypted by pre-save hook
+  webhookSecret?: string // raw secret — encrypted by pre-save hook
   projectId?: string
 }): Promise<void> {
   // Must use .save() — findOneAndUpdate bypasses the pre-save encryption hook
   let cred = await ApiCredential.findOne({ provider: 'coinbase' })
-  if (!cred) {
-    cred = new ApiCredential({ provider: 'coinbase' })
-  }
+  cred ??= new ApiCredential({ provider: 'coinbase' })
 
   cred.label = params.label
   cred.apiKeyName = params.apiKeyName
@@ -377,7 +476,7 @@ export async function saveCredentials(params: {
   if (params.projectId) cred.projectId = params.projectId
   cred.isActive = true
 
-  await cred.save()  // triggers pre-save hook → encrypts apiSecret + webhookSecret
+  await cred.save() // triggers pre-save hook → encrypts apiSecret + webhookSecret
 
   invalidateCredentialCache()
   logger.info('Coinbase credentials saved and encrypted')
@@ -389,7 +488,8 @@ export async function saveCredentials(params: {
  */
 export async function saveWebhookSecret(secret: string): Promise<void> {
   const cred = await ApiCredential.findOne({ provider: 'coinbase' })
-  if (!cred) throw new Error('No Coinbase credentials found — run saveCredentials first')
+  if (!cred)
+    throw new Error('No Coinbase credentials found — run saveCredentials first')
   cred.webhookSecret = secret
   await cred.save()
   invalidateCredentialCache()
@@ -486,10 +586,7 @@ export async function createWebhookSubscription(
 
   const body = {
     description: 'SendSasa Onramp payment notifications',
-    eventTypes: [
-      'onramp.transaction.success',
-      'onramp.transaction.failed',
-    ],
+    eventTypes: ['onramp.transaction.success', 'onramp.transaction.failed'],
     target: { url: notificationUrl },
     labels: {},
     isEnabled: true,

@@ -1,17 +1,9 @@
 /**
- * Coinbase Onramp — Return URL Handler + Payment Poller
+ * Coinbase Onramp — Shared payout executor, cron poller, and hosted return handler
  *
- * Two detection mechanisms for completed card payments:
- *
- * 1. GET /coinbase/return?ref=<OnRampTransaction_id>
- *    Fast-path: Coinbase redirects the user's browser here after payment.
- *    We check status immediately and process the payout.
- *    Shows a simple HTML page to the user.
- *
- * 2. pollPendingOnRampTransactions()
- *    Cron fallback: runs every 2 minutes, checks all pending sessions
- *    against the Transaction Status API. Catches cases where the user
- *    closed the browser before the redirect fired.
+ * executeOnRampPayout            — shared payout logic used by all three triggers
+ * pollPendingOnRampTransactions  — safety-net cron (every 2 min)
+ * GET /return                    — fast-path redirect for the hosted checkout flow
  */
 
 import { Router, Request, Response } from 'express'
@@ -25,7 +17,7 @@ const router = Router()
 
 // ── Shared payout executor ────────────────────────────────────────────────────
 
-async function executeOnRampPayout(onRampId: string, txHash?: string): Promise<void> {
+export async function executeOnRampPayout(onRampId: string, txHash?: string): Promise<void> {
   const onRamp = await OnRampTransaction.findById(onRampId)
   if (!onRamp || onRamp.status !== 'pending') return
 
@@ -85,7 +77,7 @@ async function executeOnRampPayout(onRampId: string, txHash?: string): Promise<v
 }
 
 // ── GET /coinbase/return ──────────────────────────────────────────────────────
-// Called by Coinbase after the user completes payment in the widget.
+// Coinbase redirects the user's browser here after the hosted checkout completes.
 
 router.get('/return', async (req: Request, res: Response): Promise<void> => {
   const ref = req.query['ref'] as string | undefined
@@ -95,7 +87,6 @@ router.get('/return', async (req: Request, res: Response): Promise<void> => {
     return
   }
 
-  // Check status with Coinbase API
   let status
   try {
     status = await getTransactionStatus(ref)
@@ -106,7 +97,6 @@ router.get('/return', async (req: Request, res: Response): Promise<void> => {
   }
 
   if (status?.status === 'ONRAMP_TRANSACTION_STATUS_SUCCESS') {
-    // Fire and forget — don't block the page load
     executeOnRampPayout(ref, status.transactionHash).catch(err =>
       logger.info(`[Coinbase return] Payout error: ${err.message}`),
     )
@@ -114,17 +104,12 @@ router.get('/return', async (req: Request, res: Response): Promise<void> => {
   } else if (status?.status === 'ONRAMP_TRANSACTION_STATUS_FAILED') {
     res.send(returnPage('Payment failed. Please try again.', false))
   } else {
-    // In-progress or pending — poller will catch it
     res.send(returnPage('Payment is being processed — you will receive a WhatsApp confirmation shortly.', true))
   }
 })
 
 // ── Cron poller ───────────────────────────────────────────────────────────────
 
-/**
- * Check all pending OnRampTransactions against the Coinbase Status API.
- * Run every 2 minutes from index.ts as a safety net.
- */
 export async function pollPendingOnRampTransactions(): Promise<void> {
   const cutoff = new Date(Date.now() - SESSION_EXPIRY_MS)
 
@@ -136,7 +121,6 @@ export async function pollPendingOnRampTransactions(): Promise<void> {
   for (const onRamp of pending) {
     const refId = (onRamp._id as { toString(): string }).toString()
 
-    // Expire sessions older than SESSION_EXPIRY_MS with no payment
     if (onRamp.createdAt < cutoff) {
       onRamp.status = 'expired'
       await onRamp.save()
@@ -157,7 +141,6 @@ export async function pollPendingOnRampTransactions(): Promise<void> {
         await onRamp.save()
       }
     } catch (err) {
-      // Non-blocking — will retry on next poll
       logger.info(`[Coinbase poller] Status check error for ${refId}: ${(err as Error).message}`)
     }
   }
@@ -175,13 +158,11 @@ function returnPage(message: string, success: boolean): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SendSasa Payment</title>
   <style>
-    body { font-family: -apple-system, sans-serif; display: flex; align-items: center;
-           justify-content: center; min-height: 100vh; margin: 0; background: #f9fafb; }
-    .card { background: white; border-radius: 12px; padding: 2rem; max-width: 400px;
-            width: 90%; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.07); }
-    h1 { font-size: 2rem; margin: 0 0 1rem; }
-    p { color: #374151; font-size: 1rem; line-height: 1.5; }
-    .brand { color: #6b7280; font-size: 0.875rem; margin-top: 1.5rem; }
+    body{font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f9fafb}
+    .card{background:white;border-radius:12px;padding:2rem;max-width:400px;width:90%;text-align:center;box-shadow:0 4px 6px rgba(0,0,0,0.07)}
+    h1{font-size:2rem;margin:0 0 1rem}
+    p{color:#374151;font-size:1rem;line-height:1.5}
+    .brand{color:#6b7280;font-size:0.875rem;margin-top:1.5rem}
   </style>
 </head>
 <body>

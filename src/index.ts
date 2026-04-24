@@ -9,6 +9,7 @@ import flowDataExchangeRoutes from './routes/flow.routes'
 import jwksRoutes from './routes/jwks.routes'
 import coinbaseWebhookRoutes from './routes/coinbase-webhook.routes'
 import coinbaseReturnRoutes, { pollPendingOnRampTransactions } from './routes/coinbase-return.routes'
+import paymentRoutes from './routes/payment.routes'
 import { xrplClient } from './config/xrpl'
 import { connectDatabase, disconnectDatabase } from './config/database'
 import {
@@ -46,6 +47,7 @@ app.use('/api', flowDataExchangeRoutes)
 app.use('/webhook', webhookRoutes)
 app.use('/cron', cronRoutes)
 app.use('/coinbase', coinbaseReturnRoutes)
+app.use('/pay', paymentRoutes)
 
 app.get('/health', (_req, res) => {
   res.status(200).json({
