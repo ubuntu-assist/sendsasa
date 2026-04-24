@@ -455,7 +455,8 @@ router.get('/card', async (req: Request, res: Response): Promise<void> => {
       const httpStatus = err.response?.status
       const msg =
         (typeof data === 'object' && data !== null
-          ? data.message ||
+          ? data.errorMessage ||
+            data.message ||
             data.error_description ||
             data.error ||
             (Array.isArray(data.errors) ? data.errors[0]?.message : null) ||
