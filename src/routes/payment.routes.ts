@@ -134,14 +134,15 @@ function paymentPage(params: {
     const isWebView = /WhatsApp|FBAN|FBIOS|Instagram|Line|wv\b/.test(ua);
     const isIOS = /iPhone|iPad|iPod/.test(ua);
 
-    // Load Google Pay JS library dynamically and check isReadyToPay
+    // Load Google Pay JS library with a 3-second timeout
     function loadGooglePayScript() {
       return new Promise((resolve) => {
         if (window.google?.payments?.api?.PaymentsClient) { resolve(true); return; }
         const s = document.createElement('script');
+        const timer = setTimeout(() => resolve(false), 3000);
         s.src = 'https://pay.google.com/gp/p/js/pay.js';
-        s.onload = () => resolve(true);
-        s.onerror = () => resolve(false);
+        s.onload = () => { clearTimeout(timer); resolve(true); };
+        s.onerror = () => { clearTimeout(timer); resolve(false); };
         document.head.appendChild(s);
       });
     }
@@ -163,6 +164,14 @@ function paymentPage(params: {
     }
 
     async function init() {
+      try {
+      // Webview check must run BEFORE any async calls — Google Pay script
+      // load hangs inside WhatsApp / Instagram in-app browsers
+      if (isWebView) {
+        showOpenBrowser();
+        return;
+      }
+
       // Detect available payment method
       let method = null;
 
@@ -172,15 +181,9 @@ function paymentPage(params: {
         method = 'GUEST_CHECKOUT_GOOGLE_PAY';
       }
 
-      // If in a webview that blocks payment sheets, nudge user to open in real browser
-      if (isWebView || (!method && isIOS)) {
-        showOpenBrowser();
-        return;
-      }
-
       if (!method) {
         showError('Apple Pay and Google Pay are not available on this device. Please open this link in Safari (iOS) or Chrome (Android).');
-        showOpenBrowser();
+        if (isIOS) showOpenBrowser();
         return;
       }
 
@@ -208,6 +211,10 @@ function paymentPage(params: {
       frame.src = data.paymentLinkUrl;
       frame.style.display = 'block';
       document.getElementById('loading-msg').style.display = 'none';
+      } catch (err) {
+        console.error('Payment init error:', err);
+        showError('Something went wrong. Please try again.');
+      }
     }
 
     // Relay postMessage events from the Coinbase iframe to our backend
