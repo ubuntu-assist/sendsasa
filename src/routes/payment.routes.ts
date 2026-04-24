@@ -409,12 +409,10 @@ router.get('/card', async (req: Request, res: Response): Promise<void> => {
     // Sandbox: any valid US-format number works; prefix partnerUserRef with "sandbox-"
     const partnerUserRef = IS_SANDBOX ? `sandbox-${ref}` : ref
     const phoneNumber = IS_SANDBOX
-      ? '+12345678901'
+      ? (process.env.COINBASE_SANDBOX_PHONE ?? '+12345678901')
       : onRamp.senderPhone.startsWith('+')
         ? onRamp.senderPhone
         : `+${onRamp.senderPhone}`
-
-    console.log('phone number used', phoneNumber)
 
     try {
       const result = await createHeadlessOrder({
