@@ -129,88 +129,47 @@ function paymentPage(params: {
     const REF = ${JSON.stringify(refId)};
     const DOMAIN = ${JSON.stringify(domain)};
 
-    // Detect if running inside a WhatsApp / social in-app browser (no Apple/Google Pay)
     const ua = navigator.userAgent || '';
-    const isWebView = /WhatsApp|FBAN|FBIOS|Instagram|Line|wv\b/.test(ua);
+    // Must test ua BEFORE any async call — in-app browsers (WhatsApp, Instagram)
+    // hang on external script loads like Google Pay
+    const isWebView = /WhatsApp|FBAN|FBIOS|Instagram|Line|\bwv\b/.test(ua);
     const isIOS = /iPhone|iPad|iPod/.test(ua);
-
-    // Load Google Pay JS library with a 3-second timeout
-    function loadGooglePayScript() {
-      return new Promise((resolve) => {
-        if (window.google?.payments?.api?.PaymentsClient) { resolve(true); return; }
-        const s = document.createElement('script');
-        const timer = setTimeout(() => resolve(false), 3000);
-        s.src = 'https://pay.google.com/gp/p/js/pay.js';
-        s.onload = () => { clearTimeout(timer); resolve(true); };
-        s.onerror = () => { clearTimeout(timer); resolve(false); };
-        document.head.appendChild(s);
-      });
-    }
-
-    async function isGooglePayAvailable() {
-      const loaded = await loadGooglePayScript();
-      if (!loaded) return false;
-      try {
-        const client = new google.payments.api.PaymentsClient({ environment: 'PRODUCTION' });
-        const r = await client.isReadyToPay({
-          apiVersion: 2, apiVersionMinor: 0,
-          allowedPaymentMethods: [{ type: 'CARD', parameters: {
-            allowedAuthMethods: ['PAN_ONLY', 'CRYPTOGRAM_3DS'],
-            allowedCardNetworks: ['MASTERCARD', 'VISA'],
-          }}],
-        });
-        return r.result === true;
-      } catch { return false; }
-    }
+    const isMacSafari = /Macintosh/.test(ua) && /Safari/.test(ua) && !/Chrome/.test(ua);
 
     async function init() {
       try {
-      // Webview check must run BEFORE any async calls — Google Pay script
-      // load hangs inside WhatsApp / Instagram in-app browsers
-      if (isWebView) {
-        showOpenBrowser();
-        return;
-      }
-
-      // Detect available payment method
-      let method = null;
-
-      if (typeof ApplePaySession !== 'undefined' && ApplePaySession.canMakePayments?.()) {
-        method = 'GUEST_CHECKOUT_APPLE_PAY';
-      } else if (await isGooglePayAvailable()) {
-        method = 'GUEST_CHECKOUT_GOOGLE_PAY';
-      }
-
-      if (!method) {
-        showError('Apple Pay and Google Pay are not available on this device. Please open this link in Safari (iOS) or Chrome (Android).');
-        if (isIOS) showOpenBrowser();
-        return;
-      }
-
-      // Create the Coinbase headless order (lazy — happens here, not at flow confirmation)
-      let data;
-      try {
-        const resp = await fetch('/pay/card/init', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ref: REF, method, domain: DOMAIN }),
-        });
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({}));
-          showError(err.message || 'Could not create payment session. Please try again.');
+        if (isWebView) {
+          showOpenBrowser();
           return;
         }
-        data = await resp.json();
-      } catch {
-        showError('Network error. Please check your connection and try again.');
-        return;
-      }
 
-      // Embed the payment link in the iframe
-      const frame = document.getElementById('payment-frame');
-      frame.src = data.paymentLinkUrl;
-      frame.style.display = 'block';
-      document.getElementById('loading-msg').style.display = 'none';
+        // iOS/macOS Safari → Apple Pay (native sheet); everything else → Google Pay.
+        // The Coinbase iframe shows a QR-code fallback on desktop for Google Pay —
+        // no client-side payment-method detection needed or desired (it hangs).
+        const method = (isIOS || isMacSafari) ? 'GUEST_CHECKOUT_APPLE_PAY' : 'GUEST_CHECKOUT_GOOGLE_PAY';
+
+        let data;
+        try {
+          const resp = await fetch('/pay/card/init', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ref: REF, method, domain: DOMAIN }),
+          });
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            showError(err.message || 'Could not create payment session. Please try again.');
+            return;
+          }
+          data = await resp.json();
+        } catch {
+          showError('Network error. Please check your connection and try again.');
+          return;
+        }
+
+        const frame = document.getElementById('payment-frame');
+        frame.src = data.paymentLinkUrl;
+        frame.style.display = 'block';
+        document.getElementById('loading-msg').style.display = 'none';
       } catch (err) {
         console.error('Payment init error:', err);
         showError('Something went wrong. Please try again.');
@@ -424,7 +383,7 @@ router.post('/card/events', async (req: Request, res: Response): Promise<void> =
     eventName === 'onramp_api.polling_error'
   ) {
     const onRamp = await OnRampTransaction.findById(ref).catch(() => null)
-    if (onRamp && onRamp.status === 'pending') {
+    if (onRamp?.status === 'pending') {
       onRamp.failureReason = evData?.errorCode || eventName
       await onRamp.save().catch(() => {})
     }
