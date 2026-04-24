@@ -414,6 +414,8 @@ router.get('/card', async (req: Request, res: Response): Promise<void> => {
         ? onRamp.senderPhone
         : `+${onRamp.senderPhone}`
 
+    console.log('phone number used', phoneNumber)
+
     try {
       const result = await createHeadlessOrder({
         paymentMethod: method,
@@ -460,9 +462,7 @@ router.get('/card', async (req: Request, res: Response): Promise<void> => {
             data.error_description ||
             data.error ||
             (Array.isArray(data.errors) ? data.errors[0]?.message : null) ||
-            (Array.isArray(data.details)
-              ? data.details[0]?.description
-              : null)
+            (Array.isArray(data.details) ? data.details[0]?.description : null)
           : typeof data === 'string'
             ? data
             : null) ||
@@ -485,16 +485,19 @@ router.get('/card', async (req: Request, res: Response): Promise<void> => {
   // Override Helmet's default CSP for this page:
   // - nonce allows the inline event-listener script
   // - frame-src allows the Coinbase payment iframe
-  res.setHeader('Content-Security-Policy', [
-    "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}'`,
-    "script-src-attr 'none'",
-    "style-src 'self' 'unsafe-inline'",
-    "frame-src https://*.coinbase.com",
-    "connect-src 'self'",
-    "img-src 'self' data:",
-    "frame-ancestors 'none'",
-  ].join('; '))
+  res.setHeader(
+    'Content-Security-Policy',
+    [
+      "default-src 'self'",
+      `script-src 'self' 'nonce-${nonce}'`,
+      "script-src-attr 'none'",
+      "style-src 'self' 'unsafe-inline'",
+      'frame-src https://*.coinbase.com',
+      "connect-src 'self'",
+      "img-src 'self' data:",
+      "frame-ancestors 'none'",
+    ].join('; '),
+  )
 
   res.setHeader('Content-Type', 'text/html')
   res.send(
