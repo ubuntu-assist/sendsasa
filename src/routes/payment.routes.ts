@@ -426,7 +426,7 @@ router.get('/card', async (req: Request, res: Response): Promise<void> => {
         agreementAcceptedAt: now,
         phoneNumberVerifiedAt: now,
         partnerUserRef,
-        domain,
+        domain: method === 'GUEST_CHECKOUT_APPLE_PAY' ? domain : undefined,
       })
 
       paymentLinkUrl = result.paymentLinkUrl
