@@ -422,7 +422,7 @@ router.get('/card', async (req: Request, res: Response): Promise<void> => {
         destinationAddress: onRamp.adminAddress,
         destinationNetwork: 'base',
         phoneNumber,
-        email: onRamp.userEmail || '',
+        email: onRamp.userEmail || undefined,
         agreementAcceptedAt: now,
         phoneNumberVerifiedAt: now,
         partnerUserRef,
@@ -451,11 +451,28 @@ router.get('/card', async (req: Request, res: Response): Promise<void> => {
         `[Headless] Order created: ${result.orderId} (${method}, ref: ${ref}, sandbox: ${IS_SANDBOX})`,
       )
     } catch (err: any) {
+      const data = err.response?.data
+      const httpStatus = err.response?.status
       const msg =
-        err.response?.data?.message ||
+        (typeof data === 'object' && data !== null
+          ? data.message ||
+            data.error_description ||
+            data.error ||
+            (Array.isArray(data.errors) ? data.errors[0]?.message : null) ||
+            (Array.isArray(data.details)
+              ? data.details[0]?.description
+              : null)
+          : typeof data === 'string'
+            ? data
+            : null) ||
         err.message ||
         'Failed to create payment session.'
-      logger.error(`[Headless] Order creation failed for ref ${ref}: ${msg}`)
+
+      logger.error(
+        `[Headless] Order creation failed for ref ${ref}: HTTP ${httpStatus ?? 'N/A'} — ${msg}`,
+        { method, body: JSON.stringify(data) },
+      )
+
       res.setHeader('Content-Type', 'text/html')
       res.send(errorPage(msg, req.originalUrl))
       return

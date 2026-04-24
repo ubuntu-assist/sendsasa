@@ -298,7 +298,7 @@ export async function createHeadlessOrder(params: {
   destinationAddress: string // EVM (Base) admin wallet address
   destinationNetwork: string // 'base'
   phoneNumber: string // user E.164 phone
-  email: string
+  email?: string
   agreementAcceptedAt: string // ISO-8601 datetime
   phoneNumberVerifiedAt: string
   partnerUserRef: string // OnRampTransaction MongoDB _id
@@ -321,12 +321,12 @@ export async function createHeadlessOrder(params: {
     destinationAddress: params.destinationAddress,
     destinationNetwork: params.destinationNetwork,
     phoneNumber: params.phoneNumber,
-    email: params.email,
     agreementAcceptedAt: params.agreementAcceptedAt,
     phoneNumberVerifiedAt: params.phoneNumberVerifiedAt,
     partnerUserRef: params.partnerUserRef,
     paymentAmount: params.paymentAmount,
   }
+  if (params.email) body['email'] = params.email
   if (params.domain) body['domain'] = params.domain
 
   const response = await axios.post<{
