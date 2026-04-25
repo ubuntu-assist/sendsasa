@@ -2,7 +2,8 @@
   "version": "7.3",
   "data_api_version": "3.0",
   "routing_model": {
-    "REQUEST_MONEY_DETAILS": ["REQUEST_MONEY_CONFIRM"],
+    "REQUEST_MONEY_DETAILS": ["REQUEST_MONEY_CONFIRM", "SELECT_REQUEST_CONTACT"],
+    "SELECT_REQUEST_CONTACT": ["REQUEST_MONEY_CONFIRM"],
     "REQUEST_MONEY_CONFIRM": []
   },
   "screens": [
@@ -10,38 +11,23 @@
       "id": "REQUEST_MONEY_DETAILS",
       "title": "Request Money",
       "data": {
-        "error_currency": {
-          "type": "string",
-          "__example__": ""
-        },
-        "error_amount": {
-          "type": "string",
-          "__example__": ""
-        },
-        "error_recipient_type": {
-          "type": "string",
-          "__example__": ""
-        },
-        "error_recipient": {
-          "type": "string",
-          "__example__": ""
-        }
+        "error_currency":       { "type": "string", "__example__": "" },
+        "error_amount":         { "type": "string", "__example__": "" },
+        "error_recipient_type": { "type": "string", "__example__": "" },
+        "error_recipient":      { "type": "string", "__example__": "" }
       },
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
-          {
-            "type": "TextHeading",
-            "text": "Request Payment"
-          },
+          { "type": "TextHeading", "text": "Request Payment" },
           {
             "type": "Form",
             "name": "request_money_form",
             "error-messages": {
-              "currency": "${data.error_currency}",
-              "amount": "${data.error_amount}",
+              "currency":       "${data.error_currency}",
+              "amount":         "${data.error_amount}",
               "recipient_type": "${data.error_recipient_type}",
-              "recipient": "${data.error_recipient}"
+              "recipient":      "${data.error_recipient}"
             },
             "children": [
               {
@@ -75,8 +61,9 @@
                 "label": "Request From",
                 "required": true,
                 "data-source": [
-                  { "id": "Phone Number", "title": "Phone Number" },
-                  { "id": "SendSasa Username", "title": "SendSasa Username" }
+                  { "id": "Saved Contact",     "title": "Saved Contact" },
+                  { "id": "Phone Number",       "title": "Phone Number" },
+                  { "id": "SendSasa Username",  "title": "SendSasa Username" }
                 ]
               },
               {
@@ -84,8 +71,8 @@
                 "name": "recipient",
                 "label": "Request From",
                 "input-type": "text",
-                "required": true,
-                "helper-text": "Enter phone (+237...) or username (@john)"
+                "required": false,
+                "helper-text": "Leave blank if using Saved Contact — or enter phone (+237...) or username (@john)"
               },
               {
                 "type": "TextInput",
@@ -101,11 +88,70 @@
                 "on-click-action": {
                   "name": "data_exchange",
                   "payload": {
-                    "currency": "${form.currency}",
-                    "amount": "${form.amount}",
+                    "currency":       "${form.currency}",
+                    "amount":         "${form.amount}",
                     "recipient_type": "${form.recipient_type}",
-                    "recipient": "${form.recipient}",
-                    "note": "${form.note}"
+                    "recipient":      "${form.recipient}",
+                    "note":           "${form.note}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "SELECT_REQUEST_CONTACT",
+      "title": "Choose Contact",
+      "data": {
+        "currency": { "type": "string", "__example__": "XRP" },
+        "amount":   { "type": "string", "__example__": "10" },
+        "note":     { "type": "string", "__example__": "" },
+        "contacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id":    { "type": "string" },
+              "title": { "type": "string" }
+            }
+          },
+          "__example__": [{ "id": "+237612345678", "title": "John (+237612345678)" }]
+        },
+        "error_contact": { "type": "string", "__example__": "" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "`'Requesting ' ${data.amount} ' ' ${data.currency} ' from:'`"
+          },
+          {
+            "type": "Form",
+            "name": "select_request_contact_form",
+            "error-messages": {
+              "contact": "${data.error_contact}"
+            },
+            "children": [
+              {
+                "type": "Dropdown",
+                "name": "contact",
+                "label": "Select Contact",
+                "required": true,
+                "data-source": "${data.contacts}"
+              },
+              {
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "currency": "${data.currency}",
+                    "amount":   "${data.amount}",
+                    "note":     "${data.note}",
+                    "contact":  "${form.contact}"
                   }
                 }
               }
@@ -119,50 +165,20 @@
       "title": "Confirm Request",
       "terminal": true,
       "data": {
-        "currency": {
-          "type": "string",
-          "__example__": "XRP"
-        },
-        "amount": {
-          "type": "string",
-          "__example__": "10.5"
-        },
-        "recipient_type": {
-          "type": "string",
-          "__example__": "Phone Number"
-        },
-        "recipient": {
-          "type": "string",
-          "__example__": "+237676535501"
-        },
-        "recipient_display": {
-          "type": "string",
-          "__example__": "+237676535501"
-        },
-        "note": {
-          "type": "string",
-          "__example__": "Lunch money"
-        }
+        "currency":          { "type": "string", "__example__": "XRP" },
+        "amount":            { "type": "string", "__example__": "10.5" },
+        "recipient_type":    { "type": "string", "__example__": "Phone Number" },
+        "recipient":         { "type": "string", "__example__": "+237676535501" },
+        "recipient_display": { "type": "string", "__example__": "+237676535501" },
+        "note":              { "type": "string", "__example__": "Lunch money" }
       },
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
-          {
-            "type": "TextHeading",
-            "text": "Review Payment Request"
-          },
-          {
-            "type": "TextBody",
-            "text": "`'Amount: ' ${data.amount} ' ' ${data.currency}`"
-          },
-          {
-            "type": "TextBody",
-            "text": "`'From: ' ${data.recipient_display}`"
-          },
-          {
-            "type": "TextBody",
-            "text": "`'Note: ' ${data.note}`"
-          },
+          { "type": "TextHeading", "text": "Review Payment Request" },
+          { "type": "TextBody", "text": "`'Amount: ' ${data.amount} ' ' ${data.currency}`" },
+          { "type": "TextBody", "text": "`'From: '   ${data.recipient_display}`" },
+          { "type": "TextBody", "text": "`'Note: '   ${data.note}`" },
           {
             "type": "Form",
             "name": "confirm_form",
@@ -173,11 +189,11 @@
                 "on-click-action": {
                   "name": "complete",
                   "payload": {
-                    "currency": "${data.currency}",
-                    "amount": "${data.amount}",
+                    "currency":       "${data.currency}",
+                    "amount":         "${data.amount}",
                     "recipient_type": "${data.recipient_type}",
-                    "recipient": "${data.recipient}",
-                    "note": "${data.note}"
+                    "recipient":      "${data.recipient}",
+                    "note":           "${data.note}"
                   }
                 }
               }

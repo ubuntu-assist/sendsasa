@@ -85,6 +85,11 @@ export async function sendMainMenu(
                 description: 'View wallet details',
               },
               {
+                id: 'my_contacts',
+                title: 'My Contacts',
+                description: 'Manage saved contacts',
+              },
+              {
                 id: 'transaction_history',
                 title: 'History',
                 description: 'Transaction history',
@@ -343,6 +348,34 @@ export async function sendWalletMenu(
     },
   }
 
+  await WhatsAppService.sendMessage(payload)
+}
+
+export async function sendSaveContactPrompt(
+  to: string,
+  nickname: string,
+  phone: string,
+): Promise<void> {
+  const payload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: {
+        text: `💾 Save *${nickname}* as a contact?\n\n_Tap Save to add them to your contacts for quick access next time._`,
+      },
+      action: {
+        buttons: [
+          {
+            type: 'reply',
+            reply: { id: `save_contact:${phone}`, title: 'Save Contact' },
+          },
+        ],
+      },
+    },
+  }
   await WhatsAppService.sendMessage(payload)
 }
 

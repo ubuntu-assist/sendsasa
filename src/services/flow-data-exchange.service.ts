@@ -267,6 +267,27 @@ export class FlowDataExchangeService {
       } else if (decryptedBody.screen === 'CARD_PAYMENT_CONFIRM') {
         responseData =
           await FlowDataExchangeService.handleCardPaymentConfirm(decryptedBody)
+      } else if (decryptedBody.screen === 'BENEFICIARY_LIST') {
+        responseData =
+          await FlowDataExchangeService.handleBeneficiaryList(decryptedBody)
+      } else if (decryptedBody.screen === 'ADD_BENEFICIARY') {
+        responseData =
+          await FlowDataExchangeService.handleAddBeneficiary(decryptedBody)
+      } else if (decryptedBody.screen === 'DELETE_BENEFICIARY') {
+        responseData =
+          await FlowDataExchangeService.handleDeleteBeneficiary(decryptedBody)
+      } else if (decryptedBody.screen === 'SELECT_BENEFICIARY') {
+        responseData =
+          await FlowDataExchangeService.handleSelectBeneficiary(decryptedBody)
+      } else if (decryptedBody.screen === 'SELECT_OFFRAMP_CONTACT') {
+        responseData =
+          await FlowDataExchangeService.handleSelectOfframpContact(decryptedBody)
+      } else if (decryptedBody.screen === 'SELECT_CARD_CONTACT') {
+        responseData =
+          await FlowDataExchangeService.handleSelectCardContact(decryptedBody)
+      } else if (decryptedBody.screen === 'SELECT_REQUEST_CONTACT') {
+        responseData =
+          await FlowDataExchangeService.handleSelectRequestContact(decryptedBody)
       } else {
         responseData = {
           version: decryptedBody.version,
@@ -484,8 +505,10 @@ export class FlowDataExchangeService {
       solana_balances: flowData.data.solana_balances,
     }
 
+    const isSavedContactFlow = recipient_type === 'Saved Contact'
+
     // Partial submit (dropdown on-select) — return screen as-is with fresh balance
-    const isFullSubmit = currency && amount && recipient_type && recipient
+    const isFullSubmit = currency && amount && recipient_type && (recipient || isSavedContactFlow)
     if (!isFullSubmit) {
       return {
         version: flowData.version,
@@ -508,16 +531,6 @@ export class FlowDataExchangeService {
       }
     }
 
-    // Validate recipient (chain-aware for wallet addresses)
-    const validation = await FlowDataExchangeService.validateRecipient(
-      recipient,
-      recipient_type,
-      currency,
-    )
-    if (!validation.valid) {
-      errors['recipient'] = validation.error || 'Invalid recipient'
-    }
-
     if (Object.keys(errors).length > 0) {
       return {
         version: flowData.version,
@@ -536,6 +549,55 @@ export class FlowDataExchangeService {
     }
 
     const numAmt = Number.parseFloat(amount)
+
+    // Saved contact: route to SELECT_BENEFICIARY with contacts list
+    if (isSavedContactFlow) {
+      const contacts = (user.beneficiaries ?? []).map((b: any) => ({
+        id: b.phoneNumber,
+        title: `${b.nickname} (${b.phoneNumber})`,
+      }))
+      if (contacts.length === 0) {
+        return {
+          version: flowData.version,
+          screen: flowData.screen,
+          data: {
+            ...flowData.data,
+            ...balanceData,
+            ...FlowDataExchangeService.errorFields(
+              { recipient_type: 'You have no saved contacts. Add contacts via My Contacts first.' },
+              ['currency', 'amount', 'recipient_type', 'recipient'],
+            ),
+          },
+        }
+      }
+      return {
+        version: flowData.version,
+        screen: 'SELECT_BENEFICIARY',
+        data: { currency, amount: numAmt.toString(), contacts },
+      }
+    }
+
+    // Normal flow: validate recipient (chain-aware for wallet addresses)
+    const validation = await FlowDataExchangeService.validateRecipient(
+      recipient,
+      recipient_type,
+      currency,
+    )
+    if (!validation.valid) {
+      return {
+        version: flowData.version,
+        screen: flowData.screen,
+        data: {
+          ...flowData.data,
+          ...balanceData,
+          ...FlowDataExchangeService.errorFields(
+            { recipient: validation.error || 'Invalid recipient' },
+            ['currency', 'amount', 'recipient_type', 'recipient'],
+          ),
+        },
+      }
+    }
+
     const fee = numAmt * 0.001
     const total = numAmt + fee
     const recipientDisplay =
@@ -698,11 +760,13 @@ export class FlowDataExchangeService {
   private static async handleRequestMoneyDetails(
     flowData: FlowDataExchangeRequest,
   ): Promise<FlowDataExchangeResponse> {
-    const { amount, recipient_type, recipient } = flowData.data
+    const { currency, amount, recipient_type, recipient, note } = flowData.data
     const errors: Record<string, string> = {}
 
+    const isSavedContactFlow = recipient_type === 'Saved Contact'
+
     // Partial submit — return as-is
-    const isFullSubmit = amount && recipient_type && recipient
+    const isFullSubmit = amount && recipient_type && (recipient || isSavedContactFlow)
     if (!isFullSubmit) {
       return {
         version: flowData.version,
@@ -716,14 +780,6 @@ export class FlowDataExchangeService {
       errors['amount'] = 'Amount must be greater than 0'
     }
 
-    const validation = await FlowDataExchangeService.validateRecipient(
-      recipient,
-      recipient_type,
-    )
-    if (!validation.valid) {
-      errors['recipient'] = validation.error || 'Invalid recipient'
-    }
-
     if (Object.keys(errors).length > 0) {
       return {
         version: flowData.version,
@@ -731,20 +787,63 @@ export class FlowDataExchangeService {
         data: {
           ...flowData.data,
           ...FlowDataExchangeService.errorFields(errors, [
-            'currency',
-            'amount',
-            'recipient_type',
-            'recipient',
+            'currency', 'amount', 'recipient_type', 'recipient',
           ]),
         },
       }
     }
 
-    const recipientDisplay =
-      await FlowDataExchangeService.getRecipientDisplayName(
-        recipient,
-        recipient_type,
-      )
+    // Saved contact: route to SELECT_REQUEST_CONTACT
+    if (isSavedContactFlow) {
+      const whatsappId = FlowDataExchangeService.extractWhatsappIdFromToken(flowData.flow_token)
+      const user = await User.findOne({ whatsappId })
+      const contacts = (user?.beneficiaries ?? []).map((b: any) => ({
+        id: b.phoneNumber,
+        title: `${b.nickname} (${b.phoneNumber})`,
+      }))
+      if (contacts.length === 0) {
+        return {
+          version: flowData.version,
+          screen: flowData.screen,
+          data: {
+            ...flowData.data,
+            ...FlowDataExchangeService.errorFields(
+              { recipient_type: 'You have no saved contacts. Add contacts via My Contacts first.' },
+              ['currency', 'amount', 'recipient_type', 'recipient'],
+            ),
+          },
+        }
+      }
+      return {
+        version: flowData.version,
+        screen: 'SELECT_REQUEST_CONTACT',
+        data: { currency, amount: numAmount.toString(), note: note ?? '', contacts },
+      }
+    }
+
+    // Normal flow: validate recipient
+    const validation = await FlowDataExchangeService.validateRecipient(
+      recipient,
+      recipient_type,
+    )
+    if (!validation.valid) {
+      return {
+        version: flowData.version,
+        screen: flowData.screen,
+        data: {
+          ...flowData.data,
+          ...FlowDataExchangeService.errorFields(
+            { recipient: validation.error || 'Invalid recipient' },
+            ['currency', 'amount', 'recipient_type', 'recipient'],
+          ),
+        },
+      }
+    }
+
+    const recipientDisplay = await FlowDataExchangeService.getRecipientDisplayName(
+      recipient,
+      recipient_type,
+    )
 
     return {
       version: flowData.version,
@@ -849,7 +948,8 @@ export class FlowDataExchangeService {
   private static async handleOffRampDetails(
     flowData: FlowDataExchangeRequest,
   ): Promise<FlowDataExchangeResponse> {
-    const { currency, amount, recipient_phone, mm_provider } = flowData.data
+    // Form field names are now `currency` and `amount` (fixed from legacy crypto_currency/crypto_amount)
+    const { currency, amount, recipient_type, recipient_phone, mm_provider } = flowData.data
 
     const whatsappId = FlowDataExchangeService.extractWhatsappIdFromToken(
       flowData.flow_token,
@@ -872,8 +972,11 @@ export class FlowDataExchangeService {
       available_balance_usdc: balances.usdc,
     }
 
+    const isSavedContactFlow = recipient_type === 'Saved Contact'
+
     // Partial submit (dropdown on-select) — return as-is with fresh balances
-    const isFullSubmit = currency && amount && recipient_phone && mm_provider
+    const isFullSubmit = currency && amount && mm_provider && recipient_type &&
+      (recipient_phone || isSavedContactFlow)
     if (!isFullSubmit) {
       return {
         version: flowData.version,
@@ -890,13 +993,8 @@ export class FlowDataExchangeService {
           ...flowData.data,
           ...balanceData,
           ...FlowDataExchangeService.errorFields(
-            { crypto_amount: 'User not found' },
-            [
-              'crypto_currency',
-              'crypto_amount',
-              'mm_provider',
-              'recipient_phone',
-            ],
+            { amount: 'User not found' },
+            ['currency', 'amount', 'mm_provider', 'recipient_type', 'recipient_phone'],
           ),
         },
       }
@@ -919,30 +1017,14 @@ export class FlowDataExchangeService {
     if (Number.isNaN(numAmount) || numAmount <= 0) {
       errors['amount'] = 'Amount must be greater than 0'
     } else if (!errors['currency']) {
-      // Check sufficient balance (XRPL currencies only; USDT is on BSC)
       if (currency !== 'USDT') {
         let balance = 0
         if (currency === 'XRP') balance = Number.parseFloat(balances.xrp)
-        else if (currency === 'RLUSD')
-          balance = Number.parseFloat(balances.rlusd)
+        else if (currency === 'RLUSD') balance = Number.parseFloat(balances.rlusd)
         else if (currency === 'USDC') balance = Number.parseFloat(balances.usdc)
-
         if (numAmount > balance) {
-          errors['amount'] =
-            `Insufficient ${currency} balance. Available: ${balance.toFixed(6)}`
+          errors['amount'] = `Insufficient ${currency} balance. Available: ${balance.toFixed(6)}`
         }
-      }
-    }
-
-    // Validate recipient phone
-    if (!recipient_phone || recipient_phone.trim() === '') {
-      errors['recipient_phone'] = 'Recipient phone is required'
-    } else {
-      try {
-        normalizeToE164(recipient_phone, undefined, { strict: true })
-      } catch {
-        errors['recipient_phone'] =
-          'Invalid phone number format (e.g. +237612345678)'
       }
     }
 
@@ -954,57 +1036,102 @@ export class FlowDataExchangeService {
           ...flowData.data,
           ...balanceData,
           ...FlowDataExchangeService.errorFields(errors, [
-            'crypto_currency',
-            'crypto_amount',
-            'mm_provider',
-            'recipient_phone',
+            'currency', 'amount', 'mm_provider', 'recipient_type', 'recipient_phone',
           ]),
         },
       }
     }
 
-    // Calculate live quote
-    let quote
-    try {
-      quote = await fxRateService.calculateQuote(numAmount, currency)
-    } catch (error: any) {
+    // Saved contact: route to SELECT_OFFRAMP_CONTACT with contacts list
+    if (isSavedContactFlow) {
+      const contacts = (user.beneficiaries ?? []).map((b: any) => ({
+        id: b.phoneNumber,
+        title: `${b.nickname} (${b.phoneNumber})`,
+      }))
+      if (contacts.length === 0) {
+        return {
+          version: flowData.version,
+          screen: flowData.screen,
+          data: {
+            ...flowData.data,
+            ...balanceData,
+            ...FlowDataExchangeService.errorFields(
+              { recipient_type: 'You have no saved contacts. Add contacts via My Contacts first.' },
+              ['currency', 'amount', 'mm_provider', 'recipient_type', 'recipient_phone'],
+            ),
+          },
+        }
+      }
+      return {
+        version: flowData.version,
+        screen: 'SELECT_OFFRAMP_CONTACT',
+        data: { currency, amount: numAmount.toString(), mm_provider, contacts },
+      }
+    }
+
+    // Normal flow: validate recipient phone
+    if (!recipient_phone || recipient_phone.trim() === '') {
+      errors['recipient_phone'] = 'Recipient phone is required'
+    } else {
+      try {
+        normalizeToE164(recipient_phone, undefined, { strict: true })
+      } catch {
+        errors['recipient_phone'] = 'Invalid phone number format (e.g. +237612345678)'
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
       return {
         version: flowData.version,
         screen: flowData.screen,
         data: {
           ...flowData.data,
           ...balanceData,
-          ...FlowDataExchangeService.errorFields(
-            { crypto_amount: error.message || 'Failed to fetch exchange rate' },
-            [
-              'crypto_currency',
-              'crypto_amount',
-              'mm_provider',
-              'recipient_phone',
-            ],
-          ),
+          ...FlowDataExchangeService.errorFields(errors, [
+            'currency', 'amount', 'mm_provider', 'recipient_type', 'recipient_phone',
+          ]),
         },
       }
     }
 
+    return FlowDataExchangeService.buildOfframpConfirm(
+      flowData.version,
+      currency,
+      numAmount,
+      mm_provider,
+      normalizeToE164(recipient_phone!),
+    )
+  }
+
+  private static async buildOfframpConfirm(
+    version: string,
+    currency: string,
+    numAmount: number,
+    mm_provider: string,
+    normalizedPhone: string,
+  ): Promise<FlowDataExchangeResponse> {
+    let quote
+    try {
+      quote = await fxRateService.calculateQuote(numAmount, currency)
+    } catch (error: any) {
+      throw error
+    }
+
     const providerDisplay = PROVIDER_DISPLAY[mm_provider as MobileMoneyProvider]
-    const normalizedPhone = normalizeToE164(recipient_phone)
 
     return {
-      version: flowData.version,
+      version,
       screen: 'OFFRAMP_CONFIRM',
       data: {
-        // Quote display (read-only fields in the flow)
         crypto_amount: numAmount.toString(),
         crypto_currency: currency,
         xaf_amount: quote.xafAmount.toString(),
         fee_xaf: quote.feeXAF.toString(),
         rate_display: quote.rateDisplay,
-        // Recipient
         recipient_phone: normalizedPhone,
-        mm_provider: mm_provider as MobileMoneyProvider,
+        mm_provider,
+        mm_provider_name: providerDisplay,
         recipient_display: `${providerDisplay} ${normalizedPhone}`,
-        // Snapshot for message-handler (passed through OFFRAMP_SUCCESS complete data)
         crypto_amount_usd: quote.cryptoAmountUSD.toFixed(6),
         fixer_rate: quote.fixerRate.toFixed(4),
         sendsasa_rate: quote.sendSasaRate.toFixed(4),
@@ -1099,11 +1226,13 @@ export class FlowDataExchangeService {
   private static async handleCardPaymentDetails(
     flowData: FlowDataExchangeRequest,
   ): Promise<FlowDataExchangeResponse> {
-    const { payment_type, usd_amount, mm_provider, recipient_phone, email } = flowData.data
+    const { payment_type, usd_amount, mm_provider, recipient_type, recipient_phone, email } = flowData.data
     const isHeadless = payment_type === 'headless'
+    const isSavedContactFlow = recipient_type === 'Saved Contact'
 
     // Partial submit (dropdown on-select)
-    const isFullSubmit = usd_amount && mm_provider && recipient_phone
+    const isFullSubmit = usd_amount && mm_provider && recipient_type &&
+      (recipient_phone || isSavedContactFlow)
     if (!isFullSubmit) {
       return {
         version: flowData.version,
@@ -1125,6 +1254,54 @@ export class FlowDataExchangeService {
       errors['mm_provider'] = 'Invalid provider selected'
     }
 
+    if (Object.keys(errors).length > 0) {
+      return {
+        version: flowData.version,
+        screen: flowData.screen,
+        data: {
+          ...flowData.data,
+          ...FlowDataExchangeService.errorFields(errors, [
+            'usd_amount', 'mm_provider', 'recipient_type', 'recipient_phone', 'email',
+          ]),
+        },
+      }
+    }
+
+    // Saved contact: route to SELECT_CARD_CONTACT
+    if (isSavedContactFlow) {
+      const whatsappId = FlowDataExchangeService.extractWhatsappIdFromToken(flowData.flow_token)
+      const user = await User.findOne({ whatsappId })
+      const contacts = (user?.beneficiaries ?? []).map((b: any) => ({
+        id: b.phoneNumber,
+        title: `${b.nickname} (${b.phoneNumber})`,
+      }))
+      if (contacts.length === 0) {
+        return {
+          version: flowData.version,
+          screen: flowData.screen,
+          data: {
+            ...flowData.data,
+            ...FlowDataExchangeService.errorFields(
+              { recipient_type: 'You have no saved contacts. Add contacts via My Contacts first.' },
+              ['usd_amount', 'mm_provider', 'recipient_type', 'recipient_phone', 'email'],
+            ),
+          },
+        }
+      }
+      return {
+        version: flowData.version,
+        screen: 'SELECT_CARD_CONTACT',
+        data: {
+          usd_amount: numAmount.toFixed(2),
+          mm_provider,
+          payment_type: payment_type ?? 'hosted',
+          email: email?.trim().toLowerCase() ?? '',
+          contacts,
+        },
+      }
+    }
+
+    // Normal flow: validate phone
     let normalizedPhone = ''
     if (!recipient_phone || recipient_phone.trim() === '') {
       errors['recipient_phone'] = 'Recipient phone is required'
@@ -1136,7 +1313,7 @@ export class FlowDataExchangeService {
       }
     }
 
-    // Email is only required for headless (Apple/Google Pay)
+    // Email only required for headless (Apple/Google Pay)
     if (isHeadless && (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))) {
       errors['email'] = 'Please enter a valid email address'
     }
@@ -1148,50 +1325,55 @@ export class FlowDataExchangeService {
         data: {
           ...flowData.data,
           ...FlowDataExchangeService.errorFields(errors, [
-            'usd_amount',
-            'mm_provider',
-            'recipient_phone',
-            'email',
+            'usd_amount', 'mm_provider', 'recipient_type', 'recipient_phone', 'email',
           ]),
         },
       }
     }
 
+    return FlowDataExchangeService.buildCardPaymentConfirm(
+      flowData.version,
+      payment_type ?? 'hosted',
+      numAmount,
+      mm_provider,
+      normalizedPhone,
+      email?.trim().toLowerCase() ?? '',
+    )
+  }
+
+  private static async buildCardPaymentConfirm(
+    version: string,
+    payment_type: string,
+    numAmount: number,
+    mm_provider: string,
+    normalizedPhone: string,
+    email: string,
+  ): Promise<FlowDataExchangeResponse> {
     let quote
     try {
       const rates = await fxRateService.getRates()
       quote = calculateCardQuote(numAmount, rates.sendSasaRate, rates.fixerRate)
     } catch (err: any) {
-      return {
-        version: flowData.version,
-        screen: flowData.screen,
-        data: {
-          ...flowData.data,
-          ...FlowDataExchangeService.errorFields(
-            { usd_amount: err.message || 'Failed to fetch exchange rate' },
-            ['usd_amount', 'mm_provider', 'recipient_phone'],
-          ),
-        },
-      }
+      throw err
     }
 
     const providerName = PROVIDER_DISPLAY[mm_provider as MobileMoneyProvider]
 
     return {
-      version: flowData.version,
+      version,
       screen: 'CARD_PAYMENT_CONFIRM',
       data: {
-        payment_type: payment_type ?? 'hosted',
+        payment_type,
         usd_amount: numAmount.toFixed(2),
         card_fee_usd: quote.cardFeeUSD.toFixed(2),
         total_usd_charged: quote.totalUSDCharged.toFixed(2),
         xaf_amount: quote.xafAmount.toString(),
         fee_xaf: quote.feeXAF.toString(),
         rate_display: quote.rateDisplay,
-        mm_provider: mm_provider as MobileMoneyProvider,
+        mm_provider,
         mm_provider_name: providerName,
         recipient_phone: normalizedPhone,
-        email: email?.trim().toLowerCase() ?? '',
+        email,
         fixer_rate: quote.fixerRate.toFixed(4),
         sendsasa_rate: quote.sendSasaRate.toFixed(4),
       },
@@ -1327,6 +1509,304 @@ export class FlowDataExchangeService {
         xaf_amount,
         mm_provider_name,
         recipient_phone,
+      },
+    }
+  }
+
+  // ── Beneficiary List ────────────────────────────────────────────────────
+  // Routes to ADD_BENEFICIARY or DELETE_BENEFICIARY based on the selected action.
+
+  private static async handleBeneficiaryList(
+    flowData: FlowDataExchangeRequest,
+  ): Promise<FlowDataExchangeResponse> {
+    const { action } = flowData.data
+
+    if (!action) {
+      return {
+        version: flowData.version,
+        screen: flowData.screen,
+        data: { ...flowData.data, error_action: 'Please select an action' },
+      }
+    }
+
+    const whatsappId = FlowDataExchangeService.extractWhatsappIdFromToken(
+      flowData.flow_token,
+    )
+    const user = await User.findOne({ whatsappId })
+
+    if (action === 'delete') {
+      const beneficiaries = user?.beneficiaries ?? []
+      if (beneficiaries.length === 0) {
+        return {
+          version: flowData.version,
+          screen: flowData.screen,
+          data: { ...flowData.data, error_action: 'You have no saved contacts to delete' },
+        }
+      }
+      const contacts = beneficiaries.map((b: any) => ({
+        id: b.id,
+        title: `${b.nickname} (${b.phoneNumber})`,
+      }))
+      return {
+        version: flowData.version,
+        screen: 'DELETE_BENEFICIARY',
+        data: { contacts },
+      }
+    }
+
+    // action === 'add'
+    return {
+      version: flowData.version,
+      screen: 'ADD_BENEFICIARY',
+      data: {},
+    }
+  }
+
+  // ── Add Beneficiary ──────────────────────────────────────────────────────
+
+  private static async handleAddBeneficiary(
+    flowData: FlowDataExchangeRequest,
+  ): Promise<FlowDataExchangeResponse> {
+    const { nickname, phone } = flowData.data
+
+    const addError = (errors: Record<string, string>) => ({
+      version: flowData.version,
+      screen: 'ADD_BENEFICIARY' as const,
+      data: {
+        ...flowData.data,
+        ...FlowDataExchangeService.errorFields(errors, ['nickname', 'phone']),
+      },
+    })
+
+    const errors: Record<string, string> = {}
+
+    if (!nickname || nickname.trim() === '') {
+      errors['nickname'] = 'Nickname is required'
+    } else if (nickname.trim().length > 30) {
+      errors['nickname'] = 'Nickname must be 30 characters or less'
+    }
+
+    let normalizedPhone = ''
+    if (!phone || phone.trim() === '') {
+      errors['phone'] = 'Phone number is required'
+    } else {
+      try {
+        normalizedPhone = normalizeToE164(phone, undefined, { strict: true })
+      } catch {
+        errors['phone'] = 'Invalid phone number format (e.g. +237612345678)'
+      }
+    }
+
+    if (Object.keys(errors).length > 0) return addError(errors)
+
+    const whatsappId = FlowDataExchangeService.extractWhatsappIdFromToken(
+      flowData.flow_token,
+    )
+    const user = await User.findOne({ whatsappId })
+    if (!user) return addError({ nickname: 'Session expired. Please try again.' })
+
+    const already = (user.beneficiaries ?? []).some(
+      (b: any) => b.phoneNumber === normalizedPhone,
+    )
+    if (already) return addError({ phone: 'This number is already in your contacts' })
+
+    // Save to DB immediately so nfm_reply just needs to send confirmation
+    const crypto = await import('node:crypto')
+    user.beneficiaries.push({
+      id: crypto.default.randomBytes(8).toString('hex'),
+      nickname: nickname.trim(),
+      phoneNumber: normalizedPhone,
+      addedAt: new Date(),
+    } as any)
+    await user.save()
+
+    return {
+      version: flowData.version,
+      screen: 'BENEFICIARY_SAVED',
+      data: { nickname: nickname.trim(), phone: normalizedPhone },
+    }
+  }
+
+  // ── Delete Beneficiary ───────────────────────────────────────────────────
+
+  private static async handleDeleteBeneficiary(
+    flowData: FlowDataExchangeRequest,
+  ): Promise<FlowDataExchangeResponse> {
+    const { contact_id } = flowData.data
+
+    const deleteError = (msg: string) => ({
+      version: flowData.version,
+      screen: 'DELETE_BENEFICIARY' as const,
+      data: { ...flowData.data, error_contact_id: msg },
+    })
+
+    if (!contact_id) return deleteError('Please select a contact to delete')
+
+    const whatsappId = FlowDataExchangeService.extractWhatsappIdFromToken(
+      flowData.flow_token,
+    )
+    const user = await User.findOne({ whatsappId })
+    if (!user) return deleteError('Session expired. Please try again.')
+
+    const before = user.beneficiaries.length
+    user.beneficiaries = (user.beneficiaries as any[]).filter(
+      (b: any) => b.id !== contact_id,
+    ) as any
+    if (user.beneficiaries.length === before) {
+      return deleteError('Contact not found. Please try again.')
+    }
+
+    await user.save()
+
+    return {
+      version: flowData.version,
+      screen: 'BENEFICIARY_DELETED',
+      data: {},
+    }
+  }
+
+  // ── Select Beneficiary (in Send Money flow) ──────────────────────────────
+  // The user picked a contact from the dropdown on SELECT_BENEFICIARY.
+  // Resolve the phone → SendSasa user → route to SEND_MONEY_CONFIRM.
+
+  private static async handleSelectBeneficiary(
+    flowData: FlowDataExchangeRequest,
+  ): Promise<FlowDataExchangeResponse> {
+    const { currency, amount, contact } = flowData.data
+
+    const selectError = (msg: string) => ({
+      version: flowData.version,
+      screen: 'SELECT_BENEFICIARY' as const,
+      data: { ...flowData.data, error_contact: msg },
+    })
+
+    if (!contact) return selectError('Please select a contact')
+
+    // Validate contact is a SendSasa user
+    const cleanPhone = contact.replaceAll('+', '').replaceAll(/\s/g, '')
+    const recipientUser = await User.findOne({ whatsappId: cleanPhone })
+    if (!recipientUser) return selectError('This contact is not on SendSasa')
+
+    const numAmt = Number.parseFloat(amount)
+    const fee = numAmt * 0.001
+    const total = numAmt + fee
+    const recipientDisplay = `${recipientUser.username} (${contact})`
+
+    return {
+      version: flowData.version,
+      screen: 'SEND_MONEY_CONFIRM',
+      data: {
+        currency: currency.toString(),
+        amount: numAmt.toString(),
+        recipient_type: 'Phone Number',
+        recipient: contact,
+        recipient_display: recipientDisplay,
+        fee: fee.toFixed(6),
+        total: total.toFixed(6),
+      },
+    }
+  }
+
+  // ── Select Offramp Contact ───────────────────────────────────────────────
+  // User picked a saved contact on SELECT_OFFRAMP_CONTACT.
+  // No SendSasa check — MoMo numbers don't need to be registered users.
+
+  private static async handleSelectOfframpContact(
+    flowData: FlowDataExchangeRequest,
+  ): Promise<FlowDataExchangeResponse> {
+    const { currency, amount, mm_provider, contact } = flowData.data
+
+    const selectError = (msg: string) => ({
+      version: flowData.version,
+      screen: 'SELECT_OFFRAMP_CONTACT' as const,
+      data: { ...flowData.data, error_contact: msg },
+    })
+
+    if (!contact) return selectError('Please select a contact')
+
+    const numAmount = Number.parseFloat(amount)
+    if (Number.isNaN(numAmount) || numAmount <= 0) {
+      return selectError('Invalid amount. Please go back and re-enter.')
+    }
+
+    try {
+      return await FlowDataExchangeService.buildOfframpConfirm(
+        flowData.version, currency, numAmount, mm_provider, contact,
+      )
+    } catch (error: any) {
+      return selectError(error.message || 'Failed to fetch exchange rate. Please try again.')
+    }
+  }
+
+  // ── Select Card Contact ──────────────────────────────────────────────────
+  // User picked a saved contact on SELECT_CARD_CONTACT.
+
+  private static async handleSelectCardContact(
+    flowData: FlowDataExchangeRequest,
+  ): Promise<FlowDataExchangeResponse> {
+    const { usd_amount, mm_provider, payment_type, email, contact } = flowData.data
+
+    const selectError = (msg: string) => ({
+      version: flowData.version,
+      screen: 'SELECT_CARD_CONTACT' as const,
+      data: { ...flowData.data, error_contact: msg },
+    })
+
+    if (!contact) return selectError('Please select a contact')
+
+    const numAmount = Number.parseFloat(usd_amount)
+    if (Number.isNaN(numAmount) || numAmount <= 0) {
+      return selectError('Invalid amount. Please go back and re-enter.')
+    }
+
+    try {
+      return await FlowDataExchangeService.buildCardPaymentConfirm(
+        flowData.version,
+        payment_type ?? 'hosted',
+        numAmount,
+        mm_provider,
+        contact,
+        email ?? '',
+      )
+    } catch (err: any) {
+      return selectError(err.message || 'Failed to fetch exchange rate. Please try again.')
+    }
+  }
+
+  // ── Select Request Contact ───────────────────────────────────────────────
+  // User picked a saved contact on SELECT_REQUEST_CONTACT.
+  // Contact must be a SendSasa user (payment requests require app registration).
+
+  private static async handleSelectRequestContact(
+    flowData: FlowDataExchangeRequest,
+  ): Promise<FlowDataExchangeResponse> {
+    const { currency, amount, note, contact } = flowData.data
+
+    const selectError = (msg: string) => ({
+      version: flowData.version,
+      screen: 'SELECT_REQUEST_CONTACT' as const,
+      data: { ...flowData.data, error_contact: msg },
+    })
+
+    if (!contact) return selectError('Please select a contact')
+
+    const cleanPhone = contact.replaceAll('+', '').replaceAll(/\s/g, '')
+    const recipientUser = await User.findOne({ whatsappId: cleanPhone })
+    if (!recipientUser) return selectError('This contact is not on SendSasa')
+
+    const numAmount = Number.parseFloat(amount)
+    const recipientDisplay = `${recipientUser.username} (${contact})`
+
+    return {
+      version: flowData.version,
+      screen: 'REQUEST_MONEY_CONFIRM',
+      data: {
+        currency,
+        amount: numAmount.toString(),
+        recipient_type: 'Phone Number',
+        recipient: contact,
+        recipient_display: recipientDisplay,
+        note: note ?? '',
       },
     }
   }

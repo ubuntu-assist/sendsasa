@@ -1,6 +1,16 @@
 import mongoose, { Schema } from 'mongoose'
 import { IUser } from '../types'
 
+const BeneficiarySchema = new Schema(
+  {
+    id: { type: String, required: true },
+    nickname: { type: String, required: true, trim: true, maxlength: 30 },
+    phoneNumber: { type: String, required: true, trim: true },
+    addedAt: { type: Date, default: Date.now },
+  },
+  { _id: false },
+)
+
 const UserSchema = new Schema<IUser>({
   whatsappId: {
     type: String,
@@ -134,6 +144,10 @@ const UserSchema = new Schema<IUser>({
   },
   fund_migration_at: {
     type: Date,
+  },
+  beneficiaries: {
+    type: [BeneficiarySchema],
+    default: [],
   },
 })
 

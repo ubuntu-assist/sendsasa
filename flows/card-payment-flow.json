@@ -2,7 +2,8 @@
   "version": "7.3",
   "data_api_version": "3.0",
   "routing_model": {
-    "CARD_PAYMENT_DETAILS": ["CARD_PAYMENT_CONFIRM"],
+    "CARD_PAYMENT_DETAILS": ["CARD_PAYMENT_CONFIRM", "SELECT_CARD_CONTACT"],
+    "SELECT_CARD_CONTACT": ["CARD_PAYMENT_CONFIRM"],
     "CARD_PAYMENT_CONFIRM": ["CARD_PAYMENT_LINK"],
     "CARD_PAYMENT_LINK": []
   },
@@ -14,16 +15,14 @@
         "payment_type":          { "type": "string", "__example__": "hosted" },
         "error_usd_amount":      { "type": "string", "__example__": "" },
         "error_mm_provider":     { "type": "string", "__example__": "" },
+        "error_recipient_type":  { "type": "string", "__example__": "" },
         "error_recipient_phone": { "type": "string", "__example__": "" },
         "error_email":           { "type": "string", "__example__": "" }
       },
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
-          {
-            "type": "TextHeading",
-            "text": "Send Money via Card"
-          },
+          { "type": "TextHeading", "text": "Send Money via Card" },
           {
             "type": "TextBody",
             "text": "Pay with your debit card, Apple Pay, or Google Pay. No crypto wallet needed."
@@ -34,6 +33,7 @@
             "error-messages": {
               "usd_amount":      "${data.error_usd_amount}",
               "mm_provider":     "${data.error_mm_provider}",
+              "recipient_type":  "${data.error_recipient_type}",
               "recipient_phone": "${data.error_recipient_phone}",
               "email":           "${data.error_email}"
             },
@@ -58,12 +58,22 @@
                 ]
               },
               {
+                "type": "Dropdown",
+                "name": "recipient_type",
+                "label": "Recipient",
+                "required": true,
+                "data-source": [
+                  { "id": "New Number",    "title": "Enter a phone number" },
+                  { "id": "Saved Contact", "title": "Saved Contact" }
+                ]
+              },
+              {
                 "type": "TextInput",
                 "name": "recipient_phone",
                 "label": "Recipient phone number",
                 "input-type": "phone",
-                "required": true,
-                "helper-text": "Mobile Money number (e.g. +237 6XX XXX XXX)"
+                "required": false,
+                "helper-text": "Leave blank if using Saved Contact (e.g. +237 6XX XXX XXX)"
               },
               {
                 "type": "TextInput",
@@ -82,8 +92,70 @@
                     "payment_type":    "${data.payment_type}",
                     "usd_amount":      "${form.usd_amount}",
                     "mm_provider":     "${form.mm_provider}",
+                    "recipient_type":  "${form.recipient_type}",
                     "recipient_phone": "${form.recipient_phone}",
                     "email":           "${form.email}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "SELECT_CARD_CONTACT",
+      "title": "Choose Contact",
+      "data": {
+        "usd_amount":    { "type": "string", "__example__": "100" },
+        "mm_provider":   { "type": "string", "__example__": "mtn" },
+        "payment_type":  { "type": "string", "__example__": "hosted" },
+        "email":         { "type": "string", "__example__": "" },
+        "contacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id":    { "type": "string" },
+              "title": { "type": "string" }
+            }
+          },
+          "__example__": [{ "id": "+237612345678", "title": "John (+237612345678)" }]
+        },
+        "error_contact": { "type": "string", "__example__": "" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "`'Sending $' ${data.usd_amount} ' via card to:'`"
+          },
+          {
+            "type": "Form",
+            "name": "select_card_contact_form",
+            "error-messages": {
+              "contact": "${data.error_contact}"
+            },
+            "children": [
+              {
+                "type": "Dropdown",
+                "name": "contact",
+                "label": "Select Contact",
+                "required": true,
+                "data-source": "${data.contacts}"
+              },
+              {
+                "type": "Footer",
+                "label": "Get Quote",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "usd_amount":   "${data.usd_amount}",
+                    "mm_provider":  "${data.mm_provider}",
+                    "payment_type": "${data.payment_type}",
+                    "email":        "${data.email}",
+                    "contact":      "${form.contact}"
                   }
                 }
               }
@@ -113,54 +185,18 @@
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
-          {
-            "type": "TextHeading",
-            "text": "Review your payment"
-          },
-          {
-            "type": "TextSubheading",
-            "text": "What your card is charged"
-          },
-          {
-            "type": "TextBody",
-            "text": "`'Amount: $' ${data.usd_amount} ' USDC'`"
-          },
-          {
-            "type": "TextBody",
-            "text": "`'Card fee (3.99%): $' ${data.card_fee_usd}`"
-          },
-          {
-            "type": "TextBody",
-            "text": "`'Total charged: $' ${data.total_usd_charged}`"
-          },
-          {
-            "type": "TextSubheading",
-            "text": "What the recipient gets"
-          },
-          {
-            "type": "TextBody",
-            "text": "`'Amount: ' ${data.xaf_amount} ' XAF'`"
-          },
-          {
-            "type": "TextBody",
-            "text": "`'SendSasa fee: ' ${data.fee_xaf} ' XAF'`"
-          },
-          {
-            "type": "TextBody",
-            "text": "`'Rate: ' ${data.rate_display}`"
-          },
-          {
-            "type": "TextSubheading",
-            "text": "Payout destination"
-          },
-          {
-            "type": "TextBody",
-            "text": "`'Payout via: ' ${data.mm_provider_name}`"
-          },
-          {
-            "type": "TextBody",
-            "text": "`'To: ' ${data.recipient_phone}`"
-          },
+          { "type": "TextHeading",    "text": "Review your payment" },
+          { "type": "TextSubheading", "text": "What your card is charged" },
+          { "type": "TextBody", "text": "`'Amount: $'        ${data.usd_amount} ' USDC'`" },
+          { "type": "TextBody", "text": "`'Card fee (3.99%): $' ${data.card_fee_usd}`" },
+          { "type": "TextBody", "text": "`'Total charged: $' ${data.total_usd_charged}`" },
+          { "type": "TextSubheading", "text": "What the recipient gets" },
+          { "type": "TextBody", "text": "`'Amount: '         ${data.xaf_amount} ' XAF'`" },
+          { "type": "TextBody", "text": "`'SendSasa fee: '   ${data.fee_xaf} ' XAF'`" },
+          { "type": "TextBody", "text": "`'Rate: '           ${data.rate_display}`" },
+          { "type": "TextSubheading", "text": "Payout destination" },
+          { "type": "TextBody", "text": "`'Payout via: ' ${data.mm_provider_name}`" },
+          { "type": "TextBody", "text": "`'To: '         ${data.recipient_phone}`" },
           {
             "type": "TextCaption",
             "text": "By tapping Get Payment Link you agree to Coinbase's Guest Checkout Terms and Privacy Policy."
@@ -211,10 +247,7 @@
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
-          {
-            "type": "TextHeading",
-            "text": "Your payment link is ready!"
-          },
+          { "type": "TextHeading", "text": "Your payment link is ready!" },
           {
             "type": "TextBody",
             "text": "`'Check your WhatsApp — we sent you a secure payment link for $' ${data.total_usd_charged} '.'`"

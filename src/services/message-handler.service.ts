@@ -14,6 +14,7 @@ import {
   sendMainMenu,
   sendWalletMenu,
   sendFundingMessage,
+  sendSaveContactPrompt,
 } from './whatsapp-menu.service'
 import {
   getAllBalances,
@@ -230,6 +231,16 @@ export async function handleInteraction(
 
       case 'my_wallet':
         await handleMyWallet(phoneNumber, user)
+        break
+
+      case 'my_contacts':
+        await handleMyContacts(phoneNumber, user)
+        break
+
+      case 'save_contact':
+        if (interaction.phone) {
+          await handleSaveContact(phoneNumber, user, interaction.phone)
+        }
         break
 
       case 'transaction_history':
@@ -1034,6 +1045,18 @@ async function handleSendMoneyComplete(
       )
     }
 
+    // Offer to save contact if the recipient was found by phone and not already saved
+    if (recipient_type === 'Phone Number' && recipientPhone) {
+      const alreadySaved = (user.beneficiaries ?? []).some(
+        (b: any) => b.phoneNumber === recipient || b.phoneNumber === recipientPhone,
+      )
+      if (!alreadySaved) {
+        const recipientUser = await User.findOne({ phoneNumber: recipientPhone })
+        const nickname = recipientUser?.username || recipient
+        sendSaveContactPrompt(phoneNumber, nickname, recipient).catch(() => {})
+      }
+    }
+
     // Send receipt to recipient if they are on SendSasa
     if (recipientPhone) {
       try {
@@ -1804,4 +1827,53 @@ async function handleOffRampComplete(
 
   const balances = await fetchAllBalances(user)
   await sendMainMenu(phoneNumber, balances, user.username)
+}
+
+// ── Contacts ──────────────────────────────────────────────────────────────────
+
+async function handleMyContacts(phoneNumber: string, user: any): Promise<void> {
+  try {
+    await FlowLauncherService.launchManageContactsFlow(user)
+  } catch (error) {
+    console.error('❌ Error launching manage contacts flow:', error)
+    await sendTextMessage(phoneNumber, '❌ An error occurred. Please try again.')
+  }
+}
+
+async function handleSaveContact(
+  phoneNumber: string,
+  user: any,
+  contactPhone: string,
+): Promise<void> {
+  try {
+    const normalizedPhone = normalizeToE164(contactPhone)
+
+    const already = (user.beneficiaries ?? []).some(
+      (b: any) => b.phoneNumber === normalizedPhone,
+    )
+    if (already) {
+      await sendTextMessage(phoneNumber, '⚠️ This contact is already saved.')
+      return
+    }
+
+    const contactUser = await User.findOne({ phoneNumber: normalizedPhone })
+    const nickname = contactUser?.username || normalizedPhone
+
+    const { randomBytes } = await import('node:crypto')
+    user.beneficiaries.push({
+      id: randomBytes(8).toString('hex'),
+      nickname,
+      phoneNumber: normalizedPhone,
+      addedAt: new Date(),
+    })
+    await user.save()
+
+    await sendTextMessage(
+      phoneNumber,
+      `✅ *${nickname}* has been saved to your contacts.\n\n_You can now select them from "Saved Contact" when sending money._`,
+    )
+  } catch (error) {
+    console.error('❌ Error saving contact:', error)
+    await sendTextMessage(phoneNumber, '❌ An error occurred. Please try again.')
+  }
 }

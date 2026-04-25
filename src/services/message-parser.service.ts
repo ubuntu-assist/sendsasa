@@ -5,6 +5,7 @@ export interface ButtonInteraction {
   currency?: 'XRP' | 'RLUSD' | 'USDC'
   transactionId?: string
   requestId?: string
+  phone?: string
 }
 
 export function parseButtonInteraction(buttonId: string): ButtonInteraction {
@@ -22,6 +23,11 @@ export function parseButtonInteraction(buttonId: string): ButtonInteraction {
   if (buttonId === 'get_started') return { action: 'get_started' }
   if (buttonId === 'check_activation') return { action: 'check_activation' }
   if (buttonId === 'import_wallet') return { action: 'import_wallet' }
+  if (buttonId === 'my_contacts') return { action: 'my_contacts' }
+
+  if (buttonId.startsWith('save_contact:')) {
+    return { action: 'save_contact', phone: buttonId.slice('save_contact:'.length) }
+  }
 
   if (buttonId.startsWith('currency_')) {
     const parts = buttonId.split('_')

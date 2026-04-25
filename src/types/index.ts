@@ -217,6 +217,14 @@ export interface IUser extends Document {
   migration_status?: 'pending' | 'completed' | 'n/a'
   old_wallet_exists?: boolean
   fund_migration_at?: Date
+  beneficiaries: IBeneficiary[]
+}
+
+export interface IBeneficiary {
+  id: string
+  nickname: string
+  phoneNumber: string
+  addedAt: Date
 }
 
 export interface ITransaction extends Document {

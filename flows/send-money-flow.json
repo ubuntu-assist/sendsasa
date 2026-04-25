@@ -2,7 +2,8 @@
   "version": "7.3",
   "data_api_version": "3.0",
   "routing_model": {
-    "SEND_MONEY_DETAILS": ["SEND_MONEY_CONFIRM"],
+    "SEND_MONEY_DETAILS": ["SEND_MONEY_CONFIRM", "SELECT_BENEFICIARY"],
+    "SELECT_BENEFICIARY": ["SEND_MONEY_CONFIRM"],
     "SEND_MONEY_CONFIRM": ["SEND_MONEY_SUCCESS"],
     "SEND_MONEY_SUCCESS": []
   },
@@ -124,6 +125,7 @@
                 "label": "Send To",
                 "required": true,
                 "data-source": [
+                  { "id": "Saved Contact", "title": "Saved Contact" },
                   { "id": "Phone Number", "title": "Phone Number" },
                   { "id": "SendSasa Username", "title": "SendSasa Username" },
                   { "id": "Wallet Address", "title": "Wallet Address" }
@@ -134,8 +136,8 @@
                 "name": "recipient",
                 "label": "Recipient",
                 "input-type": "text",
-                "required": true,
-                "helper-text": "Phone (+237...), username (@john) or wallet address"
+                "required": false,
+                "helper-text": "Phone (+237...), username (@john) or wallet address. Leave blank if using Saved Contact."
               },
               {
                 "type": "Footer",
@@ -147,6 +149,74 @@
                     "amount": "${form.amount}",
                     "recipient_type": "${form.recipient_type}",
                     "recipient": "${form.recipient}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "SELECT_BENEFICIARY",
+      "title": "Choose Contact",
+      "data": {
+        "currency": {
+          "type": "string",
+          "__example__": "XRP"
+        },
+        "amount": {
+          "type": "string",
+          "__example__": "10.5"
+        },
+        "contacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" }
+            }
+          },
+          "__example__": [
+            { "id": "+237612345678", "title": "John (+237612345678)" }
+          ]
+        },
+        "error_contact": {
+          "type": "string",
+          "__example__": ""
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "`'Sending ' ${data.amount} ' ' ${data.currency} ' to:'`"
+          },
+          {
+            "type": "Form",
+            "name": "select_contact_form",
+            "error-messages": {
+              "contact": "${data.error_contact}"
+            },
+            "children": [
+              {
+                "type": "Dropdown",
+                "name": "contact",
+                "label": "Select Contact",
+                "required": true,
+                "data-source": "${data.contacts}"
+              },
+              {
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "currency": "${data.currency}",
+                    "amount": "${data.amount}",
+                    "contact": "${form.contact}"
                   }
                 }
               }

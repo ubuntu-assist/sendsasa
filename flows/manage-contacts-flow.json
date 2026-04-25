@@ -1,0 +1,274 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "BENEFICIARY_LIST": ["ADD_BENEFICIARY", "DELETE_BENEFICIARY"],
+    "ADD_BENEFICIARY": ["BENEFICIARY_SAVED"],
+    "DELETE_BENEFICIARY": ["BENEFICIARY_DELETED"],
+    "BENEFICIARY_SAVED": [],
+    "BENEFICIARY_DELETED": []
+  },
+  "screens": [
+    {
+      "id": "BENEFICIARY_LIST",
+      "title": "My Contacts",
+      "data": {
+        "contacts_text": {
+          "type": "string",
+          "__example__": "1. John (+237612345678)\n2. Alice (+237699000001)"
+        },
+        "error_action": {
+          "type": "string",
+          "__example__": ""
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Saved Contacts"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.contacts_text}"
+          },
+          {
+            "type": "Form",
+            "name": "contacts_action_form",
+            "error-messages": {
+              "action": "${data.error_action}"
+            },
+            "children": [
+              {
+                "type": "Dropdown",
+                "name": "action",
+                "label": "What would you like to do?",
+                "required": true,
+                "data-source": [
+                  { "id": "add", "title": "Add a new contact" },
+                  { "id": "delete", "title": "Delete a contact" }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "action": "${form.action}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "ADD_BENEFICIARY",
+      "title": "Add Contact",
+      "data": {
+        "nickname": {
+          "type": "string",
+          "__example__": ""
+        },
+        "phone": {
+          "type": "string",
+          "__example__": ""
+        },
+        "error_nickname": {
+          "type": "string",
+          "__example__": ""
+        },
+        "error_phone": {
+          "type": "string",
+          "__example__": ""
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "Add a contact for quick payments. They must have a SendSasa account."
+          },
+          {
+            "type": "Form",
+            "name": "add_contact_form",
+            "error-messages": {
+              "nickname": "${data.error_nickname}",
+              "phone": "${data.error_phone}"
+            },
+            "children": [
+              {
+                "type": "TextInput",
+                "name": "nickname",
+                "label": "Nickname",
+                "input-type": "text",
+                "required": true,
+                "helper-text": "A short name to remember them by (max 30 chars)"
+              },
+              {
+                "type": "TextInput",
+                "name": "phone",
+                "label": "Phone Number",
+                "input-type": "phone",
+                "required": true,
+                "helper-text": "Their WhatsApp number e.g. +237612345678"
+              },
+              {
+                "type": "Footer",
+                "label": "Save Contact",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "nickname": "${form.nickname}",
+                    "phone": "${form.phone}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "BENEFICIARY_SAVED",
+      "title": "Contact Saved",
+      "terminal": true,
+      "success": true,
+      "data": {
+        "nickname": {
+          "type": "string",
+          "__example__": "John"
+        },
+        "phone": {
+          "type": "string",
+          "__example__": "+237612345678"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Contact Saved!"
+          },
+          {
+            "type": "TextBody",
+            "text": "`${data.nickname} ' (' ${data.phone} ')' ' has been added to your contacts.'`"
+          },
+          {
+            "type": "TextBody",
+            "text": "You can now select them from 'Saved Contact' when sending money."
+          },
+          {
+            "type": "Form",
+            "name": "saved_form",
+            "children": [
+              {
+                "type": "Footer",
+                "label": "Done",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {}
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "DELETE_BENEFICIARY",
+      "title": "Delete Contact",
+      "data": {
+        "contacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" }
+            }
+          },
+          "__example__": [{ "id": "abc123", "title": "John (+237612345678)" }]
+        },
+        "error_contact_id": {
+          "type": "string",
+          "__example__": ""
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "Select the contact you want to remove."
+          },
+          {
+            "type": "Form",
+            "name": "delete_contact_form",
+            "error-messages": {
+              "contact_id": "${data.error_contact_id}"
+            },
+            "children": [
+              {
+                "type": "Dropdown",
+                "name": "contact_id",
+                "label": "Select Contact to Delete",
+                "required": true,
+                "data-source": "${data.contacts}"
+              },
+              {
+                "type": "Footer",
+                "label": "Delete Contact",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "contact_id": "${form.contact_id}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "BENEFICIARY_DELETED",
+      "title": "Contact Deleted",
+      "terminal": true,
+      "success": true,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Contact Removed"
+          },
+          {
+            "type": "TextBody",
+            "text": "The contact has been removed from your list."
+          },
+          {
+            "type": "Form",
+            "name": "deleted_form",
+            "children": [
+              {
+                "type": "Footer",
+                "label": "Done",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {}
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

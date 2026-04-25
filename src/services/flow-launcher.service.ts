@@ -11,6 +11,7 @@ const CARD_PAYMENT_FLOW_ID = config.CARD_PAYMENT_FLOW_ID
 const REQUEST_MONEY_FLOW_ID = config.REQUEST_MONEY_FLOW_ID
 const SEND_MONEY_FLOW_ID = config.SEND_MONEY_FLOW_ID
 const PIN_SETUP_FLOW_ID = config.PIN_SETUP_FLOW_ID
+const MANAGE_CONTACTS_FLOW_ID = config.MANAGE_CONTACTS_FLOW_ID
 
 export class FlowLauncherService {
   static async launchSendMoneyFlow(user: IUser): Promise<void> {
@@ -255,6 +256,56 @@ export class FlowLauncherService {
       await WhatsAppService.sendMessage(flowMessage)
     } catch (error) {
       console.error('Failed to launch Card Payment flow:', error)
+      throw error
+    }
+  }
+
+  static async launchManageContactsFlow(user: IUser): Promise<void> {
+    if (!MANAGE_CONTACTS_FLOW_ID) {
+      throw new Error('MANAGE_CONTACTS_FLOW_ID is not configured. Set it in your environment variables.')
+    }
+    try {
+      const beneficiaries = (user as any).beneficiaries ?? []
+      const contactsText =
+        beneficiaries.length > 0
+          ? beneficiaries
+              .map((b: any, i: number) => `${i + 1}. ${b.nickname} (${b.phoneNumber})`)
+              .join('\n')
+          : 'No contacts saved yet.\nAdd your first contact below!'
+
+      const flowToken = FlowDataExchangeService.generateFlowToken(user.whatsappId)
+
+      const flowMessage = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: user.whatsappId,
+        type: 'interactive',
+        interactive: {
+          type: 'flow',
+          header: { type: 'text', text: '👥 My Contacts' },
+          body: { text: 'Add and manage your saved contacts for quick payments' },
+          footer: { text: 'SendSasa Contacts' },
+          action: {
+            name: 'flow',
+            parameters: {
+              flow_message_version: '3',
+              flow_token: flowToken,
+              flow_id: MANAGE_CONTACTS_FLOW_ID,
+              flow_cta: 'Manage Contacts',
+              mode: 'published',
+              flow_action: 'navigate',
+              flow_action_payload: {
+                screen: 'BENEFICIARY_LIST',
+                data: { contacts_text: contactsText },
+              },
+            },
+          },
+        },
+      }
+
+      await WhatsAppService.sendMessage(flowMessage)
+    } catch (error) {
+      console.error('Failed to launch Manage Contacts flow:', error)
       throw error
     }
   }
