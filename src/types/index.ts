@@ -227,7 +227,7 @@ export interface ITransaction extends Document {
   toPhone?: string
   amount: number
 
-  currency: 'XRP' | 'RLUSD' | 'USDC'
+  currency: 'XRP' | 'RLUSD' | 'USDC' | 'BNB' | 'USDT' | 'USDC_BSC' | 'SOL' | 'USDC_SOL' | 'USDT_SOL' | 'EURC_SOL'
 
   status: 'pending' | 'success' | 'failed'
   timestamp: Date
@@ -241,7 +241,7 @@ export interface IPaymentRequest extends Document {
   payerPhone: string
   amount: number
 
-  currency: 'XRP' | 'RLUSD' | 'USDC'
+  currency: 'XRP' | 'RLUSD' | 'USDC' | 'BNB' | 'USDT' | 'USDC_BSC' | 'SOL' | 'USDC_SOL' | 'USDT_SOL' | 'EURC_SOL'
 
   message?: string
   status: 'pending' | 'approved' | 'rejected' | 'expired' | 'failed'

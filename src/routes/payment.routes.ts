@@ -38,8 +38,6 @@ const router = Router()
 
 const IS_SANDBOX = process.env.COINBASE_HEADLESS_SANDBOX === 'true'
 
-// ── HTML helpers ──────────────────────────────────────────────────────────────
-
 function openInBrowserPage(fullUrl: string): string {
   return `<!DOCTYPE html>
 <html lang="en">

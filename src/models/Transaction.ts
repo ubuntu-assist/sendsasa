@@ -39,7 +39,7 @@ const TransactionSchema = new Schema<ITransaction>({
 
   currency: {
     type: String,
-    enum: ['XRP', 'RLUSD', 'USDC'],
+    enum: ['XRP', 'RLUSD', 'USDC', 'BNB', 'USDT', 'USDC_BSC', 'SOL', 'USDC_SOL', 'USDT_SOL', 'EURC_SOL'],
     default: 'XRP',
     required: true,
     index: true,
