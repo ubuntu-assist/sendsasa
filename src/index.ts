@@ -1,68 +1,15 @@
-import express, { Express } from 'express'
-import cors from 'cors'
-import helmet from 'helmet'
 import cron from 'node-cron'
 import axios from 'axios'
-import webhookRoutes from './routes/webhook.routes'
-import cronRoutes from './routes/cron.routes'
-import flowDataExchangeRoutes from './routes/flow.routes'
-import jwksRoutes from './routes/jwks.routes'
-import coinbaseWebhookRoutes from './routes/coinbase-webhook.routes'
-import coinbaseReturnRoutes, { pollPendingOnRampTransactions } from './routes/coinbase-return.routes'
-import paymentRoutes from './routes/payment.routes'
+import { createApp } from './app'
 import { xrplClient } from './config/xrpl'
 import { connectDatabase, disconnectDatabase } from './config/database'
-import {
-  errorHandler,
-  notFoundHandler,
-  requestLogger,
-} from './middleware/error-handler'
-import { apiLimiter } from './middleware/rate-limiter'
+import { pollPendingOnRampTransactions } from './routes/coinbase-return.routes'
 import config from './utils/config'
 
-const app: Express = express()
+const app = createApp()
 const PORT = config.PORT
 const NODE_ENV = process.env.NODE_ENV || 'development'
 const SELF_URL = process.env.SELF_URL || `http://localhost:${PORT}`
-
-// Render (and most PaaS) sit behind a reverse proxy that sets X-Forwarded-For.
-// Without this, express-rate-limit throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
-app.set('trust proxy', 1)
-
-app.use(helmet())
-app.use(cors())
-
-if (NODE_ENV === 'production') {
-  app.use('/api/', apiLimiter)
-}
-
-// Coinbase webhook MUST be registered before express.json() so it receives
-// the raw Buffer body needed for HMAC-SHA256 signature verification.
-app.use('/webhook/coinbase', express.raw({ type: 'application/json' }), coinbaseWebhookRoutes)
-
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
-
-app.use(requestLogger)
-
-// Routes
-app.use('/.well-known', jwksRoutes)
-app.use('/api', flowDataExchangeRoutes)
-app.use('/webhook', webhookRoutes)
-app.use('/cron', cronRoutes)
-app.use('/coinbase', coinbaseReturnRoutes)
-app.use('/pay', paymentRoutes)
-
-app.get('/health', (_req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-  })
-})
-
-app.use(notFoundHandler)
-app.use(errorHandler)
 
 async function startServer() {
   try {

@@ -412,6 +412,16 @@ router.get('/card', async (req: Request, res: Response): Promise<void> => {
         ? onRamp.senderPhone
         : `+${onRamp.senderPhone}`
 
+    // Persist idempotency key before the API call so retries reuse the same key.
+    // Regenerate only when the payment method changes (new attempt, not a retry).
+    if (
+      onRamp.headlessPaymentMethod !== method ||
+      !onRamp.headlessIdempotencyKey
+    ) {
+      onRamp.headlessIdempotencyKey = crypto.randomUUID()
+      await onRamp.save()
+    }
+
     try {
       const result = await createHeadlessOrder({
         paymentMethod: method,
@@ -425,6 +435,7 @@ router.get('/card', async (req: Request, res: Response): Promise<void> => {
         phoneNumberVerifiedAt: now,
         partnerUserRef,
         domain: method === 'GUEST_CHECKOUT_APPLE_PAY' ? domain : undefined,
+        idempotencyKey: onRamp.headlessIdempotencyKey!,
       })
 
       paymentLinkUrl = result.paymentLinkUrl

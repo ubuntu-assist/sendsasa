@@ -303,6 +303,7 @@ export async function createHeadlessOrder(params: {
   phoneNumberVerifiedAt: string
   partnerUserRef: string // OnRampTransaction MongoDB _id
   domain?: string // required for Apple Pay on web
+  idempotencyKey: string // UUID v4 — persisted before call so retries reuse the same key
 }): Promise<HeadlessOrderResult> {
   const cred = await getCredential()
 
@@ -340,6 +341,7 @@ export async function createHeadlessOrder(params: {
     headers: {
       Authorization: `Bearer ${bearerToken}`,
       'Content-Type': 'application/json',
+      'X-Idempotency-Key': params.idempotencyKey,
     },
     timeout: 15_000,
   })

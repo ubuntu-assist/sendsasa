@@ -35,6 +35,7 @@ export interface IOnRampTransaction extends Document {
   headlessOrderId?: string
   headlessPaymentMethod?: 'GUEST_CHECKOUT_APPLE_PAY' | 'GUEST_CHECKOUT_GOOGLE_PAY'
   headlessPaymentLinkUrl?: string
+  headlessIdempotencyKey?: string
 
   // Admin wallet that receives USDC
   adminAddress: string           // EVM (Base) address
@@ -68,6 +69,7 @@ const OnRampTransactionSchema = new Schema<IOnRampTransaction>({
   headlessOrderId: { type: String, sparse: true, trim: true },
   headlessPaymentMethod: { type: String, enum: ['GUEST_CHECKOUT_APPLE_PAY', 'GUEST_CHECKOUT_GOOGLE_PAY'] },
   headlessPaymentLinkUrl: { type: String, trim: true },
+  headlessIdempotencyKey: { type: String, sparse: true, trim: true },
 
   adminAddress: { type: String, required: true, trim: true },
   cryptoTxHash: { type: String, sparse: true, trim: true },
