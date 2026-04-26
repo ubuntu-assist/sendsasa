@@ -213,3 +213,30 @@ export async function sendImageByMediaId(
 
   await WhatsAppService.sendMessage(payload)
 }
+
+export async function sendCtaUrlButton(
+  to: string,
+  bodyText: string,
+  buttonLabel: string,
+  url: string,
+): Promise<void> {
+  const payload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'cta_url',
+      body: { text: bodyText },
+      action: {
+        name: 'cta_url',
+        parameters: {
+          display_text: buttonLabel,
+          url,
+        },
+      },
+    },
+  }
+
+  await WhatsAppService.sendMessage(payload)
+}

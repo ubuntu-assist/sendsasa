@@ -22,7 +22,7 @@ import {
   CARD_FEE_PCT,
 } from './coinbase-onramp.service'
 import { getAdminEVMAddress } from '../config/admin-wallet'
-import { sendTextMessage } from './whatsapp.service'
+import { sendTextMessage, sendCtaUrlButton } from './whatsapp.service'
 import config from '../utils/config'
 
 const OFFRAMP_CURRENCIES = ['XRP', 'RLUSD', 'USDC', 'USDT']
@@ -1462,17 +1462,17 @@ export class FlowDataExchangeService {
       // Headless: send URL to our self-hosted page which embeds the Coinbase iframe
       paymentURL = buildHeadlessPaymentURL(refId, baseUrl)
 
-      sendTextMessage(
+      sendCtaUrlButton(
         user.whatsappId,
-        `📱 *Your Apple / Google Pay Link*\n\n` +
-          `Tap to open the payment page:\n` +
-          `${paymentURL}\n\n` +
-          `· · · · · · · · · ·\n` +
-          `*You pay:* $${total_usd_charged} _(incl. 3.99% card fee)_\n` +
+        `📱 *Apple / Google Pay*\n\n` +
+          `*You pay:* $${total_usd_charged} (incl. 3.99% card fee)\n` +
           `*Delivers:* ${xaf_amount} XAF → ${recipient_phone}\n` +
           `*Via:* ${mm_provider_name}\n` +
-          `*Rate:* ${rate_display}\n\n` +
-          `*Ref:* \`${refId}\``,
+          `*Rate:* ${rate_display}\n` +
+          `*Ref:* ${refId}\n\n` +
+          `Tap the button below to complete your payment.`,
+        'Open Payment Page',
+        paymentURL,
       ).catch((err) => console.error('Failed to send headless payment link:', err))
     } else {
       // Hosted: create Coinbase session token → direct pay.coinbase.com URL
@@ -1486,17 +1486,17 @@ export class FlowDataExchangeService {
 
       paymentURL = buildPaymentURL(sessionToken)
 
-      sendTextMessage(
+      sendCtaUrlButton(
         user.whatsappId,
-        `💳 *Your Card Payment Link*\n\n` +
-          `Tap to pay with your debit card:\n` +
-          `${paymentURL}\n\n` +
-          `· · · · · · · · · ·\n` +
-          `*You pay:* $${total_usd_charged} _(incl. 3.99% card fee)_\n` +
+        `💳 *Card Payment*\n\n` +
+          `*You pay:* $${total_usd_charged} (incl. 3.99% card fee)\n` +
           `*Delivers:* ${xaf_amount} XAF → ${recipient_phone}\n` +
           `*Via:* ${mm_provider_name}\n` +
-          `*Rate:* ${rate_display}\n\n` +
-          `*Ref:* \`${refId}\``,
+          `*Rate:* ${rate_display}\n` +
+          `*Ref:* ${refId}\n\n` +
+          `Tap the button below to pay with your debit card.`,
+        'Pay with Card',
+        paymentURL,
       ).catch((err) => console.error('Failed to send hosted payment link:', err))
     }
 

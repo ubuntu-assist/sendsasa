@@ -333,6 +333,18 @@ export async function handleFlowResponse(
       responseJson.recipient_phone !== undefined &&
       responseJson.xaf_amount !== undefined
 
+    const isCardPaymentDone =
+      !hasPinSetupData &&
+      !hasImportData &&
+      responseJson.total_usd_charged !== undefined &&
+      responseJson.mm_provider_name !== undefined &&
+      responseJson.recipient_phone !== undefined
+
+    const isContactsUpdate =
+      !hasPinSetupData &&
+      !hasImportData &&
+      Object.keys(responseJson).length === 0
+
     if (hasPinSetupData) {
       await handlePinSetupComplete(whatsappId, phoneNumber, responseJson)
     } else if (hasImportData) {
@@ -343,9 +355,19 @@ export async function handleFlowResponse(
       await handleSendMoneyComplete(whatsappId, phoneNumber, responseJson)
     } else if (isRequestMoney) {
       await handleRequestMoneyComplete(whatsappId, phoneNumber, responseJson)
+    } else if (isCardPaymentDone) {
+      await sendTextMessage(
+        phoneNumber,
+        `✅ *Payment link opened!*\n\n` +
+          `Once your card payment is confirmed, *${responseJson.xaf_amount} XAF* will be sent to ` +
+          `${responseJson.recipient_phone} via ${responseJson.mm_provider_name}.\n\n` +
+          `You'll receive a confirmation message here when the payout is complete.`,
+      )
+    } else if (isContactsUpdate) {
+      await sendTextMessage(phoneNumber, '✅ Your contacts have been updated.')
     } else {
       console.log('⚠️ Unknown flow response format:', responseJson)
-      await sendTextMessage(phoneNumber, '✅ Flow completed!')
+      await sendTextMessage(phoneNumber, '✅ Done!')
     }
   } catch (error) {
     console.error('❌ Error handling flow response:', error)
