@@ -1,0 +1,278 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "REQUEST_CARD_DETAILS": ["REQUEST_CARD_CONFIRM", "SELECT_REQUEST_CARD_CONTACT"],
+    "SELECT_REQUEST_CARD_CONTACT": ["REQUEST_CARD_CONFIRM"],
+    "REQUEST_CARD_CONFIRM": ["REQUEST_CARD_LINK"],
+    "REQUEST_CARD_LINK": []
+  },
+  "screens": [
+    {
+      "id": "REQUEST_CARD_DETAILS",
+      "title": "Request by Card",
+      "data": {
+        "error_usd_amount":     { "type": "string", "__example__": "" },
+        "error_mm_provider":    { "type": "string", "__example__": "" },
+        "error_recipient_phone":{ "type": "string", "__example__": "" },
+        "error_payer_type":     { "type": "string", "__example__": "" },
+        "error_payer_phone":    { "type": "string", "__example__": "" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Request Payment by Card" },
+          {
+            "type": "TextBody",
+            "text": "Enter the amount and who should pay. We'll send them a secure payment link directly on WhatsApp."
+          },
+          {
+            "type": "Form",
+            "name": "request_card_details_form",
+            "error-messages": {
+              "usd_amount":      "${data.error_usd_amount}",
+              "mm_provider":     "${data.error_mm_provider}",
+              "recipient_phone": "${data.error_recipient_phone}",
+              "payer_type":      "${data.error_payer_type}",
+              "payer_phone":     "${data.error_payer_phone}"
+            },
+            "children": [
+              {
+                "type": "TextInput",
+                "name": "usd_amount",
+                "label": "Amount to receive (USD)",
+                "input-type": "number",
+                "required": true,
+                "helper-text": "How much you want to receive (e.g. 50)"
+              },
+              {
+                "type": "Dropdown",
+                "name": "mm_provider",
+                "label": "Receive via",
+                "required": true,
+                "data-source": [
+                  { "id": "mtn",    "title": "MTN Mobile Money" },
+                  { "id": "orange", "title": "Orange Money" },
+                  { "id": "uba",    "title": "UBA M2U" }
+                ]
+              },
+              {
+                "type": "TextInput",
+                "name": "recipient_phone",
+                "label": "Your mobile money number",
+                "input-type": "phone",
+                "required": true,
+                "helper-text": "The MoMo number that will receive the payout"
+              },
+              {
+                "type": "Dropdown",
+                "name": "payer_type",
+                "label": "Send request to",
+                "required": true,
+                "data-source": [
+                  { "id": "New Number",    "title": "Enter a phone number" },
+                  { "id": "Saved Contact", "title": "Saved Contact" }
+                ]
+              },
+              {
+                "type": "TextInput",
+                "name": "payer_phone",
+                "label": "Payer's WhatsApp number",
+                "input-type": "phone",
+                "required": false,
+                "helper-text": "Leave blank if using Saved Contact (e.g. +237 6XX XXX XXX)"
+              },
+              {
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "usd_amount":      "${form.usd_amount}",
+                    "mm_provider":     "${form.mm_provider}",
+                    "recipient_phone": "${form.recipient_phone}",
+                    "payer_type":      "${form.payer_type}",
+                    "payer_phone":     "${form.payer_phone}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "SELECT_REQUEST_CARD_CONTACT",
+      "title": "Choose Payer",
+      "data": {
+        "usd_amount":      { "type": "string", "__example__": "50" },
+        "mm_provider":     { "type": "string", "__example__": "mtn" },
+        "recipient_phone": { "type": "string", "__example__": "+237612345678" },
+        "contacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id":    { "type": "string" },
+              "title": { "type": "string" }
+            }
+          },
+          "__example__": [{ "id": "+237699000001", "title": "Alice (+237699000001)" }]
+        },
+        "error_contact": { "type": "string", "__example__": "" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "`'Requesting $' ${data.usd_amount} ' — select who should pay:'`"
+          },
+          {
+            "type": "Form",
+            "name": "select_request_card_contact_form",
+            "error-messages": {
+              "contact": "${data.error_contact}"
+            },
+            "children": [
+              {
+                "type": "Dropdown",
+                "name": "contact",
+                "label": "Select Contact",
+                "required": true,
+                "data-source": "${data.contacts}"
+              },
+              {
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "usd_amount":      "${data.usd_amount}",
+                    "mm_provider":     "${data.mm_provider}",
+                    "recipient_phone": "${data.recipient_phone}",
+                    "contact":         "${form.contact}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "REQUEST_CARD_CONFIRM",
+      "title": "Review Request",
+      "data": {
+        "usd_amount":         { "type": "string", "__example__": "50.00" },
+        "card_fee_usd":       { "type": "string", "__example__": "2.00" },
+        "total_usd_charged":  { "type": "string", "__example__": "52.00" },
+        "xaf_amount":         { "type": "string", "__example__": "29850" },
+        "fee_xaf":            { "type": "string", "__example__": "149" },
+        "rate_display":       { "type": "string", "__example__": "1 USDC = 597.00 XAF" },
+        "mm_provider":        { "type": "string", "__example__": "mtn" },
+        "mm_provider_name":   { "type": "string", "__example__": "MTN Mobile Money" },
+        "recipient_phone":    { "type": "string", "__example__": "+237612345678" },
+        "payer_phone":        { "type": "string", "__example__": "+237699000001" },
+        "fixer_rate":         { "type": "string", "__example__": "612.0000" },
+        "sendsasa_rate":      { "type": "string", "__example__": "608.9400" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Review your request" },
+          { "type": "TextSubheading", "text": "What the payer is charged" },
+          { "type": "TextBody", "text": "`'Amount: $' ${data.usd_amount} ' USDC'`" },
+          { "type": "TextBody", "text": "`'Card fee (3.99%): $' ${data.card_fee_usd}`" },
+          { "type": "TextBody", "text": "`'Total charged: $' ${data.total_usd_charged}`" },
+          { "type": "TextSubheading", "text": "What you receive" },
+          { "type": "TextBody", "text": "`'Amount: ' ${data.xaf_amount} ' XAF'`" },
+          { "type": "TextBody", "text": "`'SendSasa fee: ' ${data.fee_xaf} ' XAF'`" },
+          { "type": "TextBody", "text": "`'Rate: ' ${data.rate_display}`" },
+          { "type": "TextSubheading", "text": "Details" },
+          { "type": "TextBody", "text": "`'Payout via: ' ${data.mm_provider_name}`" },
+          { "type": "TextBody", "text": "`'To your number: ' ${data.recipient_phone}`" },
+          { "type": "TextBody", "text": "`'Link sent to: ' ${data.payer_phone}`" },
+          {
+            "type": "TextCaption",
+            "text": "By tapping Send Request you agree to Coinbase's Guest Checkout Terms and Privacy Policy."
+          },
+          {
+            "type": "Form",
+            "name": "confirm_form",
+            "children": [
+              {
+                "type": "Footer",
+                "label": "Send Request",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "usd_amount":        "${data.usd_amount}",
+                    "card_fee_usd":      "${data.card_fee_usd}",
+                    "total_usd_charged": "${data.total_usd_charged}",
+                    "xaf_amount":        "${data.xaf_amount}",
+                    "fee_xaf":           "${data.fee_xaf}",
+                    "rate_display":      "${data.rate_display}",
+                    "mm_provider":       "${data.mm_provider}",
+                    "mm_provider_name":  "${data.mm_provider_name}",
+                    "recipient_phone":   "${data.recipient_phone}",
+                    "payer_phone":       "${data.payer_phone}",
+                    "fixer_rate":        "${data.fixer_rate}",
+                    "sendsasa_rate":     "${data.sendsasa_rate}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "REQUEST_CARD_LINK",
+      "title": "Request Sent",
+      "terminal": true,
+      "success": true,
+      "data": {
+        "xaf_amount":       { "type": "string", "__example__": "29850" },
+        "mm_provider_name": { "type": "string", "__example__": "MTN Mobile Money" },
+        "recipient_phone":  { "type": "string", "__example__": "+237612345678" },
+        "payer_phone":      { "type": "string", "__example__": "+237699000001" },
+        "is_card_request":  { "type": "string", "__example__": "true" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Payment request sent!" },
+          {
+            "type": "TextBody",
+            "text": "`'A payment link has been sent to ' ${data.payer_phone} ' on WhatsApp.'`"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'Once they pay, ' ${data.xaf_amount} ' XAF will arrive in your ' ${data.mm_provider_name} ' account (' ${data.recipient_phone} ').'`"
+          },
+          {
+            "type": "Form",
+            "name": "success_form",
+            "children": [
+              {
+                "type": "Footer",
+                "label": "Done",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {
+                    "xaf_amount":       "${data.xaf_amount}",
+                    "mm_provider_name": "${data.mm_provider_name}",
+                    "recipient_phone":  "${data.recipient_phone}",
+                    "payer_phone":      "${data.payer_phone}",
+                    "is_card_request":  "true"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -15,21 +15,8 @@ export interface MenuBalances {
 
 export async function sendMainMenu(
   to: string,
-  balances: MenuBalances,
   username: string,
 ): Promise<void> {
-  const {
-    xrp,
-    rlusd,
-    usdc,
-    bnb,
-    bscUsdt,
-    bscUsdc,
-    sol,
-    solUsdc,
-    solUsdt,
-    solEurc,
-  } = balances
   const payload = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
@@ -39,13 +26,7 @@ export async function sendMainMenu(
       type: 'list',
       header: { type: 'text', text: 'SendSasa Wallet' },
       body: {
-        text:
-          `*${username}*\n\n` +
-          `*XRPL*\nXRP: ${xrp} | RLUSD: ${rlusd} | USDC: ${usdc}\n\n` +
-          `*BSC*\nBNB: ${bnb} | USDT: ${bscUsdt} | USDC: ${bscUsdc}\n\n` +
-          `*Solana*\nSOL: ${sol} | USDC: ${solUsdc} | USDT: ${solUsdt} | EURC: ${solEurc}\n\n` +
-          `· · · · · · · · · ·\n` +
-          `What would you like to do?`,
+        text: `*${username}*\n\nWhat would you like to do?`,
       },
       footer: { text: 'Powered by XRPL' },
       action: {
@@ -57,7 +38,7 @@ export async function sendMainMenu(
               {
                 id: 'send_money',
                 title: 'Send Money',
-                description: 'Send XRP, RLUSD or USDC',
+                description: 'Send crypto to anyone on any chain',
               },
               {
                 id: 'offramp_money',
@@ -70,9 +51,14 @@ export async function sendMainMenu(
                 description: 'Apple Pay, Google Pay or Debit Card',
               },
               {
-                id: 'request_money',
-                title: 'Request Money',
-                description: 'Request payment',
+                id: 'request_crypto',
+                title: 'Request Crypto',
+                description: 'Request XRP, RLUSD, USDC and more',
+              },
+              {
+                id: 'request_card',
+                title: 'Request by Card',
+                description: 'Get paid via card or Apple/Google Pay',
               },
             ],
           },

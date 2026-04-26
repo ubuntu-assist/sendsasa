@@ -9,6 +9,7 @@ import config from '../utils/config'
 const OFFRAMP_FLOW_ID = config.OFFRAMP_FLOW_ID
 const CARD_PAYMENT_FLOW_ID = config.CARD_PAYMENT_FLOW_ID
 const REQUEST_MONEY_FLOW_ID = config.REQUEST_MONEY_FLOW_ID
+const REQUEST_CARD_FLOW_ID = config.REQUEST_CARD_FLOW_ID
 const SEND_MONEY_FLOW_ID = config.SEND_MONEY_FLOW_ID
 const PIN_SETUP_FLOW_ID = config.PIN_SETUP_FLOW_ID
 const MANAGE_CONTACTS_FLOW_ID = config.MANAGE_CONTACTS_FLOW_ID
@@ -80,9 +81,7 @@ export class FlowLauncherService {
 
   static async launchRequestMoneyFlow(user: IUser): Promise<void> {
     try {
-      const flowToken = FlowDataExchangeService.generateFlowToken(
-        user.whatsappId,
-      )
+      const flowToken = FlowDataExchangeService.generateFlowToken(user.whatsappId)
 
       const flowMessage = {
         messaging_product: 'whatsapp',
@@ -91,8 +90,8 @@ export class FlowLauncherService {
         type: 'interactive',
         interactive: {
           type: 'flow',
-          header: { type: 'text', text: 'Request Money' },
-          body: { text: 'Request XRP, RLUSD, or USDC from anyone' },
+          header: { type: 'text', text: '📥 Request Crypto' },
+          body: { text: 'Request crypto from anyone on any chain' },
           footer: { text: 'Quick & Easy' },
           action: {
             name: 'flow',
@@ -114,6 +113,47 @@ export class FlowLauncherService {
       await WhatsAppService.sendMessage(flowMessage)
     } catch (error) {
       console.error('Failed to launch Request Money flow:', error)
+      throw error
+    }
+  }
+
+  static async launchRequestCardFlow(user: IUser): Promise<void> {
+    if (!REQUEST_CARD_FLOW_ID) {
+      throw new Error('REQUEST_CARD_FLOW_ID is not configured. Set it in your environment variables.')
+    }
+    try {
+      const flowToken = FlowDataExchangeService.generateFlowToken(user.whatsappId)
+
+      const flowMessage = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: user.whatsappId,
+        type: 'interactive',
+        interactive: {
+          type: 'flow',
+          header: { type: 'text', text: '💳 Request by Card' },
+          body: { text: 'Get paid via debit card, Apple Pay or Google Pay. A secure link will be sent to you to share.' },
+          footer: { text: 'Powered by Coinbase' },
+          action: {
+            name: 'flow',
+            parameters: {
+              flow_message_version: '3',
+              flow_token: flowToken,
+              flow_id: REQUEST_CARD_FLOW_ID,
+              flow_cta: 'Continue',
+              mode: 'published',
+              flow_action: 'navigate',
+              flow_action_payload: {
+                screen: 'REQUEST_CARD_DETAILS',
+              },
+            },
+          },
+        },
+      }
+
+      await WhatsAppService.sendMessage(flowMessage)
+    } catch (error) {
+      console.error('Failed to launch Request Card flow:', error)
       throw error
     }
   }

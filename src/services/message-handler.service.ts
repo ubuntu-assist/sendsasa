@@ -150,8 +150,7 @@ export async function handleMessage(
       }
     }
 
-    const balances = await fetchAllBalances(user)
-    await sendMainMenu(phoneNumber, balances, user.username)
+    await sendMainMenu(phoneNumber, user.username)
   } catch (error) {
     console.error('❌ Error handling message:', error)
     await sendTextMessage(
@@ -199,11 +198,9 @@ export async function handleInteraction(
     }
 
     switch (interaction.action) {
-      case 'main_menu': {
-        const balances = await fetchAllBalances(user)
-        await sendMainMenu(phoneNumber, balances, user.username)
+      case 'main_menu':
+        await sendMainMenu(phoneNumber, user.username)
         break
-      }
 
       case 'send_money':
         await handleSendMoney(whatsappId, phoneNumber)
@@ -225,8 +222,12 @@ export async function handleInteraction(
         await handleLaunchCardPaymentFlow(phoneNumber, user, 'headless')
         break
 
-      case 'request_money':
-        await handleRequestMoney(whatsappId, phoneNumber)
+      case 'request_crypto':
+        await handleRequestCrypto(whatsappId, phoneNumber)
+        break
+
+      case 'request_card':
+        await handleRequestByCard(whatsappId, phoneNumber)
         break
 
       case 'my_wallet':
@@ -263,10 +264,8 @@ export async function handleInteraction(
         }
         break
 
-      default: {
-        const userBalances = await fetchAllBalances(user)
-        await sendMainMenu(phoneNumber, userBalances, user.username)
-      }
+      default:
+        await sendMainMenu(phoneNumber, user.username)
     }
   } catch (error) {
     console.error('❌ Error handling interaction:', error)
@@ -356,13 +355,23 @@ export async function handleFlowResponse(
     } else if (isRequestMoney) {
       await handleRequestMoneyComplete(whatsappId, phoneNumber, responseJson)
     } else if (isCardPaymentDone) {
-      await sendTextMessage(
-        phoneNumber,
-        `✅ *Payment link opened!*\n\n` +
-          `Once your card payment is confirmed, *${responseJson.xaf_amount} XAF* will be sent to ` +
-          `${responseJson.recipient_phone} via ${responseJson.mm_provider_name}.\n\n` +
-          `You'll receive a confirmation message here when the payout is complete.`,
-      )
+      if (responseJson.is_card_request === 'true') {
+        await sendTextMessage(
+          phoneNumber,
+          `✅ *Payment request sent!*\n\n` +
+            `A payment link has been sent to *${responseJson.payer_phone}* on WhatsApp.\n\n` +
+            `Once they pay, *${responseJson.xaf_amount} XAF* will arrive in your ` +
+            `${responseJson.mm_provider_name} account (${responseJson.recipient_phone}).`,
+        )
+      } else {
+        await sendTextMessage(
+          phoneNumber,
+          `✅ *Payment link ready!*\n\n` +
+            `Once your card payment is confirmed, *${responseJson.xaf_amount} XAF* will be sent to ` +
+            `${responseJson.recipient_phone} via ${responseJson.mm_provider_name}.\n\n` +
+            `You'll receive a confirmation message here when the payout is complete.`,
+        )
+      }
     } else if (isContactsUpdate) {
       await sendTextMessage(phoneNumber, '✅ Your contacts have been updated.')
     } else {
@@ -402,8 +411,7 @@ async function handleGetStarted(
         await sendFundingMessage(phoneNumber, user.xrplAddress)
         return
       }
-      const balances = await fetchAllBalances(user)
-      await sendMainMenu(phoneNumber, balances, user.username)
+      await sendMainMenu(phoneNumber, user.username)
       return
     }
 
@@ -522,8 +530,7 @@ async function handleImportWallet(
         phoneNumber,
         '⚠️ You already have a SendSasa account.\n\nIf you want to import a different wallet, please contact support.',
       )
-      const balances = await fetchAllBalances(existingUser)
-      await sendMainMenu(phoneNumber, balances, existingUser.username)
+      await sendMainMenu(phoneNumber, existingUser.username)
       return
     }
 
@@ -744,8 +751,7 @@ async function handleCheckActivation(
     if (isDefaultPin) {
       await FlowLauncherService.launchPinSetupFlow(user)
     } else {
-      const balances = await fetchAllBalances(user)
-      await sendMainMenu(phoneNumber, balances, user.username)
+      await sendMainMenu(phoneNumber, user.username)
     }
   } catch (error) {
     console.error('❌ Error handling check activation:', error)
@@ -800,8 +806,6 @@ async function handlePinSetupComplete(
 
     console.log(`✅ PIN set up for user ${whatsappId} (normalized: ${pinStr})`)
 
-    const balances = await fetchAllBalances(user)
-
     await sendTextMessage(
       phoneNumber,
       `✅ *Account Secured!*\n\n` +
@@ -811,7 +815,7 @@ async function handlePinSetupComplete(
         `_Keep your PIN private and never share it._`,
     )
 
-    await sendMainMenu(phoneNumber, balances, user.username)
+    await sendMainMenu(phoneNumber, user.username)
   } catch (error) {
     console.error('❌ Error completing PIN setup:', error)
     await sendTextMessage(
@@ -1279,9 +1283,9 @@ async function handleSendMoney(
 }
 
 /**
- * Handle Request Money — Launch request money flow
+ * Handle Request Crypto — Launch request money flow with balances
  */
-async function handleRequestMoney(
+async function handleRequestCrypto(
   whatsappId: string,
   phoneNumber: string,
 ): Promise<void> {
@@ -1289,21 +1293,38 @@ async function handleRequestMoney(
     const user = await User.findOne({ whatsappId })
 
     if (!user) {
-      await sendTextMessage(
-        phoneNumber,
-        '❌ User not found. Please register first.',
-      )
+      await sendTextMessage(phoneNumber, '❌ User not found. Please register first.')
       return
     }
 
     await FlowLauncherService.launchRequestMoneyFlow(user)
-    console.log(`✅ Request money flow launched for ${phoneNumber}`)
+    console.log(`✅ Request crypto flow launched for ${phoneNumber}`)
   } catch (error) {
-    console.error('❌ Error handling request money:', error)
-    await sendTextMessage(
-      phoneNumber,
-      '❌ An error occurred. Please try again.',
-    )
+    console.error('❌ Error handling request crypto:', error)
+    await sendTextMessage(phoneNumber, '❌ An error occurred. Please try again.')
+  }
+}
+
+/**
+ * Handle Request by Card — Launch request-card flow
+ */
+async function handleRequestByCard(
+  whatsappId: string,
+  phoneNumber: string,
+): Promise<void> {
+  try {
+    const user = await User.findOne({ whatsappId })
+
+    if (!user) {
+      await sendTextMessage(phoneNumber, '❌ User not found. Please register first.')
+      return
+    }
+
+    await FlowLauncherService.launchRequestCardFlow(user)
+    console.log(`✅ Request by card flow launched for ${phoneNumber}`)
+  } catch (error) {
+    console.error('❌ Error handling request by card:', error)
+    await sendTextMessage(phoneNumber, '❌ An error occurred. Please try again.')
   }
 }
 
@@ -1847,8 +1868,7 @@ async function handleOffRampComplete(
       `*Ref:* \`${refId}\``,
   )
 
-  const balances = await fetchAllBalances(user)
-  await sendMainMenu(phoneNumber, balances, user.username)
+  await sendMainMenu(phoneNumber, user.username)
 }
 
 // ── Contacts ──────────────────────────────────────────────────────────────────

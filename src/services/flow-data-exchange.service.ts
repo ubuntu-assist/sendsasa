@@ -288,6 +288,15 @@ export class FlowDataExchangeService {
       } else if (decryptedBody.screen === 'SELECT_REQUEST_CONTACT') {
         responseData =
           await FlowDataExchangeService.handleSelectRequestContact(decryptedBody)
+      } else if (decryptedBody.screen === 'REQUEST_CARD_DETAILS') {
+        responseData =
+          await FlowDataExchangeService.handleRequestCardDetails(decryptedBody)
+      } else if (decryptedBody.screen === 'SELECT_REQUEST_CARD_CONTACT') {
+        responseData =
+          await FlowDataExchangeService.handleSelectRequestCardContact(decryptedBody)
+      } else if (decryptedBody.screen === 'REQUEST_CARD_CONFIRM') {
+        responseData =
+          await FlowDataExchangeService.handleRequestCardConfirm(decryptedBody)
       } else {
         responseData = {
           version: decryptedBody.version,
@@ -1901,6 +1910,280 @@ export class FlowDataExchangeService {
     } catch (error) {
       console.error('Failed to extract whatsappId from token:', error)
       return ''
+    }
+  }
+
+  // ── Request Card Details ──────────────────────────────────────────────────
+  // User fills amount, MoMo provider and their own phone.
+  // Always uses hosted Coinbase checkout (no email/payment_type needed).
+
+  private static async handleRequestCardDetails(
+    flowData: FlowDataExchangeRequest,
+  ): Promise<FlowDataExchangeResponse> {
+    const { usd_amount, mm_provider, recipient_phone, payer_type, payer_phone } = flowData.data
+    const isSavedContact = payer_type === 'Saved Contact'
+
+    const detailError = (fields: Record<string, string>) => ({
+      version: flowData.version,
+      screen: flowData.screen,
+      data: {
+        ...flowData.data,
+        ...FlowDataExchangeService.errorFields(fields, [
+          'usd_amount', 'mm_provider', 'recipient_phone', 'payer_type', 'payer_phone',
+        ]),
+      },
+    })
+
+    const errors: Record<string, string> = {}
+
+    const numAmount = Number.parseFloat(usd_amount)
+    if (!usd_amount || Number.isNaN(numAmount) || numAmount <= 0) {
+      errors['usd_amount'] = 'Please enter a valid amount'
+    } else if (numAmount < 5) {
+      errors['usd_amount'] = 'Minimum amount is $5'
+    } else if (numAmount > 2000) {
+      errors['usd_amount'] = 'Maximum amount is $2,000'
+    }
+
+    if (!mm_provider || !OFFRAMP_PROVIDERS.includes(mm_provider as MobileMoneyProvider)) {
+      errors['mm_provider'] = 'Please select a mobile money provider'
+    }
+
+    let normalizedRecipient = ''
+    if (!recipient_phone || recipient_phone.trim() === '') {
+      errors['recipient_phone'] = 'Your mobile money number is required'
+    } else {
+      try {
+        normalizedRecipient = normalizeToE164(recipient_phone, undefined, { strict: true })
+      } catch {
+        errors['recipient_phone'] = 'Invalid phone number format (e.g. +237612345678)'
+      }
+    }
+
+    if (!payer_type) {
+      errors['payer_type'] = 'Please select how to send the request'
+    }
+
+    if (!isSavedContact) {
+      if (!payer_phone || payer_phone.trim() === '') {
+        errors['payer_phone'] = "Payer's WhatsApp number is required"
+      } else {
+        try {
+          normalizeToE164(payer_phone, undefined, { strict: true })
+        } catch {
+          errors['payer_phone'] = 'Invalid phone number format (e.g. +237612345678)'
+        }
+      }
+    }
+
+    if (Object.keys(errors).length > 0) return detailError(errors)
+
+    // Saved contact: show contact picker
+    if (isSavedContact) {
+      const whatsappId = FlowDataExchangeService.extractWhatsappIdFromToken(flowData.flow_token)
+      const user = await User.findOne({ whatsappId })
+      const beneficiaries = (user as any)?.beneficiaries ?? []
+
+      if (beneficiaries.length === 0) {
+        return detailError({ payer_type: 'No saved contacts. Add contacts via My Contacts first.' })
+      }
+
+      const contacts = beneficiaries.map((b: any) => ({
+        id: b.phoneNumber,
+        title: `${b.nickname} (${b.phoneNumber})`,
+      }))
+
+      return {
+        version: flowData.version,
+        screen: 'SELECT_REQUEST_CARD_CONTACT',
+        data: {
+          usd_amount: numAmount.toString(),
+          mm_provider,
+          recipient_phone: normalizedRecipient,
+          contacts,
+        },
+      }
+    }
+
+    // Normal flow: build confirm screen
+    const normalizedPayer = normalizeToE164(payer_phone!, undefined, { strict: true })
+    return FlowDataExchangeService.buildRequestCardConfirm(
+      flowData.version,
+      numAmount,
+      mm_provider,
+      normalizedRecipient,
+      normalizedPayer,
+    )
+  }
+
+  // ── Select Request Card Contact ───────────────────────────────────────────
+  // User picked a saved contact as the payer. No SendSasa check needed —
+  // card payments work for any WhatsApp number.
+
+  private static async handleSelectRequestCardContact(
+    flowData: FlowDataExchangeRequest,
+  ): Promise<FlowDataExchangeResponse> {
+    const { usd_amount, mm_provider, recipient_phone, contact } = flowData.data
+
+    const selectError = (msg: string) => ({
+      version: flowData.version,
+      screen: 'SELECT_REQUEST_CARD_CONTACT' as const,
+      data: { ...flowData.data, error_contact: msg },
+    })
+
+    if (!contact) return selectError('Please select a contact')
+
+    const numAmount = Number.parseFloat(usd_amount)
+    return FlowDataExchangeService.buildRequestCardConfirm(
+      flowData.version,
+      numAmount,
+      mm_provider,
+      recipient_phone,
+      contact,
+    )
+  }
+
+  private static async buildRequestCardConfirm(
+    version: string,
+    numAmount: number,
+    mm_provider: string,
+    recipientPhone: string,
+    payerPhone: string,
+  ): Promise<FlowDataExchangeResponse> {
+    let quote
+    try {
+      const rates = await fxRateService.getRates()
+      quote = calculateCardQuote(numAmount, rates.sendSasaRate, rates.fixerRate)
+    } catch (err: any) {
+      throw err
+    }
+
+    const providerName = PROVIDER_DISPLAY[mm_provider as MobileMoneyProvider]
+
+    return {
+      version,
+      screen: 'REQUEST_CARD_CONFIRM',
+      data: {
+        usd_amount: numAmount.toFixed(2),
+        card_fee_usd: quote.cardFeeUSD.toFixed(2),
+        total_usd_charged: quote.totalUSDCharged.toFixed(2),
+        xaf_amount: quote.xafAmount.toString(),
+        fee_xaf: quote.feeXAF.toString(),
+        rate_display: quote.rateDisplay,
+        mm_provider,
+        mm_provider_name: providerName,
+        recipient_phone: recipientPhone,
+        payer_phone: payerPhone,
+        fixer_rate: quote.fixerRate.toFixed(4),
+        sendsasa_rate: quote.sendSasaRate.toFixed(4),
+      },
+    }
+  }
+
+  // ── Request Card Confirm ──────────────────────────────────────────────────
+  // Creates the OnRamp record, generates the hosted Coinbase link,
+  // sends the CTA button directly to the payer's WhatsApp,
+  // sends a confirmation text to the requester,
+  // then navigates to REQUEST_CARD_LINK (terminal screen).
+
+  private static async handleRequestCardConfirm(
+    flowData: FlowDataExchangeRequest,
+  ): Promise<FlowDataExchangeResponse> {
+    const {
+      usd_amount,
+      card_fee_usd,
+      total_usd_charged,
+      xaf_amount,
+      fee_xaf,
+      rate_display,
+      mm_provider,
+      mm_provider_name,
+      recipient_phone,
+      payer_phone,
+    } = flowData.data
+
+    const whatsappId = FlowDataExchangeService.extractWhatsappIdFromToken(flowData.flow_token)
+    const user = await User.findOne({ whatsappId })
+
+    const reqError = (msg: string) => ({
+      version: flowData.version,
+      screen: flowData.screen,
+      data: { ...flowData.data, error_usd_amount: msg },
+    })
+
+    if (!user) return reqError('Session expired. Please restart.')
+
+    let adminAddress: string
+    try {
+      adminAddress = await getAdminEVMAddress()
+    } catch {
+      return reqError('Service temporarily unavailable. Please try again.')
+    }
+
+    let fixerRate = 0
+    let sendSasaRate = 0
+    try {
+      const rates = await fxRateService.getRates()
+      fixerRate = rates.fixerRate
+      sendSasaRate = rates.sendSasaRate
+    } catch { /* non-critical for record keeping */ }
+
+    const numUSD = Number.parseFloat(usd_amount)
+
+    const onRamp = new OnRampTransaction({
+      senderPhone: user.whatsappId,
+      recipientPhone: recipient_phone,
+      mmProvider: mm_provider as MobileMoneyProvider,
+      usdAmount: numUSD,
+      cardFeePct: CARD_FEE_PCT,
+      cardFeeUSD: Number.parseFloat(card_fee_usd),
+      totalUSDCharged: Number.parseFloat(total_usd_charged),
+      xafAmount: Number.parseInt(xaf_amount, 10),
+      feeXAF: Number.parseInt(fee_xaf, 10),
+      fixerRate,
+      sendSasaRate,
+      adminAddress,
+      status: 'pending',
+    })
+    await onRamp.save()
+
+    const refId = (onRamp._id as { toString(): string }).toString()
+
+    let sessionToken: string
+    try {
+      sessionToken = await createSessionToken(numUSD, adminAddress, refId)
+    } catch (err: any) {
+      await onRamp.deleteOne().catch(() => {})
+      return reqError(err.message || 'Could not create payment session. Please try again.')
+    }
+
+    const paymentURL = buildPaymentURL(sessionToken)
+
+    // Normalise payer phone to WhatsApp ID format (no leading +)
+    const payerWhatsAppId = payer_phone.replace(/^\+/, '')
+
+    // Send the payment link directly to the payer
+    sendCtaUrlButton(
+      payerWhatsAppId,
+      `💳 *Payment Request from ${user.username}*\n\n` +
+        `*Amount:* $${total_usd_charged} (incl. 3.99% card fee)\n` +
+        `*Rate:* ${rate_display}\n` +
+        `*Ref:* ${refId}\n\n` +
+        `Tap the button below to pay with your debit card, Apple Pay or Google Pay.`,
+      'Pay Now',
+      paymentURL,
+    ).catch((err) => console.error('Failed to send card request link to payer:', err))
+
+    return {
+      version: flowData.version,
+      screen: 'REQUEST_CARD_LINK',
+      data: {
+        xaf_amount,
+        mm_provider_name,
+        recipient_phone,
+        payer_phone,
+        is_card_request: 'true',
+      },
     }
   }
 
