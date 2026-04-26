@@ -1519,9 +1519,9 @@ export class FlowDataExchangeService {
   private static async handleBeneficiaryList(
     flowData: FlowDataExchangeRequest,
   ): Promise<FlowDataExchangeResponse> {
-    const { action } = flowData.data
+    const { selected_action } = flowData.data
 
-    if (!action) {
+    if (!selected_action) {
       return {
         version: flowData.version,
         screen: flowData.screen,
@@ -1534,7 +1534,7 @@ export class FlowDataExchangeService {
     )
     const user = await User.findOne({ whatsappId })
 
-    if (action === 'delete') {
+    if (selected_action === 'delete') {
       const beneficiaries = user?.beneficiaries ?? []
       if (beneficiaries.length === 0) {
         return {
@@ -1554,7 +1554,7 @@ export class FlowDataExchangeService {
       }
     }
 
-    // action === 'add'
+    // selected_action === 'add'
     return {
       version: flowData.version,
       screen: 'ADD_BENEFICIARY',

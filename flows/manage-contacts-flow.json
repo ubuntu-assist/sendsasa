@@ -37,12 +37,12 @@
             "type": "Form",
             "name": "contacts_action_form",
             "error-messages": {
-              "action": "${data.error_action}"
+              "selected_action": "${data.error_action}"
             },
             "children": [
               {
                 "type": "Dropdown",
-                "name": "action",
+                "name": "selected_action",
                 "label": "What would you like to do?",
                 "required": true,
                 "data-source": [
@@ -56,7 +56,7 @@
                 "on-click-action": {
                   "name": "data_exchange",
                   "payload": {
-                    "action": "${form.action}"
+                    "selected_action": "${form.selected_action}"
                   }
                 }
               }
