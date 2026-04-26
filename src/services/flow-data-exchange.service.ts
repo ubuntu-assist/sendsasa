@@ -22,7 +22,7 @@ import {
   CARD_FEE_PCT,
 } from './coinbase-onramp.service'
 import { getAdminEVMAddress } from '../config/admin-wallet'
-import { sendTextMessage, sendCtaUrlButton } from './whatsapp.service'
+import { sendCtaUrlButton } from './whatsapp.service'
 import config from '../utils/config'
 
 const OFFRAMP_CURRENCIES = ['XRP', 'RLUSD', 'USDC', 'USDT']
