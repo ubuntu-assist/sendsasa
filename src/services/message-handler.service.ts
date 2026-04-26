@@ -6,7 +6,6 @@ import { FlowLauncherService } from './flow-launcher.service'
 import {
   sendTextMessage,
   sendPaymentRequestButtons,
-  sendCardPaymentTypeButtons,
   sendDocumentByMediaId,
 } from './whatsapp.service'
 import {
@@ -15,6 +14,8 @@ import {
   sendWalletMenu,
   sendFundingMessage,
   sendSaveContactPrompt,
+  sendSendMoneyTypeList,
+  sendRequestTypeButtons,
 } from './whatsapp-menu.service'
 import {
   getAllBalances,
@@ -203,15 +204,15 @@ export async function handleInteraction(
         break
 
       case 'send_money':
+        await sendSendMoneyTypeList(phoneNumber)
+        break
+
+      case 'send_crypto':
         await handleSendMoney(whatsappId, phoneNumber)
         break
 
       case 'offramp_money':
         await handleOffRamp(whatsappId, phoneNumber, user)
-        break
-
-      case 'card_payment':
-        await handleCardPayment(phoneNumber)
         break
 
       case 'card_pay_hosted':
@@ -220,6 +221,10 @@ export async function handleInteraction(
 
       case 'card_pay_headless':
         await handleLaunchCardPaymentFlow(phoneNumber, user, 'headless')
+        break
+
+      case 'request_money':
+        await sendRequestTypeButtons(phoneNumber)
         break
 
       case 'request_crypto':
@@ -1670,17 +1675,6 @@ async function handleOffRamp(
   }
 }
 
-/**
- * "Pay with Card" menu entry — show payment method choice buttons.
- */
-async function handleCardPayment(phoneNumber: string): Promise<void> {
-  try {
-    await sendCardPaymentTypeButtons(phoneNumber)
-  } catch (error) {
-    console.error('❌ Error sending card payment type buttons:', error)
-    await sendTextMessage(phoneNumber, '❌ An error occurred. Please try again.')
-  }
-}
 
 /**
  * User tapped "Pay with Card" or "Apple / Google Pay" — launch the flow.

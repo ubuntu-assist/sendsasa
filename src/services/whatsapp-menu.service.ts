@@ -38,7 +38,7 @@ export async function sendMainMenu(
               {
                 id: 'send_money',
                 title: 'Send Money',
-                description: 'Send crypto to anyone on any chain',
+                description: 'Crypto, card or Apple/Google Pay',
               },
               {
                 id: 'offramp_money',
@@ -46,19 +46,9 @@ export async function sendMainMenu(
                 description: 'Send to MTN, Orange or UBA M2U',
               },
               {
-                id: 'card_payment',
-                title: 'Pay with Card',
-                description: 'Apple Pay, Google Pay or Debit Card',
-              },
-              {
-                id: 'request_crypto',
-                title: 'Request Crypto',
-                description: 'Request XRP, RLUSD, USDC and more',
-              },
-              {
-                id: 'request_card',
-                title: 'Request by Card',
-                description: 'Get paid via card or Apple/Google Pay',
+                id: 'request_money',
+                title: 'Request Money',
+                description: 'Request crypto or get paid by card',
               },
             ],
           },
@@ -357,6 +347,75 @@ export async function sendSaveContactPrompt(
           {
             type: 'reply',
             reply: { id: `save_contact:${phone}`, title: 'Save Contact' },
+          },
+        ],
+      },
+    },
+  }
+  await WhatsAppService.sendMessage(payload)
+}
+
+export async function sendSendMoneyTypeList(to: string): Promise<void> {
+  const payload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'list',
+      body: {
+        text: '*Send Money*\n\nHow would you like to send?',
+      },
+      action: {
+        button: 'Choose',
+        sections: [
+          {
+            title: 'Payment method',
+            rows: [
+              {
+                id: 'send_crypto',
+                title: 'Send Crypto',
+                description: 'XRP, RLUSD, USDC and more',
+              },
+              {
+                id: 'card_pay_hosted',
+                title: 'Pay with Card',
+                description: 'Any debit or credit card',
+              },
+              {
+                id: 'card_pay_headless',
+                title: 'Apple / Google Pay',
+                description: 'Native wallet, US phone required',
+              },
+            ],
+          },
+        ],
+      },
+    },
+  }
+  await WhatsAppService.sendMessage(payload)
+}
+
+export async function sendRequestTypeButtons(to: string): Promise<void> {
+  const payload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: {
+        text: '*Request Money*\n\nHow would you like to receive?',
+      },
+      action: {
+        buttons: [
+          {
+            type: 'reply',
+            reply: { id: 'request_crypto', title: 'Request Crypto' },
+          },
+          {
+            type: 'reply',
+            reply: { id: 'request_card', title: 'Request by Card' },
           },
         ],
       },

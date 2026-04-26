@@ -11,7 +11,10 @@ export interface ButtonInteraction {
 export function parseButtonInteraction(buttonId: string): ButtonInteraction {
   if (buttonId === 'main_menu') return { action: 'main_menu' }
   if (buttonId === 'send_money') return { action: 'send_money' }
+  if (buttonId === 'send_crypto') return { action: 'send_crypto' }
   if (buttonId === 'request_money') return { action: 'request_money' }
+  if (buttonId === 'request_crypto') return { action: 'request_crypto' }
+  if (buttonId === 'request_card') return { action: 'request_card' }
   if (buttonId === 'offramp_money') return { action: 'offramp_money' }
   if (buttonId === 'card_payment') return { action: 'card_payment' }
   if (buttonId === 'card_pay_hosted') return { action: 'card_pay_hosted' }
