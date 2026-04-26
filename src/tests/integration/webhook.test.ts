@@ -1,4 +1,4 @@
-import { describe, it, before } from 'node:test'
+import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import request from 'supertest'
 import { createApp, config } from '../../app.js'
@@ -73,10 +73,12 @@ describe('POST /webhook — message ingestion', () => {
   // that return without touching the DB or WhatsApp API.
 
   it('always returns 200 (fire-and-forget design)', async () => {
-    const res = await request(app).post('/webhook').send({
-      object: 'whatsapp_business_account',
-      entry: [{ changes: [{ value: { messages: null, contacts: [] } }] }],
-    })
+    const res = await request(app)
+      .post('/webhook')
+      .send({
+        object: 'whatsapp_business_account',
+        entry: [{ changes: [{ value: { messages: null, contacts: [] } }] }],
+      })
     assert.equal(res.status, 200)
   })
 
@@ -95,18 +97,22 @@ describe('POST /webhook — message ingestion', () => {
   })
 
   it('returns 200 when value is missing inside changes (early exit)', async () => {
-    const res = await request(app).post('/webhook').send({
-      object: 'whatsapp_business_account',
-      entry: [{ changes: [{}] }],
-    })
+    const res = await request(app)
+      .post('/webhook')
+      .send({
+        object: 'whatsapp_business_account',
+        entry: [{ changes: [{}] }],
+      })
     assert.equal(res.status, 200)
   })
 
   it('returns 200 when messages array is empty (early exit)', async () => {
-    const res = await request(app).post('/webhook').send({
-      object: 'whatsapp_business_account',
-      entry: [{ changes: [{ value: { messages: [], contacts: [] } }] }],
-    })
+    const res = await request(app)
+      .post('/webhook')
+      .send({
+        object: 'whatsapp_business_account',
+        entry: [{ changes: [{ value: { messages: [], contacts: [] } }] }],
+      })
     assert.equal(res.status, 200)
   })
 
