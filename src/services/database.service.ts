@@ -13,8 +13,8 @@ export class UserService {
     return await User.findOne({ phoneNumber })
   }
 
-  static async getUserByAddress(xrplAddress: string): Promise<IUser | null> {
-    return await User.findOne({ xrplAddress })
+  static async getUserByAddress(xrpl_address: string): Promise<IUser | null> {
+    return await User.findOne({ xrpl_address })
   }
 
   static async createUser(
@@ -34,14 +34,12 @@ export class UserService {
     const user = new User({
       whatsappId,
       phoneNumber: e164Phone,
-      xrplAddress, // Legacy field kept for compatibility
-      encryptedSeed: '', // No longer used — wallets managed by Web3Auth
+      xrplAddress,
 
       // Required fields
       username: `@${e164Phone.slice(-8)}.sasa`,
       pinHash: '',
 
-      preferredCurrency: 'XRP',
       rlusdTrustLineCreated: false,
       usdcTrustLineCreated: false,
 
@@ -50,7 +48,6 @@ export class UserService {
       xrpl_address: xrplAddress,
       web3auth_verifier_id: e164Phone,
       wallet_created_at: new Date(),
-      migration_status: 'n/a',
 
       createdAt: new Date(),
       lastActive: new Date(),
@@ -59,17 +56,6 @@ export class UserService {
     await user.save()
 
     return user
-  }
-
-  static async updatePreferredCurrency(
-    whatsappId: string,
-    currency: 'XRP' | 'RLUSD' | 'USDC',
-  ): Promise<IUser | null> {
-    return await User.findOneAndUpdate(
-      { whatsappId },
-      { preferredCurrency: currency },
-      { new: true },
-    )
   }
 
   static async updateTrustLineStatus(
@@ -90,7 +76,7 @@ export class UserService {
     rlusd: string
     usdc: string
   }> {
-    return await getAllBalances((user as any).xrpl_address || user.xrplAddress)
+    return await getAllBalances(user.xrpl_address!)
   }
 
   static async updateLastActive(whatsappId: string): Promise<void> {

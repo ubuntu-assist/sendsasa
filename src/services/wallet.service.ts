@@ -70,10 +70,8 @@ class WalletService {
             evm_address: evmAddress,
             xrpl_address: xrplAddress,
             solana_address: solanaAddress,
-            web3auth_verifier: VERIFIER,
             web3auth_verifier_id: e164Phone,
             wallet_created_at: new Date(),
-            migration_status: 'completed',
           },
         },
       )

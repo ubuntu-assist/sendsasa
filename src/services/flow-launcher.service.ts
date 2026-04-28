@@ -17,7 +17,7 @@ const MANAGE_CONTACTS_FLOW_ID = config.MANAGE_CONTACTS_FLOW_ID
 export class FlowLauncherService {
   static async launchSendMoneyFlow(user: IUser): Promise<void> {
     try {
-      const xrplAddress = (user as any).xrpl_address || user.xrplAddress
+      const xrplAddress = user.xrpl_address
       const evmAddress: string | undefined = (user as any).evm_address
       const solanaAddress: string | undefined = (user as any).solana_address
 
@@ -205,7 +205,7 @@ export class FlowLauncherService {
 
   static async launchOffRampFlow(user: IUser): Promise<void> {
     try {
-      const xrplAddress = (user as any).xrpl_address || user.xrplAddress
+      const xrplAddress = user.xrpl_address
       const balances = await getAllBalances(xrplAddress)
       const flowToken = FlowDataExchangeService.generateFlowToken(
         user.whatsappId,

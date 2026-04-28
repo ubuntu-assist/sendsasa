@@ -88,7 +88,6 @@ const OnRampTransactionSchema = new Schema<IOnRampTransaction>({
 
 OnRampTransactionSchema.index({ senderPhone: 1, createdAt: -1 })
 OnRampTransactionSchema.index({ status: 1, createdAt: -1 })
-OnRampTransactionSchema.index({ coinbaseTxId: 1 }, { sparse: true })
 
 export const OnRampTransaction = mongoose.model<IOnRampTransaction>(
   'OnRampTransaction',

@@ -11,6 +11,14 @@ const BeneficiarySchema = new Schema(
   { _id: false },
 )
 
+const SecurityQuestionSchema = new Schema(
+  {
+    questionId: { type: String, required: true, trim: true },
+    answerHash: { type: String, required: true },
+  },
+  { _id: false },
+)
+
 const UserSchema = new Schema<IUser>({
   whatsappId: {
     type: String,
@@ -25,18 +33,6 @@ const UserSchema = new Schema<IUser>({
     unique: true,
     index: true,
     trim: true,
-  },
-  xrplAddress: {
-    type: String,
-    required: true,
-    unique: true,
-    index: true,
-    trim: true,
-  },
-  // Legacy field — kept for migration period; empty string for Web3Auth users
-  encryptedSeed: {
-    type: String,
-    default: '',
   },
   createdAt: {
     type: Date,
@@ -76,17 +72,14 @@ const UserSchema = new Schema<IUser>({
     type: Date,
   },
 
-  recoveryCodeHash: {
-    type: String,
-  },
-  recoveryCodeExpiry: {
-    type: Date,
+  securityQuestions: {
+    type: [SecurityQuestionSchema],
+    default: [],
   },
 
-  preferredCurrency: {
-    type: String,
-    enum: ['XRP', 'RLUSD', 'USDC'],
-    default: 'XRP',
+  pendingPinRecovery: {
+    step: { type: Number, enum: [1, 2] },
+    expiresAt: { type: Date },
   },
 
   rlusdTrustLineCreated: {
@@ -105,45 +98,36 @@ const UserSchema = new Schema<IUser>({
     type: String,
   },
 
-  // Web3Auth wallet fields (populated during migration / new user creation)
-  web3auth_verifier: {
-    type: String,
-    default: 'sendsasa-whatsapp',
-  },
+  // Web3Auth wallet fields
   web3auth_verifier_id: {
     type: String,
+    required: true,
     unique: true,
-    sparse: true,
+    index: true,
+    trim: true,
   },
   evm_address: {
     type: String,
+    required: true,
     index: true,
-    sparse: true,
+    trim: true,
   },
   xrpl_address: {
     type: String,
+    required: true,
+    unique: true,
     index: true,
-    sparse: true,
+    trim: true,
   },
   solana_address: {
     type: String,
+    required: true,
     index: true,
-    sparse: true,
+    trim: true,
   },
   wallet_created_at: {
     type: Date,
-  },
-  migration_status: {
-    type: String,
-    enum: ['pending', 'completed', 'n/a'],
-    default: 'n/a',
-  },
-  old_wallet_exists: {
-    type: Boolean,
-    default: false,
-  },
-  fund_migration_at: {
-    type: Date,
+    required: true,
   },
   beneficiaries: {
     type: [BeneficiarySchema],
@@ -151,9 +135,8 @@ const UserSchema = new Schema<IUser>({
   },
 })
 
-UserSchema.index({ phoneNumber: 1, xrplAddress: 1 })
+
 UserSchema.index({ whatsappId: 1, lastActive: -1 })
-UserSchema.index({ username: 1 }, { unique: true })
 UserSchema.index({ pinLockedUntil: 1 })
 
 UserSchema.pre('save', async function () {

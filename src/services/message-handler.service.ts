@@ -42,23 +42,8 @@ import config from '../utils/config'
 
 // ── Wallet helpers ────────────────────────────────────────────────────────────
 
-/**
- * Return the XRPL address that should be used for balance lookups and as the
- * sender/receiver in transactions.
- *
- * - Users with a Web3Auth-derived address (xrpl_address set): use that field.
- * - Pending-migration users (only old seed wallet): fall back to xrplAddress.
- */
 function getEffectiveXRPLAddress(user: any): string {
-  return user.xrpl_address || user.xrplAddress
-}
-
-/**
- * Return true if the user must complete wallet migration before transacting.
- * Pending users still have funds in their old address and need to migrate first.
- */
-function requiresMigration(user: any): boolean {
-  return user.migration_status === 'pending' && !user.xrpl_address
+  return user.xrpl_address
 }
 
 /**
@@ -133,6 +118,7 @@ export async function handleMessage(
   whatsappId: string,
   phoneNumber: string,
   profileName?: string,
+  messageText?: string,
 ): Promise<void> {
   try {
     const user = await User.findOne({ whatsappId })
@@ -142,11 +128,23 @@ export async function handleMessage(
       return
     }
 
+    // PIN recovery — intercept before anything else
+    if (user.pendingPinRecovery && user.pendingPinRecovery.expiresAt > new Date()) {
+      await handlePinRecoveryAnswer(phoneNumber, user, messageText ?? '')
+      return
+    }
+
+    const normalizedText = messageText?.trim().toLowerCase() ?? ''
+    if (normalizedText === 'forgot pin' || normalizedText === 'reset pin') {
+      await handleForgotPin(phoneNumber, user)
+      return
+    }
+
     // If account was created on mainnet but never funded, remind user to fund it
     if (!user.rlusdTrustLineCreated && !user.usdcTrustLineCreated) {
-      const activated = await isAccountActivated(user.xrplAddress)
+      const activated = await isAccountActivated(user.xrpl_address)
       if (!activated) {
-        await sendFundingMessage(phoneNumber, user.xrplAddress)
+        await sendFundingMessage(phoneNumber, user.xrpl_address)
         return
       }
     }
@@ -411,9 +409,9 @@ async function handleGetStarted(
 
     if (user) {
       // Returning user — check if still needs activation
-      const activated = await isAccountActivated(user.xrplAddress)
+      const activated = await isAccountActivated(user.xrpl_address)
       if (!activated) {
-        await sendFundingMessage(phoneNumber, user.xrplAddress)
+        await sendFundingMessage(phoneNumber, user.xrpl_address)
         return
       }
       await sendMainMenu(phoneNumber, user.username)
@@ -442,7 +440,6 @@ async function handleGetStarted(
       solana_address: solanaAddress,
       web3auth_verifier_id: e164Phone,
       wallet_created_at: new Date(),
-      migration_status: 'n/a' as const,
     }
 
     if (config.XRPL_NETWORK !== 'mainnet') {
@@ -478,8 +475,6 @@ async function handleGetStarted(
       user = await User.create({
         whatsappId,
         phoneNumber: e164Phone,
-        xrplAddress: address,
-        encryptedSeed: '',
         pinHash: defaultPinHash,
         pinAttempts: 0,
         username,
@@ -497,8 +492,6 @@ async function handleGetStarted(
       await User.create({
         whatsappId,
         phoneNumber: e164Phone,
-        xrplAddress: address,
-        encryptedSeed: '',
         pinHash: defaultPinHash,
         pinAttempts: 0,
         username,
@@ -589,7 +582,7 @@ async function handleWalletImportComplete(
       return
     }
 
-    const existingByAddress = await User.findOne({ xrplAddress: xrpl_address })
+    const existingByAddress = await User.findOne({ xrpl_address })
     if (existingByAddress) {
       await sendTextMessage(
         phoneNumber,
@@ -645,8 +638,6 @@ async function handleWalletImportComplete(
     const user = await User.create({
       whatsappId,
       phoneNumber: e164Phone,
-      xrplAddress: xrpl_address,
-      encryptedSeed: '',
       pinHash: defaultPinHash,
       pinAttempts: 0,
       username,
@@ -654,8 +645,6 @@ async function handleWalletImportComplete(
       usdcTrustLineCreated: usdcCreated,
       rlusdTrustLineHash: rlusdHash,
       usdcTrustLineHash: usdcHash,
-      old_wallet_exists: true,
-      migration_status: 'pending',
     })
 
     console.log(
@@ -694,14 +683,14 @@ async function handleCheckActivation(
 
     await sendTextMessage(phoneNumber, '⏳ _Checking your wallet activation..._')
 
-    const activated = await isAccountActivated(user.xrplAddress)
+    const activated = await isAccountActivated(user.xrpl_address)
 
     if (!activated) {
       await sendTextMessage(
         phoneNumber,
-        `⚠️ *Wallet not yet activated.*\n\nYour address:\n\`${user.xrplAddress}\`\n\nPlease send at least *1 XRP* to this address and tap *Check Activation* again.`,
+        `⚠️ *Wallet not yet activated.*\n\nYour address:\n\`${user.xrpl_address}\`\n\nPlease send at least *1 XRP* to this address and tap *Check Activation* again.`,
       )
-      await sendFundingMessage(phoneNumber, user.xrplAddress)
+      await sendFundingMessage(phoneNumber, user.xrpl_address)
       return
     }
 
@@ -767,6 +756,111 @@ async function handleCheckActivation(
   }
 }
 
+// ── PIN Recovery ─────────────────────────────────────────────────────────────
+
+const SECURITY_QUESTION_TEXT: Record<string, string> = {
+  mother_maiden: "What is your mother's maiden name?",
+  first_pet: "What was your first pet's name?",
+  birth_city: 'What city were you born in?',
+  favorite_teacher: "What was your favorite teacher's name?",
+  first_school: 'What was the name of your first school?',
+  childhood_friend: 'Who was your childhood best friend?',
+  first_job: 'What was your first job title?',
+  favorite_book: 'What is your favorite book?',
+  favorite_food: 'What is your favorite food?',
+  dream_job: 'What was your childhood dream job?',
+  first_car: 'What was your first car model?',
+}
+
+async function handleForgotPin(phoneNumber: string, user: any): Promise<void> {
+  if (!user.securityQuestions || user.securityQuestions.length < 2) {
+    await sendTextMessage(
+      phoneNumber,
+      '⚠️ *No recovery questions found.*\n\n' +
+        'You did not set up security questions during account creation.\n\n' +
+        '_Please contact support to reset your PIN._',
+    )
+    return
+  }
+
+  user.pendingPinRecovery = {
+    step: 1,
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+  }
+  await user.save()
+
+  const q1 = SECURITY_QUESTION_TEXT[user.securityQuestions[0].questionId] ?? user.securityQuestions[0].questionId
+  await sendTextMessage(
+    phoneNumber,
+    `🔐 *PIN Recovery*\n\n` +
+      `Answer your security questions to reset your PIN.\n\n` +
+      `*Question 1:* ${q1}\n\n` +
+      `_Type your answer below. You have 10 minutes._`,
+  )
+}
+
+async function handlePinRecoveryAnswer(phoneNumber: string, user: any, answer: string): Promise<void> {
+  const recovery = user.pendingPinRecovery
+
+  // Expired — clear and bail
+  if (!recovery || recovery.expiresAt <= new Date()) {
+    user.pendingPinRecovery = undefined
+    await user.save()
+    await sendTextMessage(
+      phoneNumber,
+      '⌛ Recovery session expired. Type *forgot pin* to start again.',
+    )
+    return
+  }
+
+  const questionIndex = recovery.step - 1
+  const stored = user.securityQuestions[questionIndex]
+
+  if (!stored) {
+    user.pendingPinRecovery = undefined
+    await user.save()
+    await sendTextMessage(phoneNumber, '❌ Recovery error. Please try again.')
+    return
+  }
+
+  const isCorrect = await bcrypt.compare(answer.trim().toLowerCase(), stored.answerHash)
+
+  if (!isCorrect) {
+    user.pendingPinRecovery = undefined
+    await user.save()
+    await sendTextMessage(
+      phoneNumber,
+      '❌ *Incorrect answer.*\n\nRecovery cancelled for security.\n\nType *forgot pin* to try again.',
+    )
+    return
+  }
+
+  if (recovery.step === 1 && user.securityQuestions.length >= 2) {
+    user.pendingPinRecovery = {
+      step: 2,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    }
+    await user.save()
+
+    const q2 = SECURITY_QUESTION_TEXT[user.securityQuestions[1].questionId] ?? user.securityQuestions[1].questionId
+    await sendTextMessage(
+      phoneNumber,
+      `✅ Correct!\n\n*Question 2:* ${q2}`,
+    )
+    return
+  }
+
+  // Both answers correct — clear state and re-launch PIN setup
+  user.pendingPinRecovery = undefined
+  await user.save()
+
+  await sendTextMessage(
+    phoneNumber,
+    '✅ *Identity verified!*\n\nYou can now set a new PIN.',
+  )
+  await FlowLauncherService.launchPinSetupFlow(user)
+}
+
 /**
  * Handle PIN Setup Flow Completion
  */
@@ -776,7 +870,7 @@ async function handlePinSetupComplete(
   flowData: any,
 ): Promise<void> {
   try {
-    const { pin, confirm_pin } = flowData
+    const { pin, confirm_pin, question_1, answer_1, question_2, answer_2, question_3, answer_3 } = flowData
 
     const pinStr = normalizePin(pin)
     const confirmPinStr = normalizePin(confirm_pin)
@@ -807,6 +901,23 @@ async function handlePinSetupComplete(
     user.pinLastChanged = new Date()
     user.pinAttempts = 0
     user.pinLockedUntil = undefined
+
+    // Hash and store security question answers (answers normalised to lowercase+trimmed)
+    const securityQuestions: { questionId: string; answerHash: string }[] = []
+    for (const [qId, ans] of [
+      [question_1, answer_1],
+      [question_2, answer_2],
+      [question_3, answer_3],
+    ] as [string, string][]) {
+      if (qId && ans?.trim()) {
+        securityQuestions.push({
+          questionId: qId,
+          answerHash: await bcrypt.hash(ans.trim().toLowerCase(), 10),
+        })
+      }
+    }
+    user.securityQuestions = securityQuestions
+
     await user.save()
 
     console.log(`✅ PIN set up for user ${whatsappId} (normalized: ${pinStr})`)
@@ -856,7 +967,7 @@ const CURRENCY_CHAIN: Record<string, ChainId> = {
 }
 
 function getAddressForChain(user: any, chain: ChainId): string | undefined {
-  if (chain === 'xrpl') return user.xrpl_address || user.xrplAddress
+  if (chain === 'xrpl') return user.xrpl_address || user.xrpl_address
   if (chain === 'bsc') return user.evm_address
   if (chain === 'solana') return user.solana_address
   return undefined
@@ -963,18 +1074,6 @@ async function handleSendMoneyComplete(
           }
         }
       }
-    }
-
-    // Block transactions for users who need to complete wallet migration
-    if (requiresMigration(user)) {
-      await sendTextMessage(
-        phoneNumber,
-        '⚠️ *Wallet Migration Required*\n\n' +
-          'Your wallet needs to be upgraded before you can send money.\n\n' +
-          '· · · · · · · · · ·\n' +
-          '_Please contact support to complete your migration._',
-      )
-      return
     }
 
     await sendTextMessage(phoneNumber, '_Processing transaction..._')
@@ -1172,7 +1271,7 @@ async function handleRequestMoneyComplete(
         return
       }
 
-      payerAddress = recipientUser.xrplAddress
+      payerAddress = recipientUser.xrpl_address
       payerPhone = recipientUser.phoneNumber
       recipientUsername = recipientUser.username
     } else if (recipient_type === 'SendSasa Username') {
@@ -1185,7 +1284,7 @@ async function handleRequestMoneyComplete(
         return
       }
 
-      payerAddress = recipientUser.xrplAddress
+      payerAddress = recipientUser.xrpl_address
       payerPhone = recipientUser.phoneNumber
       recipientUsername = recipientUser.username
     } else {
@@ -1200,7 +1299,7 @@ async function handleRequestMoneyComplete(
 
     const paymentRequest = await PaymentRequest.create({
       requestId,
-      requesterAddress: user.xrplAddress,
+      requesterAddress: user.xrpl_address,
       requesterPhone: user.phoneNumber,
       payerAddress,
       payerPhone,
@@ -1364,7 +1463,7 @@ async function handleTransactionHistory(
     }
 
     const transactions = await Transaction.find({
-      $or: [{ fromAddress: user.xrplAddress }, { toAddress: user.xrplAddress }],
+      $or: [{ fromAddress: user.xrpl_address }, { toAddress: user.xrpl_address }],
     })
       .sort({ timestamp: -1 })
       .limit(5)
@@ -1380,7 +1479,7 @@ async function handleTransactionHistory(
     let message = '📜 *Transaction History*\n\n'
 
     transactions.forEach((tx, index) => {
-      const isSent = tx.fromAddress === user.xrplAddress
+      const isSent = tx.fromAddress === user.xrpl_address
 
       message += `*${isSent ? 'Sent' : 'Received'}*   ${tx.amount} ${tx.currency}\n`
       message += `*${isSent ? 'To' : 'From'}*      \`${isSent ? tx.toAddress.slice(0, 8) : tx.fromAddress.slice(0, 8)}...\`\n`
@@ -1416,7 +1515,7 @@ async function handlePendingRequests(
     }
 
     const requests = await PaymentRequest.find({
-      payerAddress: user.xrplAddress,
+      payerAddress: user.xrpl_address,
       status: 'pending',
     }).sort({ createdAt: -1 })
 
@@ -1429,7 +1528,7 @@ async function handlePendingRequests(
 
     for (const req of requests) {
       const requester = await User.findOne({
-        xrplAddress: req.requesterAddress,
+        xrpl_address: req.requesterAddress,
       })
 
       message += `*Amount*   ${req.amount} ${req.currency}\n`
@@ -1475,7 +1574,7 @@ async function handleApproveRequest(
       return
     }
 
-    if (paymentRequest.payerAddress !== user.xrplAddress) {
+    if (paymentRequest.payerAddress !== user.xrpl_address) {
       await sendTextMessage(phoneNumber, '❌ This request is not for you.')
       return
     }
@@ -1500,21 +1599,10 @@ async function handleApproveRequest(
     }
 
     const requester = await User.findOne({
-      xrplAddress: paymentRequest.requesterAddress,
+      xrpl_address: paymentRequest.requesterAddress,
     })
     if (!requester) {
       await sendTextMessage(phoneNumber, '❌ Requester not found.')
-      return
-    }
-
-    if (requiresMigration(user)) {
-      await sendTextMessage(
-        phoneNumber,
-        '⚠️ *Wallet Migration Required*\n\n' +
-          'Your wallet needs to be upgraded before you can approve payment requests.\n\n' +
-          '· · · · · · · · · ·\n' +
-          '_Please contact support to complete your migration._',
-      )
       return
     }
 
@@ -1524,19 +1612,19 @@ async function handleApproveRequest(
     if (paymentRequest.currency === 'XRP') {
       result = await sendXRP(
         senderKey,
-        requester.xrplAddress,
+        requester.xrpl_address,
         paymentRequest.amount,
       )
     } else if (paymentRequest.currency === 'RLUSD') {
       result = await sendRLUSD(
         senderKey,
-        requester.xrplAddress,
+        requester.xrpl_address,
         paymentRequest.amount,
       )
     } else {
       result = await sendUSDC(
         senderKey,
-        requester.xrplAddress,
+        requester.xrpl_address,
         paymentRequest.amount,
       )
     }
@@ -1548,8 +1636,8 @@ async function handleApproveRequest(
 
     await Transaction.create({
       txHash: result.hash,
-      fromAddress: user.xrplAddress,
-      toAddress: requester.xrplAddress,
+      fromAddress: user.xrpl_address,
+      toAddress: requester.xrpl_address,
       fromPhone: user.phoneNumber,
       toPhone: requester.phoneNumber,
       amount: paymentRequest.amount,
@@ -1612,7 +1700,7 @@ async function handleRejectRequest(
     await paymentRequest.save()
 
     const requester = await User.findOne({
-      xrplAddress: paymentRequest.requesterAddress,
+      xrpl_address: paymentRequest.requesterAddress,
     })
 
     if (requester) {
@@ -1647,17 +1735,6 @@ async function handleOffRamp(
   user: any,
 ): Promise<void> {
   try {
-    if (requiresMigration(user)) {
-      await sendTextMessage(
-        phoneNumber,
-        `⚠️ *Wallet Migration Required*\n\n` +
-          `Your wallet needs to be upgraded before using Cash Out.\n\n` +
-          `· · · · · · · · · ·\n` +
-          `_Please contact support to complete the upgrade._`,
-      )
-      return
-    }
-
     const isDefaultPin = await bcrypt.compare('0000', user.pinHash)
     if (isDefaultPin) {
       await sendTextMessage(

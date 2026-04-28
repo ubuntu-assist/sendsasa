@@ -177,8 +177,6 @@ export interface ButtonMessage {
 export interface IUser extends Document {
   whatsappId: string
   phoneNumber: string
-  xrplAddress: string
-  encryptedSeed: string  // Legacy — empty string for Web3Auth users
   createdAt: Date
   lastActive: Date
 
@@ -192,12 +190,8 @@ export interface IUser extends Document {
   username: string // @marie.sasa
   usernameLastChanged?: Date
 
-  // Recovery
-  recoveryCodeHash?: string
-  recoveryCodeExpiry?: Date
-
-  // Preferred currency for transactions
-  preferredCurrency: 'XRP' | 'RLUSD' | 'USDC'
+  securityQuestions: ISecurityQuestion[]
+  pendingPinRecovery?: { step: 1 | 2; expiresAt: Date }
 
   // RLUSD trust line tracking
   rlusdTrustLineCreated: boolean
@@ -207,16 +201,12 @@ export interface IUser extends Document {
   usdcTrustLineCreated: boolean
   usdcTrustLineHash?: string
 
-  // Web3Auth wallet fields (added during migration)
-  web3auth_verifier?: string       // "sendsasa-whatsapp"
-  web3auth_verifier_id?: string    // E.164 phone number
-  evm_address?: string             // Cached 0x... (same for BSC/Base/ETH)
-  xrpl_address?: string            // Cached r...
-  solana_address?: string          // Cached base58 Solana public key
-  wallet_created_at?: Date
-  migration_status?: 'pending' | 'completed' | 'n/a'
-  old_wallet_exists?: boolean
-  fund_migration_at?: Date
+  // Web3Auth wallet fields
+  web3auth_verifier_id: string     // E.164 phone number
+  evm_address: string              // Cached 0x... (same for BSC/Base/ETH)
+  xrpl_address: string             // Cached r...
+  solana_address: string           // Cached base58 Solana public key
+  wallet_created_at: Date
   beneficiaries: IBeneficiary[]
 }
 
@@ -225,6 +215,11 @@ export interface IBeneficiary {
   nickname: string
   phoneNumber: string
   addedAt: Date
+}
+
+export interface ISecurityQuestion {
+  questionId: string
+  answerHash: string
 }
 
 export interface ITransaction extends Document {

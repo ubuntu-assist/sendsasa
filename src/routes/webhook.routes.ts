@@ -57,7 +57,7 @@ router.post('/', async (req, res) => {
     await markAsReadWithTyping(message.id)
 
     if (message.type === 'text') {
-      await handleMessage(whatsappId, phoneNumber, profileName)
+      await handleMessage(whatsappId, phoneNumber, profileName, message.text?.body)
     } else if (message.type === 'interactive') {
       const interactive = message.interactive
 

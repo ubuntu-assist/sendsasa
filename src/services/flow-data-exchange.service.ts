@@ -237,9 +237,6 @@ export class FlowDataExchangeService {
       if (decryptedBody.screen === 'PIN_SETUP') {
         responseData =
           await FlowDataExchangeService.handlePinSetup(decryptedBody)
-      } else if (decryptedBody.screen === 'SECURITY_QUESTIONS') {
-        responseData =
-          await FlowDataExchangeService.handleSecurityQuestions(decryptedBody)
       } else if (decryptedBody.screen === 'SEND_MONEY_DETAILS') {
         responseData =
           await FlowDataExchangeService.handleSendMoneyDetails(decryptedBody)
@@ -393,58 +390,13 @@ export class FlowDataExchangeService {
     }
   }
 
-  // ── Security Questions ───────────────────────────────────────────────────
-
-  private static async handleSecurityQuestions(
-    flowData: FlowDataExchangeRequest,
-  ): Promise<FlowDataExchangeResponse> {
-    const { answer_1, answer_2 } = flowData.data
-
-    console.log('Validating Security Questions:', {
-      question_1: flowData.data.question_1,
-      answer_1,
-      question_2: flowData.data.question_2,
-      answer_2,
-    })
-
-    const errors: Record<string, string> = {}
-
-    if (!answer_1 || answer_1.trim() === '') {
-      errors['answer_1'] = 'Answer 1 is required'
-    }
-
-    if (!answer_2 || answer_2.trim() === '') {
-      errors['answer_2'] = 'Answer 2 is required'
-    }
-
-    if (Object.keys(errors).length > 0) {
-      return {
-        version: flowData.version,
-        screen: 'SECURITY_QUESTIONS',
-        data: {
-          ...flowData.data,
-          ...FlowDataExchangeService.errorFields(errors, [
-            'answer_1',
-            'answer_2',
-          ]),
-        },
-      }
-    }
-
-    return {
-      version: flowData.version,
-      screen: flowData.screen,
-      data: flowData.data,
-    }
-  }
-
   // ── Send Money Helpers ───────────────────────────────────────────────────
 
   private static async getBalanceForCurrency(user: any, currency: string): Promise<string> {
     try {
       const chain = CURRENCY_CHAIN[currency]
       if (!chain || chain === 'xrpl') {
-        const balances = await getAllBalances(user.xrpl_address || user.xrplAddress)
+        const balances = await getAllBalances(user.xrpl_address)
         if (currency === 'RLUSD') return balances.rlusd
         if (currency === 'USDC') return balances.usdc
         return balances.xrp
@@ -922,7 +874,7 @@ export class FlowDataExchangeService {
     }
 
     // Check if this address is already registered on SendSasa
-    const existingUser = await User.findOne({ xrplAddress: derivedAddress })
+    const existingUser = await User.findOne({ xrpl_address: derivedAddress })
     if (existingUser)
       return seedError('This wallet is already registered on SendSasa.')
 
@@ -969,7 +921,7 @@ export class FlowDataExchangeService {
     let balances = { xrp: '0', rlusd: '0', usdc: '0' }
     if (user) {
       try {
-        balances = await getAllBalances(user.xrpl_address || user.xrplAddress)
+        balances = await getAllBalances(user.xrpl_address)
       } catch {
         // non-blocking
       }

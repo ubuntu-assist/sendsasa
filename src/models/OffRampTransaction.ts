@@ -78,7 +78,7 @@ const OffRampTransactionSchema = new Schema<IOffRampTransaction>({
 
 OffRampTransactionSchema.index({ senderPhone: 1, createdAt: -1 })
 OffRampTransactionSchema.index({ status: 1, createdAt: -1 })
-OffRampTransactionSchema.index({ cryptoTxHash: 1 }, { sparse: true })
+
 
 export const OffRampTransaction = mongoose.model<IOffRampTransaction>(
   'OffRampTransaction',
