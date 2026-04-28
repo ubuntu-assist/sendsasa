@@ -1446,14 +1446,11 @@ async function handleMyWallet(phoneNumber: string, user: any): Promise<void> {
   try {
     const balances = await fetchAllBalances(user)
 
-    // Send addresses as plain text first so each is easy to tap-and-copy
-    await sendTextMessage(
-      phoneNumber,
-      `📬 *Your Wallet Addresses*\n\n` +
-        `*XRPL*\n${user.xrpl_address}\n\n` +
-        `*EVM (BSC / Base / Ethereum)*\n${user.evm_address}\n\n` +
-        `*Solana*\n${user.solana_address}`,
-    )
+    // Send each address in its own bubble so the user can long-press to copy
+    await sendTextMessage(phoneNumber, `📬 *Your Wallet Addresses*`)
+    await sendTextMessage(phoneNumber, `*XRPL*\n${user.xrpl_address}`)
+    await sendTextMessage(phoneNumber, `*EVM* (BSC / Base / Ethereum)\n${user.evm_address}`)
+    await sendTextMessage(phoneNumber, `*Solana*\n${user.solana_address}`)
 
     await sendWalletMenu(phoneNumber, balances, user.username)
   } catch (error) {
