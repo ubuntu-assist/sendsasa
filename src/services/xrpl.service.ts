@@ -168,10 +168,10 @@ export async function hasUSDCTrustLine(address: string): Promise<boolean> {
 /**
  * Create a trust line on XRPL.
  *
- * @param secp256k1Key  Web3Auth-derived secp256k1 hex key
+ * @param wallet  XRPL Wallet obtained via walletService.getXRPLWallet()
  */
 export async function createTrustLine(
-  secp256k1Key: string,
+  wallet: Wallet,
   currency: string,
   issuer: string,
   trustLimit: string = '1000000',
@@ -180,8 +180,6 @@ export async function createTrustLine(
 
   try {
     await client.connect()
-
-    const wallet = deriveXRPLWalletFromSecp256k1(secp256k1Key)
 
     const trustSet: TrustSet = {
       TransactionType: 'TrustSet',
@@ -218,15 +216,15 @@ export async function createTrustLine(
 }
 
 export async function createRLUSDTrustLine(
-  secp256k1Key: string,
+  wallet: Wallet,
 ): Promise<{ success: boolean; hash: string }> {
-  return createTrustLine(secp256k1Key, RLUSD.currency, RLUSD.issuer)
+  return createTrustLine(wallet, RLUSD.currency, RLUSD.issuer)
 }
 
 export async function createUSDCTrustLine(
-  secp256k1Key: string,
+  wallet: Wallet,
 ): Promise<{ success: boolean; hash: string }> {
-  return createTrustLine(secp256k1Key, USDC.currency, USDC.issuer)
+  return createTrustLine(wallet, USDC.currency, USDC.issuer)
 }
 
 // ─── Stablecoin Balances ─────────────────────────────────────────────────────
@@ -302,10 +300,10 @@ export async function getAllBalances(address: string): Promise<{
 /**
  * Send XRP to a recipient.
  *
- * @param secp256k1Key  Web3Auth-derived secp256k1 hex key
+ * @param wallet  XRPL Wallet obtained via walletService.getXRPLWallet()
  */
 export async function sendXRP(
-  secp256k1Key: string,
+  wallet: Wallet,
   recipientAddress: string,
   amount: number,
 ): Promise<{ hash: string; result: string }> {
@@ -313,8 +311,6 @@ export async function sendXRP(
 
   try {
     await client.connect()
-
-    const wallet = deriveXRPLWalletFromSecp256k1(secp256k1Key)
 
     const payment: Payment = {
       TransactionType: 'Payment',
@@ -351,10 +347,10 @@ export async function sendXRP(
 /**
  * Send an XRPL stablecoin (RLUSD or USDC).
  *
- * @param secp256k1Key  Web3Auth-derived secp256k1 hex key
+ * @param wallet  XRPL Wallet obtained via walletService.getXRPLWallet()
  */
 export async function sendStablecoin(
-  secp256k1Key: string,
+  wallet: Wallet,
   recipientAddress: string,
   amount: number,
   currency: string,
@@ -364,8 +360,6 @@ export async function sendStablecoin(
 
   try {
     await client.connect()
-
-    const wallet = deriveXRPLWalletFromSecp256k1(secp256k1Key)
 
     const payment: Payment = {
       TransactionType: 'Payment',
@@ -399,31 +393,19 @@ export async function sendStablecoin(
 }
 
 export async function sendRLUSD(
-  secp256k1Key: string,
+  wallet: Wallet,
   recipientAddress: string,
   amount: number,
 ): Promise<{ hash: string; result: string }> {
-  return sendStablecoin(
-    secp256k1Key,
-    recipientAddress,
-    amount,
-    RLUSD.currency,
-    RLUSD.issuer,
-  )
+  return sendStablecoin(wallet, recipientAddress, amount, RLUSD.currency, RLUSD.issuer)
 }
 
 export async function sendUSDC(
-  secp256k1Key: string,
+  wallet: Wallet,
   recipientAddress: string,
   amount: number,
 ): Promise<{ hash: string; result: string }> {
-  return sendStablecoin(
-    secp256k1Key,
-    recipientAddress,
-    amount,
-    USDC.currency,
-    USDC.issuer,
-  )
+  return sendStablecoin(wallet, recipientAddress, amount, USDC.currency, USDC.issuer)
 }
 
 // ─── Transaction History ──────────────────────────────────────────────────────

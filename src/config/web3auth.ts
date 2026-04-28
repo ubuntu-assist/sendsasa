@@ -39,10 +39,10 @@ const xrplPrivateKeyProvider = new XrplPrivateKeyProvider({
       chainNamespace: CHAIN_NAMESPACES.XRPL,
       chainId: '0x1',
       rpcTarget: isXrplMainnet
-        ? 'https://s1.ripple.com:51234'
+        ? 'https://xrplcluster.com'
         : 'https://s.altnet.rippletest.net:51234',
       wsTarget: isXrplMainnet
-        ? 'wss://s1.ripple.com'
+        ? 'wss://xrplcluster.com'
         : 'wss://s.altnet.rippletest.net:51233',
       ticker: 'XRP',
       tickerName: 'XRPL',

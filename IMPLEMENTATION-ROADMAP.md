@@ -93,7 +93,7 @@ JWT_AUDIENCE=urn:sendsasa-wallet
 BSC_RPC_URL=https://rpc.ankr.com/bsc
 BASE_RPC_URL=https://mainnet.base.org
 ETHEREUM_RPC_URL=https://rpc.ankr.com/eth
-XRPL_WSS_URL=wss://s1.ripple.com
+XRPL_WSS_URL=wss://xrplcluster.com
 ```
 
 **Checkpoint**: ✅ Dependencies installed, keys generated, environment configured

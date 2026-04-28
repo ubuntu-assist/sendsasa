@@ -45,7 +45,7 @@ export const evmChains: Record<EVMChain, EVMChainConfig> = {
 }
 
 export const xrplConfig: XRPLConfig = {
-  wssUrl: config.XRPL_WSS_URL || 'wss://s1.ripple.com',
+  wssUrl: config.XRPL_WSS_URL || 'wss://xrplcluster.com',
 }
 
 const isSolanaDevnet = config.SOLANA_NETWORK === 'devnet'

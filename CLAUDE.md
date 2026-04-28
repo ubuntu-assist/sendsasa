@@ -252,7 +252,7 @@ JWT_AUDIENCE=urn:sendsasa-wallet                    # Custom audience
 BSC_RPC_URL=https://rpc.ankr.com/bsc
 BASE_RPC_URL=https://mainnet.base.org
 ETHEREUM_RPC_URL=https://rpc.ankr.com/eth
-XRPL_WSS_URL=wss://s1.ripple.com                   # XRPL Mainnet
+XRPL_WSS_URL=wss://xrplcluster.com                 # XRPL Mainnet
 
 # ============= EXISTING VARIABLES (Keep) =============
 # MongoDB, WhatsApp, etc. - already in your .env

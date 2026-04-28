@@ -443,13 +443,13 @@ async function handleGetStarted(
     }
 
     if (config.XRPL_NETWORK !== 'mainnet') {
-      // Testnet — derive key once for trust line setup
-      const secp256k1Key = await walletService.getPrivateKey(e164Phone)
+      // Testnet — get XRPL wallet once for trust line setup
+      const xrplWallet = await walletService.getXRPLWallet(e164Phone)
 
       let rlusdCreated = false
       let rlusdHash: string | undefined
       try {
-        const result = await createRLUSDTrustLine(secp256k1Key)
+        const result = await createRLUSDTrustLine(xrplWallet)
         if (result.success) {
           rlusdCreated = true
           rlusdHash = result.hash
@@ -462,7 +462,7 @@ async function handleGetStarted(
       let usdcCreated = false
       let usdcHash: string | undefined
       try {
-        const result = await createUSDCTrustLine(secp256k1Key)
+        const result = await createUSDCTrustLine(xrplWallet)
         if (result.success) {
           usdcCreated = true
           usdcHash = result.hash
@@ -603,15 +603,15 @@ async function handleWalletImportComplete(
       phoneNumber.replace('+', '') || 'user',
     )
 
-    // Derive Web3Auth key for trust line setup — seed is legacy and not stored
+    // Get XRPL wallet for trust line setup
     const e164Phone = normalizeToE164(phoneNumber)
-    const secp256k1Key = await walletService.getPrivateKey(e164Phone)
+    const xrplWallet = await walletService.getXRPLWallet(e164Phone)
 
     // Create RLUSD trust line
     let rlusdCreated = false
     let rlusdHash: string | undefined
     try {
-      const result = await createRLUSDTrustLine(secp256k1Key)
+      const result = await createRLUSDTrustLine(xrplWallet)
       if (result.success) {
         rlusdCreated = true
         rlusdHash = result.hash
@@ -625,7 +625,7 @@ async function handleWalletImportComplete(
     let usdcCreated = false
     let usdcHash: string | undefined
     try {
-      const result = await createUSDCTrustLine(secp256k1Key)
+      const result = await createUSDCTrustLine(xrplWallet)
       if (result.success) {
         usdcCreated = true
         usdcHash = result.hash
@@ -699,37 +699,44 @@ async function handleCheckActivation(
       '✅ *Wallet activated!*\n\nSetting up stablecoin support...',
     )
 
-    // Create RLUSD trust line if not already created
+    // Create RLUSD and/or USDC trust lines if not already created
     let rlusdCreated = user.rlusdTrustLineCreated
     let rlusdHash = user.rlusdTrustLineHash
-    if (!rlusdCreated) {
-      try {
-        const secp256k1Key = await walletService.getPrivateKey(user.phoneNumber)
-        const result = await createRLUSDTrustLine(secp256k1Key)
-        if (result.success) {
-          rlusdCreated = true
-          rlusdHash = result.hash
-          console.log(`✅ RLUSD trust line created: ${rlusdHash}`)
-        }
-      } catch (error) {
-        console.error('⚠️ RLUSD trust line failed:', error)
-      }
-    }
-
-    // Create USDC trust line if not already created
     let usdcCreated = user.usdcTrustLineCreated
     let usdcHash = user.usdcTrustLineHash
-    if (!usdcCreated) {
+
+    if (!rlusdCreated || !usdcCreated) {
+      let xrplWallet: Awaited<ReturnType<typeof walletService.getXRPLWallet>> | undefined
       try {
-        const secp256k1Key = await walletService.getPrivateKey(user.phoneNumber)
-        const result = await createUSDCTrustLine(secp256k1Key)
-        if (result.success) {
-          usdcCreated = true
-          usdcHash = result.hash
-          console.log(`✅ USDC trust line created: ${usdcHash}`)
-        }
+        xrplWallet = await walletService.getXRPLWallet(user.phoneNumber)
       } catch (error) {
-        console.error('⚠️ USDC trust line failed:', error)
+        console.error('⚠️ Failed to retrieve XRPL wallet for trust line setup:', error)
+      }
+
+      if (xrplWallet && !rlusdCreated) {
+        try {
+          const result = await createRLUSDTrustLine(xrplWallet)
+          if (result.success) {
+            rlusdCreated = true
+            rlusdHash = result.hash
+            console.log(`✅ RLUSD trust line created: ${rlusdHash}`)
+          }
+        } catch (error) {
+          console.error('⚠️ RLUSD trust line failed:', error)
+        }
+      }
+
+      if (xrplWallet && !usdcCreated) {
+        try {
+          const result = await createUSDCTrustLine(xrplWallet)
+          if (result.success) {
+            usdcCreated = true
+            usdcHash = result.hash
+            console.log(`✅ USDC trust line created: ${usdcHash}`)
+          }
+        } catch (error) {
+          console.error('⚠️ USDC trust line failed:', error)
+        }
       }
     }
 
@@ -1083,11 +1090,11 @@ async function handleSendMoneyComplete(
     let txHash: string
 
     if (chain === 'xrpl') {
-      const senderKey = await walletService.getPrivateKey(user.phoneNumber)
+      const xrplWallet = await walletService.getXRPLWallet(user.phoneNumber)
       let result: { hash: string }
-      if (currency === 'XRP') result = await sendXRP(senderKey, recipientAddress, numAmount)
-      else if (currency === 'RLUSD') result = await sendRLUSD(senderKey, recipientAddress, numAmount)
-      else result = await sendUSDC(senderKey, recipientAddress, numAmount)
+      if (currency === 'XRP') result = await sendXRP(xrplWallet, recipientAddress, numAmount)
+      else if (currency === 'RLUSD') result = await sendRLUSD(xrplWallet, recipientAddress, numAmount)
+      else result = await sendUSDC(xrplWallet, recipientAddress, numAmount)
       txHash = result.hash
     } else if (chain === 'bsc') {
       const senderKey = await walletService.getPrivateKey(user.phoneNumber)
@@ -1616,24 +1623,24 @@ async function handleApproveRequest(
       return
     }
 
-    const senderKey = await walletService.getPrivateKey(user.phoneNumber)
+    const xrplWallet = await walletService.getXRPLWallet(user.phoneNumber)
     let result: any
 
     if (paymentRequest.currency === 'XRP') {
       result = await sendXRP(
-        senderKey,
+        xrplWallet,
         requester.xrpl_address,
         paymentRequest.amount,
       )
     } else if (paymentRequest.currency === 'RLUSD') {
       result = await sendRLUSD(
-        senderKey,
+        xrplWallet,
         requester.xrpl_address,
         paymentRequest.amount,
       )
     } else {
       result = await sendUSDC(
-        senderKey,
+        xrplWallet,
         requester.xrpl_address,
         paymentRequest.amount,
       )
@@ -1859,21 +1866,21 @@ async function handleOffRampComplete(
     offRamp.status = 'crypto_sent'
     await offRamp.save()
 
-    const senderKey = await walletService.getPrivateKey(user.phoneNumber)
-
     if (isUSDT) {
+      const senderKey = await walletService.getPrivateKey(user.phoneNumber)
       const receipt = await evmService.transferToken(
         senderKey, 'bsc', 'USDT', adminAddress, numAmount.toString(),
       )
       cryptoTxHash = receipt.hash
     } else {
+      const xrplWallet = await walletService.getXRPLWallet(user.phoneNumber)
       let result: { hash: string }
       if (crypto_currency === 'XRP') {
-        result = await sendXRP(senderKey, adminAddress, numAmount)
+        result = await sendXRP(xrplWallet, adminAddress, numAmount)
       } else if (crypto_currency === 'RLUSD') {
-        result = await sendRLUSD(senderKey, adminAddress, numAmount)
+        result = await sendRLUSD(xrplWallet, adminAddress, numAmount)
       } else {
-        result = await sendUSDC(senderKey, adminAddress, numAmount)
+        result = await sendUSDC(xrplWallet, adminAddress, numAmount)
       }
       cryptoTxHash = result.hash
     }
