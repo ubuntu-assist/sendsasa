@@ -133,7 +133,16 @@ export async function sendFundingMessage(
   to: string,
   xrplAddress: string,
 ): Promise<void> {
-  const payload = {
+  // Address alone so the user can tap to copy it
+  await WhatsAppService.sendMessage({
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'text',
+    text: { preview_url: false, body: xrplAddress },
+  })
+
+  await WhatsAppService.sendMessage({
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
     to,
@@ -143,8 +152,7 @@ export async function sendFundingMessage(
       body: {
         text:
           `*Your wallet has been created!*\n\n` +
-          `To activate it, send at least *1 XRP* to:\n\n` +
-          `\`${xrplAddress}\`\n\n` +
+          `To activate it, send at least *1 XRP* to the address above.\n\n` +
           `· · · · · · · · · ·\n` +
           `_You can buy XRP on Binance, Coinbase or Kraken and send it to this address._`,
       },
@@ -158,9 +166,7 @@ export async function sendFundingMessage(
         ],
       },
     },
-  }
-
-  await WhatsAppService.sendMessage(payload)
+  })
 }
 
 export async function sendCurrencySelectionMenu(
