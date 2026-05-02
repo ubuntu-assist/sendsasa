@@ -13,6 +13,7 @@
       "title": "Pay with Card",
       "data": {
         "payment_type":          { "type": "string", "__example__": "hosted" },
+        "is_headless":           { "type": "boolean", "__example__": false },
         "error_usd_amount":      { "type": "string", "__example__": "" },
         "error_mm_provider":     { "type": "string", "__example__": "" },
         "error_recipient_type":  { "type": "string", "__example__": "" },
@@ -81,7 +82,8 @@
                 "label": "Your email address",
                 "input-type": "email",
                 "required": false,
-                "helper-text": "Required for Apple Pay / Google Pay sessions"
+                "helper-text": "Needed to send you the Apple / Google Pay link",
+                "visible": "${data.is_headless}"
               },
               {
                 "type": "Footer",
@@ -185,18 +187,21 @@
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
-          { "type": "TextHeading",    "text": "Review your payment" },
-          { "type": "TextSubheading", "text": "What your card is charged" },
-          { "type": "TextBody", "text": "`'Amount: $'        ${data.usd_amount} ' USDC'`" },
-          { "type": "TextBody", "text": "`'Card fee (3.99%): $' ${data.card_fee_usd}`" },
-          { "type": "TextBody", "text": "`'Total charged: $' ${data.total_usd_charged}`" },
-          { "type": "TextSubheading", "text": "What the recipient gets" },
-          { "type": "TextBody", "text": "`'Amount: '         ${data.xaf_amount} ' XAF'`" },
-          { "type": "TextBody", "text": "`'SendSasa fee: '   ${data.fee_xaf} ' XAF'`" },
-          { "type": "TextBody", "text": "`'Rate: '           ${data.rate_display}`" },
-          { "type": "TextSubheading", "text": "Payout destination" },
-          { "type": "TextBody", "text": "`'Payout via: ' ${data.mm_provider_name}`" },
-          { "type": "TextBody", "text": "`'To: '         ${data.recipient_phone}`" },
+          { "type": "TextHeading", "text": "Review your payment" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextSubheading", "text": "Card charge" },
+          { "type": "TextBody", "text": "`'Amount:     $' ${data.usd_amount}`" },
+          { "type": "TextBody", "text": "`'Card fee:   $' ${data.card_fee_usd} ' (3.99%)'`" },
+          { "type": "TextBody", "text": "`'Total:      $' ${data.total_usd_charged}`" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextSubheading", "text": "Recipient gets" },
+          { "type": "TextBody", "text": "`${data.xaf_amount} ' XAF'`" },
+          { "type": "TextBody", "text": "`'Rate: ' ${data.rate_display}`" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextSubheading", "text": "Payout" },
+          { "type": "TextBody", "text": "`${data.mm_provider_name}`" },
+          { "type": "TextBody", "text": "`${data.recipient_phone}`" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
           {
             "type": "TextCaption",
             "text": "By tapping Get Payment Link you agree to Coinbase's Guest Checkout Terms and Privacy Policy."

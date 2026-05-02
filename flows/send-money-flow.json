@@ -127,8 +127,7 @@
                 "data-source": [
                   { "id": "Saved Contact", "title": "Saved Contact" },
                   { "id": "Phone Number", "title": "Phone Number" },
-                  { "id": "SendSasa Username", "title": "SendSasa Username" },
-                  { "id": "Wallet Address", "title": "Wallet Address" }
+                  { "id": "SendSasa Username", "title": "SendSasa Username" }
                 ]
               },
               {
@@ -137,7 +136,7 @@
                 "label": "Recipient",
                 "input-type": "text",
                 "required": false,
-                "helper-text": "Phone (+237...), username (@john) or wallet address. Leave blank if using Saved Contact."
+                "helper-text": "Leave blank if using Saved Contact — or enter phone (+237...) or username (@john)"
               },
               {
                 "type": "Footer",
@@ -269,22 +268,14 @@
             "type": "TextHeading",
             "text": "Review Transaction"
           },
-          {
-            "type": "TextBody",
-            "text": "`'Amount: ' ${data.amount} ' ' ${data.currency}`"
-          },
-          {
-            "type": "TextBody",
-            "text": "`'Fee: ' ${data.fee} ' ' ${data.currency}`"
-          },
-          {
-            "type": "TextBody",
-            "text": "`'Total: ' ${data.total} ' ' ${data.currency}`"
-          },
-          {
-            "type": "TextBody",
-            "text": "`'To: ' ${data.recipient_display}`"
-          },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextSubheading", "text": "Transaction" },
+          { "type": "TextBody", "text": "`${data.amount} ' ' ${data.currency}`" },
+          { "type": "TextBody", "text": "`'Total: ' ${data.total} ' ' ${data.currency}`" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextSubheading", "text": "Recipient" },
+          { "type": "TextBody", "text": "`${data.recipient_display}`" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
           {
             "type": "Form",
             "name": "confirm_form",

@@ -252,11 +252,6 @@ export async function sendRecipientTypeMenu(
                 title: 'Username',
                 description: 'e.g., @john.sasa',
               },
-              {
-                id: 'recipient_address',
-                title: 'Wallet Address',
-                description: 'e.g., rN7n7otQ...',
-              },
             ],
           },
         ],

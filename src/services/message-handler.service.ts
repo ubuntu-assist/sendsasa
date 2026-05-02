@@ -24,8 +24,6 @@ import {
   sendUSDC,
   createRLUSDTrustLine,
   createUSDCTrustLine,
-  hasRLUSDTrustLine,
-  hasUSDCTrustLine,
   isAccountActivated,
 } from './xrpl.service'
 import { walletService } from './wallet.service'
@@ -1063,24 +1061,8 @@ async function handleSendMoneyComplete(
       recipientPhone = recipientUser.phoneNumber
 
     } else {
-      // Wallet Address — use directly; trust-line checks only apply to XRPL tokens
-      recipientAddress = recipient
-
-      if (chain === 'xrpl') {
-        if (currency === 'RLUSD') {
-          const hasTrustLine = await hasRLUSDTrustLine(recipientAddress)
-          if (!hasTrustLine) {
-            await sendTextMessage(phoneNumber, `❌ Recipient doesn't have RLUSD trust line.`)
-            return
-          }
-        } else if (currency === 'USDC') {
-          const hasTrustLine = await hasUSDCTrustLine(recipientAddress)
-          if (!hasTrustLine) {
-            await sendTextMessage(phoneNumber, `❌ Recipient doesn't have USDC trust line.`)
-            return
-          }
-        }
-      }
+      await sendTextMessage(phoneNumber, '❌ Invalid recipient type.')
+      return
     }
 
     await sendTextMessage(phoneNumber, '_Processing transaction..._')

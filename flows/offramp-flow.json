@@ -12,9 +12,9 @@
       "id": "OFFRAMP_DETAILS",
       "title": "Cash Out",
       "data": {
-        "available_balance_xrp":   { "type": "string", "__example__": "5.00" },
-        "available_balance_rlusd": { "type": "string", "__example__": "100.00" },
-        "available_balance_usdc":  { "type": "string", "__example__": "50.00" },
+        "xrpl_balances":    { "type": "string", "__example__": "XRP: 5.00 · RLUSD: 100.00 · USDC: 50.00" },
+        "bsc_balances":     { "type": "string", "__example__": "BNB: 0.12 · USDT: 10.00 · USDC: 0.00" },
+        "solana_balances":  { "type": "string", "__example__": "SOL: 0.80 · USDC: 2.00 · USDT: 0.00 · EURC: 0.00" },
         "error_currency":        { "type": "string", "__example__": "" },
         "error_amount":          { "type": "string", "__example__": "" },
         "error_mm_provider":     { "type": "string", "__example__": "" },
@@ -24,10 +24,13 @@
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
-          { "type": "TextHeading", "text": "Available Balances" },
-          { "type": "TextBody", "text": "`'XRP: '   ${data.available_balance_xrp}`" },
-          { "type": "TextBody", "text": "`'RLUSD: ' ${data.available_balance_rlusd}`" },
-          { "type": "TextBody", "text": "`'USDC: '  ${data.available_balance_usdc}`" },
+          { "type": "TextHeading", "text": "Balances" },
+          { "type": "TextCaption", "text": "XRPL" },
+          { "type": "TextBody", "text": "${data.xrpl_balances}" },
+          { "type": "TextCaption", "text": "BSC" },
+          { "type": "TextBody", "text": "${data.bsc_balances}" },
+          { "type": "TextCaption", "text": "Solana" },
+          { "type": "TextBody", "text": "${data.solana_balances}" },
           {
             "type": "Form",
             "name": "offramp_details_form",
@@ -183,12 +186,18 @@
         "type": "SingleColumnLayout",
         "children": [
           { "type": "TextHeading", "text": "Review Cash Out" },
-          { "type": "TextBody", "text": "`'You send: '    ${data.crypto_amount} ' ' ${data.crypto_currency}`" },
-          { "type": "TextBody", "text": "`'You receive: ' ${data.xaf_amount} ' XAF'`" },
-          { "type": "TextBody", "text": "`'SendSasa fee: '${data.fee_xaf} ' XAF'`" },
-          { "type": "TextBody", "text": "`'Rate: '        ${data.rate_display}`" },
-          { "type": "TextBody", "text": "`'Payout via: '  ${data.mm_provider_name}`" },
-          { "type": "TextBody", "text": "`'To: '          ${data.recipient_phone}`" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextSubheading", "text": "You send" },
+          { "type": "TextBody", "text": "`${data.crypto_amount} ' ' ${data.crypto_currency}`" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextSubheading", "text": "Recipient gets" },
+          { "type": "TextBody", "text": "`${data.xaf_amount} ' XAF'`" },
+          { "type": "TextBody", "text": "`'Rate: ' ${data.rate_display}`" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextSubheading", "text": "Payout" },
+          { "type": "TextBody", "text": "`${data.mm_provider_name}`" },
+          { "type": "TextBody", "text": "`${data.recipient_phone}`" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
           {
             "type": "Form",
             "name": "confirm_form",
@@ -244,7 +253,7 @@
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
-          { "type": "TextHeading", "text": "✅ Cash Out Initiated!" },
+          { "type": "TextHeading", "text": "Cash Out Initiated!" },
           {
             "type": "TextBody",
             "text": "`'Sending ' ${data.crypto_amount} ' ' ${data.crypto_currency} ' → ' ${data.xaf_amount} ' XAF'`"

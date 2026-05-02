@@ -918,20 +918,32 @@ export class FlowDataExchangeService {
     const user = await User.findOne({ whatsappId })
 
     // Re-fetch balances for every submission so they stay fresh
-    let balances = { xrp: '0', rlusd: '0', usdc: '0' }
+    let xrpl_balances = 'XRP: 0 · RLUSD: 0 · USDC: 0'
+    let bsc_balances = 'BNB: 0 · USDT: 0 · USDC: 0'
+    let solana_balances = 'SOL: 0 · USDC: 0 · USDT: 0 · EURC: 0'
+    let xrplBalValues = { xrp: '0', rlusd: '0', usdc: '0' }
     if (user) {
       try {
-        balances = await getAllBalances(user.xrpl_address)
+        const safe = (fn: () => Promise<string>) => fn().catch(() => '0')
+        const [xrplBals, bnb, bscUsdt, bscUsdc, solanaBals] = await Promise.all([
+          getAllBalances(user.xrpl_address),
+          user.evm_address ? safe(() => evmService.getBalance(user.evm_address, 'bsc')) : Promise.resolve('0'),
+          user.evm_address ? safe(() => evmService.getBalance(user.evm_address, 'bsc', 'USDT')) : Promise.resolve('0'),
+          user.evm_address ? safe(() => evmService.getBalance(user.evm_address, 'bsc', 'USDC')) : Promise.resolve('0'),
+          user.solana_address
+            ? getSolanaBalances(user.solana_address).catch(() => ({ sol: '0', usdc: '0', usdt: '0', eurc: '0' }))
+            : Promise.resolve({ sol: '0', usdc: '0', usdt: '0', eurc: '0' }),
+        ])
+        xrplBalValues = { xrp: xrplBals.xrp, rlusd: xrplBals.rlusd, usdc: xrplBals.usdc }
+        xrpl_balances = `XRP: ${xrplBals.xrp} · RLUSD: ${xrplBals.rlusd} · USDC: ${xrplBals.usdc}`
+        bsc_balances = `BNB: ${bnb} · USDT: ${bscUsdt} · USDC: ${bscUsdc}`
+        solana_balances = `SOL: ${solanaBals.sol} · USDC: ${solanaBals.usdc} · USDT: ${solanaBals.usdt} · EURC: ${solanaBals.eurc}`
       } catch {
         // non-blocking
       }
     }
 
-    const balanceData = {
-      available_balance_xrp: balances.xrp,
-      available_balance_rlusd: balances.rlusd,
-      available_balance_usdc: balances.usdc,
-    }
+    const balanceData = { xrpl_balances, bsc_balances, solana_balances }
 
     const isSavedContactFlow = recipient_type === 'Saved Contact'
 
@@ -980,9 +992,9 @@ export class FlowDataExchangeService {
     } else if (!errors['currency']) {
       if (currency !== 'USDT') {
         let balance = 0
-        if (currency === 'XRP') balance = Number.parseFloat(balances.xrp)
-        else if (currency === 'RLUSD') balance = Number.parseFloat(balances.rlusd)
-        else if (currency === 'USDC') balance = Number.parseFloat(balances.usdc)
+        if (currency === 'XRP') balance = Number.parseFloat(xrplBalValues.xrp)
+        else if (currency === 'RLUSD') balance = Number.parseFloat(xrplBalValues.rlusd)
+        else if (currency === 'USDC') balance = Number.parseFloat(xrplBalValues.usdc)
         if (numAmount > balance) {
           errors['amount'] = `Insufficient ${currency} balance. Available: ${balance.toFixed(6)}`
         }

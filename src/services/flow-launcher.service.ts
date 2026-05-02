@@ -205,11 +205,26 @@ export class FlowLauncherService {
 
   static async launchOffRampFlow(user: IUser): Promise<void> {
     try {
-      const xrplAddress = user.xrpl_address
-      const balances = await getAllBalances(xrplAddress)
-      const flowToken = FlowDataExchangeService.generateFlowToken(
-        user.whatsappId,
-      )
+      const evmAddress: string | undefined = (user as any).evm_address
+      const solanaAddress: string | undefined = (user as any).solana_address
+
+      const safe = (fn: () => Promise<string>) => fn().catch(() => '0')
+
+      const [xrplBals, bnb, bscUsdt, bscUsdc, solanaBals] = await Promise.all([
+        getAllBalances(user.xrpl_address),
+        evmAddress ? safe(() => evmService.getBalance(evmAddress, 'bsc')) : Promise.resolve('0'),
+        evmAddress ? safe(() => evmService.getBalance(evmAddress, 'bsc', 'USDT')) : Promise.resolve('0'),
+        evmAddress ? safe(() => evmService.getBalance(evmAddress, 'bsc', 'USDC')) : Promise.resolve('0'),
+        solanaAddress
+          ? getSolanaBalances(solanaAddress).catch(() => ({ sol: '0', usdc: '0', usdt: '0', eurc: '0' }))
+          : Promise.resolve({ sol: '0', usdc: '0', usdt: '0', eurc: '0' }),
+      ])
+
+      const xrpl_balances = `XRP: ${xrplBals.xrp} · RLUSD: ${xrplBals.rlusd} · USDC: ${xrplBals.usdc}`
+      const bsc_balances = `BNB: ${bnb} · USDT: ${bscUsdt} · USDC: ${bscUsdc}`
+      const solana_balances = `SOL: ${solanaBals.sol} · USDC: ${solanaBals.usdc} · USDT: ${solanaBals.usdt} · EURC: ${solanaBals.eurc}`
+
+      const flowToken = FlowDataExchangeService.generateFlowToken(user.whatsappId)
 
       const flowMessage = {
         messaging_product: 'whatsapp',
@@ -232,11 +247,7 @@ export class FlowLauncherService {
               flow_action: 'navigate',
               flow_action_payload: {
                 screen: 'OFFRAMP_DETAILS',
-                data: {
-                  available_balance_xrp: balances.xrp,
-                  available_balance_rlusd: balances.rlusd,
-                  available_balance_usdc: balances.usdc,
-                },
+                data: { xrpl_balances, bsc_balances, solana_balances },
               },
             },
           },
@@ -286,7 +297,7 @@ export class FlowLauncherService {
               flow_action: 'navigate',
               flow_action_payload: {
                 screen: 'CARD_PAYMENT_DETAILS',
-                data: { payment_type: paymentType },
+                data: { payment_type: paymentType, is_headless: paymentType === 'headless' },
               },
             },
           },

@@ -176,9 +176,14 @@
         "type": "SingleColumnLayout",
         "children": [
           { "type": "TextHeading", "text": "Review Payment Request" },
-          { "type": "TextBody", "text": "`'Amount: ' ${data.amount} ' ' ${data.currency}`" },
-          { "type": "TextBody", "text": "`'From: '   ${data.recipient_display}`" },
-          { "type": "TextBody", "text": "`'Note: '   ${data.note}`" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextSubheading", "text": "Request" },
+          { "type": "TextBody", "text": "`${data.amount} ' ' ${data.currency}`" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextSubheading", "text": "Requesting from" },
+          { "type": "TextBody", "text": "`${data.recipient_display}`" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextBody", "text": "`${data.note}`" },
           {
             "type": "Form",
             "name": "confirm_form",
