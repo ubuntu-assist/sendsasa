@@ -41,6 +41,9 @@ const PIN_SETUP_FLOW_ID = process.env.PIN_SETUP_FLOW_ID
 const MANAGE_CONTACTS_FLOW_ID = process.env.MANAGE_CONTACTS_FLOW_ID
 const REQUEST_CARD_FLOW_ID = process.env.REQUEST_CARD_FLOW_ID
 
+// Apple Pay domain verification file content (provided by Coinbase CDP)
+const APPLE_PAY_DOMAIN_VERIFICATION = process.env.APPLE_PAY_DOMAIN_VERIFICATION
+
 // Fixer.io (FX rates)
 const FIXER_API_KEY = process.env.FIXER_API_KEY
 
@@ -75,6 +78,7 @@ export default {
   XRPL_WSS_URL,
   SOLANA_RPC_URL,
   SOLANA_NETWORK,
+  APPLE_PAY_DOMAIN_VERIFICATION,
   FIXER_API_KEY,
   ADMIN_VERIFIER_ID,
   OFFRAMP_FLOW_ID,

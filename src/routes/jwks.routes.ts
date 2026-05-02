@@ -31,6 +31,17 @@ function buildJwks(): object {
   return jwksCache
 }
 
+// Apple Pay domain verification — file content provided by Coinbase CDP after domain registration
+router.get('/.well-known/apple-developer-merchantid-domain-association', (_req: Request, res: Response) => {
+  const content = config.APPLE_PAY_DOMAIN_VERIFICATION
+  if (!content) {
+    res.status(404).send('Not configured')
+    return
+  }
+  res.setHeader('Content-Type', 'text/plain')
+  res.send(content)
+})
+
 router.get('/.well-known/jwks.json', (_req: Request, res: Response) => {
   try {
     const jwks = buildJwks()

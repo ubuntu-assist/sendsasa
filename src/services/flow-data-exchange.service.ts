@@ -1451,13 +1451,13 @@ export class FlowDataExchangeService {
       // Hosted: create Coinbase session token → direct pay.coinbase.com URL
       let sessionToken: string
       try {
-        sessionToken = await createSessionToken(numUSD, adminAddress, refId)
+        sessionToken = await createSessionToken(adminAddress, refId)
       } catch (err: any) {
         await onRamp.deleteOne().catch(() => {})
         return cardError(err.message || 'Could not create payment session. Please try again.')
       }
 
-      paymentURL = buildPaymentURL(sessionToken)
+      paymentURL = buildPaymentURL(sessionToken, numUSD)
 
       sendCtaUrlButton(
         user.whatsappId,
@@ -2115,13 +2115,13 @@ export class FlowDataExchangeService {
 
     let sessionToken: string
     try {
-      sessionToken = await createSessionToken(numUSD, adminAddress, refId)
+      sessionToken = await createSessionToken(adminAddress, refId)
     } catch (err: any) {
       await onRamp.deleteOne().catch(() => {})
       return reqError(err.message || 'Could not create payment session. Please try again.')
     }
 
-    const paymentURL = buildPaymentURL(sessionToken)
+    const paymentURL = buildPaymentURL(sessionToken, numUSD)
 
     // Normalise payer phone to WhatsApp ID format (no leading +)
     const payerWhatsAppId = payer_phone.replace(/^\+/, '')

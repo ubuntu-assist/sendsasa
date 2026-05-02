@@ -30,7 +30,7 @@ const CDP_PLATFORM_BASE = 'https://api.cdp.coinbase.com'
 const WEBHOOK_SUB_PATH = '/platform/v2/data/webhooks/subscriptions'
 const HEADLESS_ORDERS_PATH = '/platform/v2/onramp/orders'
 
-const PAYMENT_URL_BASE = 'https://pay.coinbase.com/buy/select-asset'
+const PAYMENT_URL_BASE = 'https://pay.coinbase.com/buy'
 
 /** Card fee percentage charged on top of the crypto amount */
 export const CARD_FEE_PCT = 3.99
@@ -165,7 +165,6 @@ interface SessionTokenResponse {
  * Supports any debit/credit card, ACH, etc.
  */
 export async function createSessionToken(
-  usdAmount: number,
   adminAddress: string,
   partnerUserRef: string,
 ): Promise<string> {
@@ -187,7 +186,6 @@ export async function createSessionToken(
         assets: ['USDC'],
       },
     ],
-    preset_crypto_amount: usdAmount,
     default_asset: 'USDC',
     default_network: 'base',
     partner_user_ref: partnerUserRef,
@@ -211,9 +209,17 @@ export async function createSessionToken(
 
 /**
  * Build the Coinbase hosted checkout URL from a session token.
+ * presetFiatAmount and presetCryptoAmount are URL params, not session token body fields.
  */
-export function buildPaymentURL(sessionToken: string): string {
-  const params = new URLSearchParams({ sessionToken })
+export function buildPaymentURL(sessionToken: string, presetFiatAmount: number): string {
+  const params = new URLSearchParams({
+    sessionToken,
+    defaultAsset: 'USDC',
+    defaultNetwork: 'base',
+    fiatCurrency: 'USD',
+    presetFiatAmount: presetFiatAmount.toString(),
+    presetCryptoAmount: presetFiatAmount.toString(),
+  })
   return `${PAYMENT_URL_BASE}?${params.toString()}`
 }
 
