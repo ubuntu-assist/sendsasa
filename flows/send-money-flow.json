@@ -259,6 +259,10 @@
         "error_transaction_pin": {
           "type": "string",
           "__example__": ""
+        },
+        "rate_comparison": {
+          "type": "string",
+          "__example__": "SendSasa: XAF 56,272 (best)\nWestern Union: XAF 56,252\nMoneyGram: XAF 56,026\nWorldRemit: XAF 55,672"
         }
       },
       "layout": {
@@ -275,6 +279,9 @@
           { "type": "TextCaption", "text": "· · · · · · · · · ·" },
           { "type": "TextSubheading", "text": "Recipient" },
           { "type": "TextBody", "text": "`${data.recipient_display}`" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextSubheading", "text": "Rate vs Competitors" },
+          { "type": "TextBody", "text": "${data.rate_comparison}" },
           { "type": "TextCaption", "text": "· · · · · · · · · ·" },
           {
             "type": "Form",

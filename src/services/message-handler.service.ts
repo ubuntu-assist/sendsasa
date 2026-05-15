@@ -138,6 +138,12 @@ export async function handleMessage(
       return
     }
 
+    if (['rates', 'rate', 'compare', 'exchange rate'].includes(normalizedText)) {
+      const { formatRatesMessage } = await import('./rates.service')
+      await sendTextMessage(phoneNumber, await formatRatesMessage())
+      return
+    }
+
     // If account was created on mainnet but never funded, remind user to fund it
     if (!user.rlusdTrustLineCreated && !user.usdcTrustLineCreated) {
       const activated = await isAccountActivated(user.xrpl_address)

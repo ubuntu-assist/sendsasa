@@ -23,6 +23,7 @@ import {
 } from './coinbase-onramp.service'
 import { getAdminEVMAddress } from '../config/admin-wallet'
 import { sendCtaUrlButton } from './whatsapp.service'
+import { getFlowRateComparison } from './rates.service'
 import config from '../utils/config'
 
 const OFFRAMP_CURRENCIES = ['XRP', 'RLUSD', 'USDC', 'USDT']
@@ -561,11 +562,10 @@ export class FlowDataExchangeService {
 
     const fee = numAmt * 0.001
     const total = numAmt + fee
-    const recipientDisplay =
-      await FlowDataExchangeService.getRecipientDisplayName(
-        recipient,
-        recipient_type,
-      )
+    const [recipientDisplay, rateComparison] = await Promise.all([
+      FlowDataExchangeService.getRecipientDisplayName(recipient, recipient_type),
+      getFlowRateComparison(numAmt, currency.toString()),
+    ])
 
     return {
       version: flowData.version,
@@ -578,6 +578,7 @@ export class FlowDataExchangeService {
         recipient_display: recipientDisplay,
         fee: fee.toFixed(6),
         total: total.toFixed(6),
+        rate_comparison: rateComparison,
       },
     }
   }
