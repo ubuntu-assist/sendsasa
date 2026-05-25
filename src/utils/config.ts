@@ -52,6 +52,15 @@ const FIXER_API_KEY = process.env.FIXER_API_KEY
 // Example: ADMIN_VERIFIER_ID=admin.sendsasa
 const ADMIN_VERIFIER_ID = process.env.ADMIN_VERIFIER_ID
 
+// Onramper (fiat-to-crypto onramp aggregator)
+const ONRAMPER_API_KEY        = process.env.ONRAMPER_API_KEY
+const ONRAMPER_WEBHOOK_SECRET = process.env.ONRAMPER_WEBHOOK_SECRET
+const ONRAMPER_SIGNING_SECRET = process.env.ONRAMPER_SIGNING_SECRET
+const ONRAMPER_SANDBOX        = process.env.ONRAMPER_SANDBOX   // 'true' for test mode
+
+// Public URL of this server (used for redirect URLs)
+const SELF_URL = process.env.SELF_URL ?? 'https://api.sendsasa.com'
+
 export default {
   MONGODB_URI,
   PORT,
@@ -88,4 +97,9 @@ export default {
   PIN_SETUP_FLOW_ID,
   MANAGE_CONTACTS_FLOW_ID,
   REQUEST_CARD_FLOW_ID,
+  ONRAMPER_API_KEY,
+  ONRAMPER_WEBHOOK_SECRET,
+  ONRAMPER_SIGNING_SECRET,
+  ONRAMPER_SANDBOX,
+  SELF_URL,
 }

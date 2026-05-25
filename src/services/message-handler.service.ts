@@ -14,7 +14,6 @@ import {
   sendWalletMenu,
   sendFundingMessage,
   sendSaveContactPrompt,
-  sendSendMoneyTypeList,
   sendRequestTypeButtons,
 } from './whatsapp-menu.service'
 import {
@@ -144,6 +143,12 @@ export async function handleMessage(
       return
     }
 
+    // "buy", "buy 100", "buy usdc", "buy crypto"
+    if (/^buy(\s+\d+(\.\d+)?)?(\s+\w+)?$/.test(normalizedText)) {
+      await handleBuyCrypto(phoneNumber, user, normalizedText)
+      return
+    }
+
     // If account was created on mainnet but never funded, remind user to fund it
     if (!user.rlusdTrustLineCreated && !user.usdcTrustLineCreated) {
       const activated = await isAccountActivated(user.xrpl_address)
@@ -205,10 +210,11 @@ export async function handleInteraction(
         await sendMainMenu(phoneNumber, user.username)
         break
 
-      case 'send_money':
-        await sendSendMoneyTypeList(phoneNumber)
+      case 'buy_crypto':
+        await handleBuyCrypto(phoneNumber, user, '')
         break
 
+      case 'send_money':
       case 'send_crypto':
         await handleSendMoney(whatsappId, phoneNumber)
         break
@@ -781,6 +787,39 @@ const SECURITY_QUESTION_TEXT: Record<string, string> = {
   favorite_food: 'What is your favorite food?',
   dream_job: 'What was your childhood dream job?',
   first_car: 'What was your first car model?',
+}
+
+async function handleBuyCrypto(
+  phoneNumber: string,
+  user: any,
+  messageText: string,
+): Promise<void> {
+  const { createBuyLink } = await import('./onramper.service')
+
+  // Parse optional amount from "buy 100" or "buy 50.5"
+  const amountMatch = messageText.match(/buy\s+(\d+(\.\d+)?)/)
+  const amount = amountMatch ? parseFloat(amountMatch[1]) : undefined
+
+  try {
+    const url = await createBuyLink(
+      user.whatsappId,
+      phoneNumber,
+      user.evm_address,
+      { amount },
+    )
+    const { sendCtaUrlButton } = await import('./whatsapp.service')
+    await sendCtaUrlButton(
+      phoneNumber,
+      amount
+        ? `Tap below to buy $${amount} USDC. It will land directly in your SendSasa wallet on Base network.`
+        : `Tap below to buy USDC. It will land directly in your SendSasa wallet on Base network. Choose your local currency and payment method.`,
+      'Buy Crypto',
+      url,
+    )
+  } catch (err) {
+    console.error('handleBuyCrypto error:', err)
+    await sendTextMessage(phoneNumber, '❌ Could not generate a buy link. Please try again.')
+  }
 }
 
 async function handleForgotPin(phoneNumber: string, user: any): Promise<void> {

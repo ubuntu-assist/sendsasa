@@ -36,9 +36,14 @@ export async function sendMainMenu(
             title: 'Transactions',
             rows: [
               {
+                id: 'buy_crypto',
+                title: 'Buy Crypto',
+                description: 'Card, Apple Pay or Google Pay',
+              },
+              {
                 id: 'send_money',
                 title: 'Send Money',
-                description: 'Crypto, card or Apple/Google Pay',
+                description: 'Send crypto to anyone',
               },
               {
                 id: 'offramp_money',
@@ -48,7 +53,7 @@ export async function sendMainMenu(
               {
                 id: 'request_money',
                 title: 'Request Money',
-                description: 'Request crypto or get paid by card',
+                description: 'Request crypto from anyone',
               },
             ],
           },
@@ -377,16 +382,6 @@ export async function sendSendMoneyTypeList(to: string): Promise<void> {
                 id: 'send_crypto',
                 title: 'Send Crypto',
                 description: 'XRP, RLUSD, USDC and more',
-              },
-              {
-                id: 'card_pay_hosted',
-                title: 'Pay with Card',
-                description: 'Any debit or credit card',
-              },
-              {
-                id: 'card_pay_headless',
-                title: 'Apple / Google Pay',
-                description: 'Native wallet, US phone required',
               },
             ],
           },

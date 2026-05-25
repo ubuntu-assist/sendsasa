@@ -8,6 +8,7 @@ import jwksRoutes from './routes/jwks.routes'
 import coinbaseWebhookRoutes from './routes/coinbase-webhook.routes'
 import coinbaseReturnRoutes from './routes/coinbase-return.routes'
 import paymentRoutes from './routes/payment.routes'
+import onramperRoutes from './routes/onramper.routes'
 import {
   errorHandler,
   notFoundHandler,
@@ -36,6 +37,13 @@ export function createApp(): Express {
     express.raw({ type: 'application/json' }),
     coinbaseWebhookRoutes,
   )
+  // Raw body only for the webhook POST — GET /success and /failure pass through normally
+  app.use('/onramper', (req, res, next) => {
+    if (req.method === 'POST' && req.path === '/webhook') {
+      return express.raw({ type: 'application/json' })(req, res, next)
+    }
+    next()
+  }, onramperRoutes)
 
   app.use(express.json())
   app.use(express.urlencoded({ extended: true }))

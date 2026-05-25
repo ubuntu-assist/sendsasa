@@ -274,8 +274,14 @@
           },
           { "type": "TextCaption", "text": "· · · · · · · · · ·" },
           { "type": "TextSubheading", "text": "Transaction" },
-          { "type": "TextBody", "text": "`${data.amount} ' ' ${data.currency}`" },
-          { "type": "TextBody", "text": "`'Total: ' ${data.total} ' ' ${data.currency}`" },
+          {
+            "type": "TextBody",
+            "text": "`${data.amount} ' ' ${data.currency}`"
+          },
+          {
+            "type": "TextBody",
+            "text": "`'Total: ' ${data.total} ' ' ${data.currency}`"
+          },
           { "type": "TextCaption", "text": "· · · · · · · · · ·" },
           { "type": "TextSubheading", "text": "Recipient" },
           { "type": "TextBody", "text": "`${data.recipient_display}`" },
