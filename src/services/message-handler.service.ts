@@ -794,6 +794,11 @@ async function handleBuyCrypto(
   user: any,
   messageText: string,
 ): Promise<void> {
+  if (!user.evm_address) {
+    await sendTextMessage(phoneNumber, '❌ Your EVM wallet is not set up yet. Please contact support.')
+    return
+  }
+
   const { createBuyLink } = await import('./onramper.service')
 
   // Parse optional amount from "buy 100" or "buy 50.5"

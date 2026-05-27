@@ -27,6 +27,7 @@ export function parseButtonInteraction(buttonId: string): ButtonInteraction {
   if (buttonId === 'check_activation') return { action: 'check_activation' }
   if (buttonId === 'import_wallet') return { action: 'import_wallet' }
   if (buttonId === 'my_contacts') return { action: 'my_contacts' }
+  if (buttonId === 'buy_crypto') return { action: 'buy_crypto' }
 
   if (buttonId.startsWith('save_contact:')) {
     return { action: 'save_contact', phone: buttonId.slice('save_contact:'.length) }
