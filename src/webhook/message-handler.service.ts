@@ -188,7 +188,7 @@ export async function handleMessage(
     }
 
     // If account was created on mainnet but never funded, remind user to fund it
-    if (!user.rlusdTrustLineCreated && !user.usdcTrustLineCreated) {
+    if (user.xrpl_address && !user.rlusdTrustLineCreated && !user.usdcTrustLineCreated) {
       const activated = await isAccountActivated(user.xrpl_address)
       if (!activated) {
         await sendFundingMessage(phoneNumber, user.xrpl_address)
@@ -637,7 +637,7 @@ async function handleGetStarted(
       await FlowLauncherService.launchPinSetupFlow(user)
     } else {
       // Mainnet — wallet not yet on ledger, defer trust lines and PIN setup
-      await User.create({
+      const newUser = await User.create({
         whatsappId,
         phoneNumber: e164Phone,
         pinHash: defaultPinHash,
@@ -648,7 +648,11 @@ async function handleGetStarted(
         ...web3authFields,
       })
 
-      await sendFundingMessage(phoneNumber, address)
+      if (address) {
+        await sendFundingMessage(phoneNumber, address)
+      } else {
+        await FlowLauncherService.launchPinSetupFlow(newUser)
+      }
     }
   } catch (error) {
     console.error('❌ Error handling get started:', error)
