@@ -45,15 +45,38 @@ export class NjangiService {
       },
     )
 
-    await sendTextMessage(
-      adminPhone,
-      `✅ *Njangi created!*\n\n` +
-        `👥 ${data.name}\n` +
-        `💰 Contribution: ${data.contributionAmount.toLocaleString()} XAF\n` +
-        `🔄 Cycles: ${data.totalCycles}\n` +
-        `🔑 Code: *${shortCode}*\n\n` +
-        `Share this code with your members.\nSend *JOIN ${shortCode}*`,
-    )
+    const { WhatsAppService } = await import('../whatsapp/whatsapp.service')
+    const groupId = String((group as any)._id)
+    await WhatsAppService.sendMessage({
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: adminPhone,
+      type: 'interactive',
+      interactive: {
+        type: 'list',
+        body: {
+          text:
+            `✅ *Njangi created!*\n\n` +
+            `👥 ${data.name}\n` +
+            `💰 Contribution: ${data.contributionAmount.toLocaleString()} XAF\n` +
+            `🔄 Cycles: ${data.totalCycles}\n` +
+            `🔑 Code: *${shortCode}*\n\n` +
+            `Share this code with your members so they can type *JOIN ${shortCode}*. Start the cycle when everyone has joined.`,
+        },
+        action: {
+          button: 'Manage group',
+          sections: [
+            {
+              title: 'Njangi Actions',
+              rows: [
+                { id: `njangi_start:${groupId}`, title: '▶️ Start cycle', description: 'Begin collecting contributions' },
+                { id: `njangi_status:${groupId}`, title: '📊 View status', description: 'See contributions and ledger' },
+              ],
+            },
+          ],
+        },
+      },
+    })
 
     logger.info(`[Njangi] Group created: ${shortCode} by ${adminPhone}`)
     return group
@@ -385,6 +408,9 @@ export class NjangiService {
     const status = group.status
     const rows: any[] = []
 
+    if (status === 'SETUP') {
+      rows.push({ id: `njangi_start:${groupId}`, title: '▶️ Start cycle', description: 'Begin collecting contributions' })
+    }
     if (status === 'COLLECTING') {
       rows.push({ id: `njangi_pay:${groupId}`, title: '💰 Pay contribution', description: `${group.contributionAmount?.toLocaleString()} XAF` })
     }

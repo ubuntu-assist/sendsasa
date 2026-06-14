@@ -412,6 +412,11 @@ export async function handleInteraction(
         if (groupId) await njangiService.getLedger(groupId, phoneNumber)
         break
       }
+      case 'njangi_start': {
+        const groupId = interaction.phone
+        if (groupId) await njangiService.startCycle(groupId)
+        break
+      }
 
       default:
         await sendMainMenu(phoneNumber, user.username)
