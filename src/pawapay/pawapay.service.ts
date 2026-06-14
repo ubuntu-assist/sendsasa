@@ -184,13 +184,10 @@ export class PawapayService {
     const depositId = this.generateId()
     const { data } = await this.http.post('/v2/paymentpage', {
       depositId,
-      amountDetails: {
-        amount: String(Math.round(amount)),
-        currency: 'XAF',
-      },
+      returnUrl,
+      amount: String(Math.round(amount)),
       country: 'CMR',
       reason: description.slice(0, 50),
-      returnUrl,
     })
     logger.info(`[pawaPay] Payment page ${depositId} created`)
     return {

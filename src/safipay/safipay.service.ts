@@ -28,10 +28,8 @@ export class SafiPayService {
       )
       paymentPageUrl = page.pageUrl
       pawapayDepositId = page.depositId
-    } catch {
-      logger.info(
-        `[SafiPay] Could not create payment page for invoice ${shortCode}`,
-      )
+    } catch (err: any) {
+      logger.error(`[SafiPay] Payment page creation failed for ${shortCode}: ${err?.response?.data ? JSON.stringify(err.response.data) : err?.message ?? err}`)
     }
 
     const invoice = await Invoice.create({
