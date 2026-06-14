@@ -189,7 +189,7 @@ export class PawapayService {
       country: 'CMR',
       reason: description.slice(0, 50),
     })
-    logger.info(`[pawaPay] Payment page ${depositId} created`)
+    logger.info(`[pawaPay] Payment page response: ${JSON.stringify(data)}`)
     return {
       depositId,
       pageUrl: data.redirectUrl as string,
