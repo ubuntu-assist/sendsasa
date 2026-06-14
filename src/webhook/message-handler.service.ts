@@ -370,7 +370,7 @@ export async function handleInteraction(
       case 'trustlock_pay': {
         const dealId = interaction.phone
         if (dealId) await FlowLauncherService.launchPinConfirmFlow(
-          phoneNumber, 'trustlock_pay', dealId,
+          whatsappId, 'trustlock_pay', dealId,
           'Pay and lock funds in escrow. You can release them once you confirm delivery.',
         )
         break
@@ -378,7 +378,7 @@ export async function handleInteraction(
       case 'trustlock_confirm': {
         const dealId = interaction.phone
         if (dealId) await FlowLauncherService.launchPinConfirmFlow(
-          phoneNumber, 'trustlock_confirm', dealId,
+          whatsappId, 'trustlock_confirm', dealId,
           'Confirm delivery and release funds to the seller. This cannot be undone.',
         )
         break
@@ -394,7 +394,7 @@ export async function handleInteraction(
       case 'payday_approve': {
         const payrollId = interaction.phone
         if (payrollId) await FlowLauncherService.launchPinConfirmFlow(
-          phoneNumber, 'payday_approve', payrollId,
+          whatsappId, 'payday_approve', payrollId,
           'Approve this payroll and disburse payments to all employees.',
         )
         break
