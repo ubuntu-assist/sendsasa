@@ -149,7 +149,7 @@ export async function handleMessage(
     }
 
     // Block all features until PIN setup is complete
-    if (!user.pinSetupComplete) {
+    if (user.pinSetupComplete === false) {
       await FlowLauncherService.launchPinSetupFlow(user)
       return
     }
@@ -250,7 +250,7 @@ export async function handleInteraction(
     }
 
     // Block all interactions until PIN setup is complete
-    if (!user.pinSetupComplete) {
+    if (user.pinSetupComplete === false) {
       await FlowLauncherService.launchPinSetupFlow(user)
       return
     }
@@ -520,7 +520,13 @@ export async function handleFlowResponse(
       !hasPinSetupData && !hasImportData &&
       responseJson.seller_phone !== undefined && responseJson.title !== undefined
     ) {
-      await trustlockService.createDeal(phoneNumber, responseJson)
+      await trustlockService.createDeal(phoneNumber, {
+        title: responseJson.title,
+        description: responseJson.description,
+        category: responseJson.category,
+        amount: Number(responseJson.amount),
+        sellerPhone: responseJson.seller_phone,
+      })
     } else if (
       !hasPinSetupData && !hasImportData &&
       responseJson.deal_short_code !== undefined && responseJson.reason !== undefined
