@@ -177,7 +177,7 @@ export class PawapayService {
 
   // Returns both depositId (to store for callback matching) and the redirect URL.
   async createPaymentPage(
-    amount: number,
+    _amount: number,
     description: string,
     returnUrl: string,
   ): Promise<{ depositId: string; pageUrl: string }> {
@@ -185,8 +185,6 @@ export class PawapayService {
     const { data } = await this.http.post('/v2/paymentpage', {
       depositId,
       returnUrl,
-      amount: String(Math.round(amount)),
-      country: 'CMR',
       reason: description.slice(0, 50),
     })
     logger.info(`[pawaPay] Payment page response: ${JSON.stringify(data)}`)
