@@ -114,7 +114,7 @@ const UserSchema = new Schema<IUser>({
   },
   xrpl_address: {
     type: String,
-    required: true,
+    required: false,
     unique: true,
     index: true,
     trim: true,
