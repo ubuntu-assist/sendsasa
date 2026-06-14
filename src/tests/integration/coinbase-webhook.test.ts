@@ -1,13 +1,18 @@
-import { describe, it } from 'node:test'
+import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import request from 'supertest'
-import { createApp } from '../../app.js'
+import type { Application } from 'express'
+import { createApp } from '../../app.test-shim.js'
 
 // The Coinbase webhook route is mounted with express.raw() and responds
 // res.status(200).json({ received: true }) before doing any async work.
 // Paths without a valid x-hook0-signature exit before touching the DB.
 
-const app = createApp()
+let app: Application
+
+before(async () => {
+  app = await createApp()
+})
 
 describe('POST /webhook/coinbase', () => {
   it('always returns 200 with { received: true }', async () => {

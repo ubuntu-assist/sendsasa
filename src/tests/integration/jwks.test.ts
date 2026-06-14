@@ -1,8 +1,10 @@
-import { describe, it } from 'node:test'
+import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import request from 'supertest'
-import { createApp, config } from '../../app.js'
+import type { Application } from 'express'
+import { createApp } from '../../app.test-shim.js'
+import config from '../../utils/config.js'
 
 // Generate a real RSA-2048 key pair — self-contained, no .env key required.
 // The route calls crypto.createPublicKey(pem) at request time, so setting
@@ -17,7 +19,11 @@ const TEST_KID = 'test-key-2048'
 config.JWT_PUBLIC_KEY = TEST_PUBLIC_KEY
 config.JWT_KID = TEST_KID
 
-const app = createApp()
+let app: Application
+
+before(async () => {
+  app = await createApp()
+})
 
 describe('GET /.well-known/jwks.json', () => {
   it('returns 200 with JSON content-type', async () => {

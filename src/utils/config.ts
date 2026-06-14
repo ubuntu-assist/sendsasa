@@ -61,6 +61,31 @@ const ONRAMPER_SANDBOX        = process.env.ONRAMPER_SANDBOX   // 'true' for tes
 // Public URL of this server (used for redirect URLs)
 const SELF_URL = process.env.SELF_URL ?? 'https://api.sendsasa.com'
 
+// Gemini AI
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY
+
+// Cloudinary (dispute evidence storage)
+const CLOUDINARY_URL = process.env.CLOUDINARY_URL
+
+// MoMo Trust
+const MOMOTRUST_FEE_PERCENT = process.env.MOMOTRUST_FEE_PERCENT ?? '0.01'
+const SUPPORT_WA_NUMBER = process.env.SUPPORT_WA_NUMBER
+
+// pawaPay (used by MoMo Trust features)
+const PAWAPAY_API_TOKEN = process.env.PAWAPAY_API_TOKEN
+const PAWAPAY_API_URL = process.env.PAWAPAY_API_URL ?? 'https://api.sandbox.pawapay.io'
+const PAWAPAY_CALLBACK_URL = process.env.PAWAPAY_CALLBACK_URL
+
+// MoMo Trust Flow IDs (register in Meta dashboard after creating flows)
+const FLOW_ID_TRUSTLOCK_CREATE = process.env.FLOW_ID_TRUSTLOCK_CREATE
+const FLOW_ID_NJANGI_CREATE = process.env.FLOW_ID_NJANGI_CREATE
+const FLOW_ID_SPLITCHAT_CREATE = process.env.FLOW_ID_SPLITCHAT_CREATE
+const FLOW_ID_PAYDAY_CREATE = process.env.FLOW_ID_PAYDAY_CREATE
+const FLOW_ID_SAFIPAY_CREATE = process.env.FLOW_ID_SAFIPAY_CREATE
+const FLOW_ID_DISPUTE_FILE = process.env.FLOW_ID_DISPUTE_FILE
+const FLOW_ID_KOBOKALL_SEND = process.env.FLOW_ID_KOBOKALL_SEND ?? ''
+const FLOW_ID_PIN_CONFIRM = process.env.FLOW_ID_PIN_CONFIRM ?? ''
+
 export default {
   MONGODB_URI,
   PORT,
@@ -102,4 +127,19 @@ export default {
   ONRAMPER_SIGNING_SECRET,
   ONRAMPER_SANDBOX,
   SELF_URL,
+  GEMINI_API_KEY,
+  CLOUDINARY_URL,
+  MOMOTRUST_FEE_PERCENT,
+  SUPPORT_WA_NUMBER,
+  PAWAPAY_API_TOKEN,
+  PAWAPAY_API_URL,
+  PAWAPAY_CALLBACK_URL,
+  FLOW_ID_TRUSTLOCK_CREATE,
+  FLOW_ID_NJANGI_CREATE,
+  FLOW_ID_SPLITCHAT_CREATE,
+  FLOW_ID_PAYDAY_CREATE,
+  FLOW_ID_SAFIPAY_CREATE,
+  FLOW_ID_DISPUTE_FILE,
+  FLOW_ID_KOBOKALL_SEND,
+  FLOW_ID_PIN_CONFIRM,
 }

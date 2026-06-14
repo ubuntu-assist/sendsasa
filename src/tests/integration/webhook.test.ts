@@ -1,7 +1,9 @@
-import { describe, it } from 'node:test'
+import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import request from 'supertest'
-import { createApp, config } from '../../app.js'
+import type { Application } from 'express'
+import { createApp } from '../../app.test-shim.js'
+import config from '../../utils/config.js'
 
 // Patch the singleton config object so the webhook handler sees a known token.
 // The handler reads config.VERIFY_TOKEN at call time (not at import time), so
@@ -9,7 +11,11 @@ import { createApp, config } from '../../app.js'
 const VERIFY_TOKEN = 'test-verify-token-abc123'
 config.VERIFY_TOKEN = VERIFY_TOKEN
 
-const app = createApp()
+let app: Application
+
+before(async () => {
+  app = await createApp()
+})
 
 describe('GET /webhook — WhatsApp hub verification', () => {
   it('returns 200 and echoes the challenge when credentials match', async () => {

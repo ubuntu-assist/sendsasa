@@ -23,7 +23,7 @@ import {
   initWeb3Auth,
 } from './web3auth'
 import { jwtAuthService } from '../services/jwt-auth.service'
-import { keypairFromSeed } from '../services/solana.service'
+import { keypairFromSeed } from '../chains/solana.service'
 import config from '../utils/config'
 import logger from '../utils/logger'
 

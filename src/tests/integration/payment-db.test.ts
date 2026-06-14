@@ -1,11 +1,20 @@
 import { describe, it, before, after, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import request from 'supertest'
-import { createApp } from '../../app.js'
+import type { Application } from 'express'
+import { createApp } from '../../app.test-shim.js'
 import { OnRampTransaction } from '../../models/OnRampTransaction.js'
 import { startTestDB, stopTestDB, clearCollections } from '../helpers/db.js'
 
-const app = createApp()
+let app: Application
+
+// DB must start before NestJS app so Mongoose connection is ready for controllers
+before(async () => {
+  await startTestDB()
+  app = await createApp()
+})
+after(() => stopTestDB())
+beforeEach(() => clearCollections())
 
 // Standard desktop Chrome UA — not iOS, not Safari, not a WebView.
 // The route resolves this to GUEST_CHECKOUT_GOOGLE_PAY.
@@ -30,10 +39,6 @@ const BASE = {
   feeXAF: 1836,
   adminAddress: '0x1234567890abcdef1234567890abcdef12345678',
 }
-
-before(() => startTestDB())
-after(() => stopTestDB())
-beforeEach(() => clearCollections())
 
 describe('GET /pay/card — DB-backed paths', () => {
   it('returns 404 for a valid ObjectId that does not exist', async () => {

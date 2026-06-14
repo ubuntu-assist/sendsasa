@@ -1,9 +1,14 @@
-import { describe, it } from 'node:test'
+import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import request from 'supertest'
-import { createApp } from '../../app.js'
+import type { Application } from 'express'
+import { createApp } from '../../app.test-shim.js'
 
-const app = createApp()
+let app: Application
+
+before(async () => {
+  app = await createApp()
+})
 
 describe('GET /pay/card', () => {
   it('returns 400 when ref query parameter is missing', async () => {

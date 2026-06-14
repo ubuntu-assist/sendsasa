@@ -1,389 +1,435 @@
-# SendSasa - WhatsApp Multi-Chain Wallet (Web3Auth Integration)
+# MoMo Trust — CLAUDE.md
 
-## Project Overview
-
-SendSasa is a WhatsApp-based cryptocurrency wallet enabling peer-to-peer payments in Cameroon and across Africa. Users send money via WhatsApp chat commands without needing to understand blockchain technology.
-
-**Current Phase**: Migrating from self-hosted encrypted wallet seeds to Web3Auth-managed wallet infrastructure for enhanced security and simplified key management.
-
-## Tech Stack
-
-- **Backend**: Node.js 20+ with TypeScript, Express.js
-- **Database**: MongoDB with Mongoose ODM
-- **Wallet Infrastructure**: Web3Auth SFA (Single Factor Auth) Node SDK
-- **Blockchain Libraries**:
-  - `ethers` v6 for EVM chains (BSC, Base, Ethereum)
-  - `xrpl` v4.2.5+ for XRP Ledger
-- **Authentication**: Custom JWT signed with RSA keys
-- **WhatsApp Integration**: WhatsApp Business API via Meta Cloud API
-- **Flows**: WhatsApp Flow JSON for interactive UIs (Send Money, Request Money)
-
-## Supported Chains & Currencies
-
-### XRPL (XRP Ledger)
-
-- XRP (native)
-- RLUSD (Ripple USD stablecoin)
-- USDC (Circle stablecoin on XRPL)
-
-### EVM Chains
-
-**BNB Smart Chain (BSC)**:
-
-- BNB (native)
-- USDT (Tether)
-- USDC (Circle)
-- BUSD (Binance USD - deprecated but supported)
-
-**Base** (Coinbase L2):
-
-- ETH (native)
-- USDC (Circle)
-
-**Ethereum Mainnet**:
-
-- ETH (native)
-- USDC (Circle)
-
-## Current Project Structure
-
-```
-sendsasa/
-├── src/
-│   ├── models/                          # MongoDB/Mongoose models
-│   │   ├── index.ts                     # Export all models
-│   │   ├── MessageLog.ts                # WhatsApp message logs
-│   │   ├── PaymentRequest.ts            # Payment request tracking
-│   │   ├── Transaction.ts               # Transaction records
-│   │   └── User.ts                      # User schema (TO UPDATE)
-│   │
-│   ├── routes/
-│   │   ├── cron.routes.ts
-│   │   ├── flow.routes.ts               # WhatsApp Flow JSON endpoints
-│   │   └── webhook.routes.ts            # WhatsApp webhooks
-│   │
-│   ├── services/
-│   │   ├── database.service.ts          # MongoDB connection
-│   │   ├── flow-data-exchange.service.ts # WhatsApp Flow data handling
-│   │   ├── flow-launcher.service.ts     # Launch WhatsApp Flows
-│   │   ├── message-handler.service.ts   # WhatsApp message routing
-│   │   ├── message-parser.service.ts    # Parse WhatsApp messages
-│   │   ├── receipt-generator.service.ts # Generate transaction receipts
-│   │   ├── username.service.ts          # Username management
-│   │   ├── whatsapp-menu.service.ts     # Interactive menu system
-│   │   ├── whatsapp.service.ts          # WhatsApp API client
-│   │   └── xrpl.service.ts              # XRPL transaction signing (TO UPDATE)
-│   │
-│   ├── types/
-│   │   └── index.ts                     # TypeScript type definitions
-│   │
-│   ├── utils/
-│   │   ├── config.ts                    # Environment configuration
-│   │   ├── encryption.ts                # Legacy encryption utils
-│   │   └── logger.ts                    # Logging utility
-│   │
-│   ├── config/
-│   │   ├── database.ts                  # Database connection config
-│   │   └── xrpl.ts                      # XRPL configuration
-│   │
-│   └── middleware/
-│       ├── error-handler.ts             # Global error handler
-│       ├── rate-limiter.ts              # API rate limiting
-│       └── validators.ts                # Input validation
-│
-├── keys/                                 # TO CREATE
-│   ├── privateKey.pem                   # RSA private key for JWT
-│   └── publicKey.pem                    # RSA public key
-│
-├── .env.example
-├── package.json
-└── tsconfig.json
-```
-
-## Files to Create for Web3Auth Integration
-
-### New Services
-
-```
-src/services/
-├── wallet.service.ts          # Web3Auth wallet service (MAIN)
-├── jwt-auth.service.ts        # Custom JWT generation
-├── evm.service.ts             # EVM chains (BSC, Base, Ethereum)
-└── phone-number.service.ts    # E.164 normalization
-```
-
-### New Routes
-
-```
-src/routes/
-└── jwks.routes.ts             # JWKS endpoint for Web3Auth
-```
-
-### New Config
-
-```
-src/config/
-├── web3auth.ts                # Web3Auth SDK initialization
-└── chains.ts                  # Chain RPC URLs (BSC, Base, ETH)
-```
-
-### Updated Files
-
-```
-src/models/User.ts             # Add Web3Auth fields, remove encrypted seeds
-src/services/xrpl.service.ts   # Update to use Web3Auth keys
-```
-
-## Implementation Status
-
-### ✅ Already Implemented (Existing System)
-
-- WhatsApp webhook handling (`webhook.routes.ts`)
-- WhatsApp message parsing (`message-parser.service.ts`)
-- WhatsApp message routing (`message-handler.service.ts`)
-- WhatsApp Flows (interactive UIs) (`flow.routes.ts`, `flow-launcher.service.ts`)
-- User management with MongoDB (`User.ts`)
-- Transaction tracking (`Transaction.ts`)
-- XRPL service with encrypted seeds (`xrpl.service.ts`)
-- Receipt generation (`receipt-generator.service.ts`)
-- Database service (`database.service.ts`)
-- Error handling middleware (`error-handler.ts`)
-- Rate limiting (`rate-limiter.ts`)
-
-### 🔨 To Implement (Web3Auth Migration)
-
-#### Priority 1: Core Infrastructure
-
-- [ ] `src/config/web3auth.ts` - Web3Auth SDK initialization
-- [ ] `src/config/chains.ts` - Chain configurations (BSC, Base, ETH, XRPL)
-- [ ] `src/services/jwt-auth.service.ts` - Custom JWT generation
-- [ ] `src/routes/jwks.routes.ts` - JWKS endpoint
-- [ ] `keys/privateKey.pem` & `keys/publicKey.pem` - RSA key pair
-
-#### Priority 2: Wallet Management
-
-- [ ] `src/services/wallet.service.ts` - Main Web3Auth integration
-- [ ] `src/services/phone-number.service.ts` - E.164 normalization
-- [ ] `src/services/evm.service.ts` - EVM transaction signing
-- [ ] Update `src/services/xrpl.service.ts` - Use Web3Auth keys
-
-#### Priority 3: Data Layer
-
-- [ ] Update `src/models/User.ts` - Add Web3Auth fields
-- [ ] Database migration script - Add new fields to existing users
-- [ ] Update `src/services/database.service.ts` if needed
-
-#### Priority 4: Integration
-
-- [ ] Update `src/services/message-handler.service.ts` - Use new wallet service
-- [ ] Update transaction flows to use Web3Auth wallets
-- [ ] Testing and validation
-
-## Web3Auth Dashboard Setup Checklist
-
-Before writing any code, complete these steps at https://dashboard.web3auth.io:
-
-### 1. Create Project ✓
-
-- [ ] Sign up / Log in to Web3Auth Dashboard
-- [ ] Create Organization: "SendSasa"
-- [ ] Create Project: "SendSasa WhatsApp Wallet"
-- [ ] Network: `sapphire_devnet` (development) or `sapphire_mainnet` (production)
-- [ ] Copy **Client ID** → Save to `.env` as `WEB3AUTH_CLIENT_ID`
-
-### 2. Create Custom JWT Verifier ✓
-
-- [ ] Navigate to **Custom Connections** → **Settings**
-- [ ] Auth Connection ID: `sendsasa-whatsapp`
-- [ ] JWKS Endpoint: `https://api.sendsasa.com/.well-known/jwks.json`
-- [ ] JWT Verifier ID: `sub` (phone number in sub claim)
-- [ ] Validation Rules:
-  - `iss`: `https://api.sendsasa.com`
-  - `aud`: `urn:sendsasa-wallet`
-- [ ] Paste sample JWT to auto-populate
-- [ ] Save and wait 10-20 minutes for deployment
-
-### 3. Generate RSA Keys ✓
-
-```bash
-mkdir -p keys
-openssl genrsa -out keys/privateKey.pem 2048
-openssl rsa -in keys/privateKey.pem -pubout -out keys/publicKey.pem
-chmod 600 keys/privateKey.pem
-```
-
-### 4. Configure JWKS Endpoint ✓
-
-- [ ] Convert public key to JWKS format (use pem2jwk.vercel.app)
-- [ ] Implement `src/routes/jwks.routes.ts`
-- [ ] Deploy JWKS endpoint to production
-- [ ] Test: `curl https://api.sendsasa.com/.well-known/jwks.json`
-
-### 5. Enable Features ✓
-
-- [ ] Project Settings → Advanced → **Key Export**: ON (recommended)
-- [ ] Whitelist server domain: `api.sendsasa.com`
-
-### 6. Upgrade Plan (Production) ✓
-
-- [ ] Free tier: 1,000 MAW on `sapphire_devnet`
-- [ ] Production requires **Growth Plan**: $69/month
-- [ ] Custom JWT verifiers need Growth Plan
-- [ ] Billing → Upgrade when ready for production
-
-## Environment Variables (.env)
-
-Add these to your existing `.env` file:
-
-```env
-# ============= WEB3AUTH CONFIGURATION =============
-WEB3AUTH_CLIENT_ID=BPi5PB_UiI...                    # From dashboard.web3auth.io
-WEB3AUTH_NETWORK=sapphire_devnet                    # or sapphire_mainnet
-WEB3AUTH_VERIFIER=sendsasa-whatsapp                 # Custom verifier name
-
-# ============= JWT CONFIGURATION =============
-JWT_PRIVATE_KEY_PATH=./keys/privateKey.pem          # RSA private key
-JWT_PUBLIC_KEY_PATH=./keys/publicKey.pem            # RSA public key
-JWT_KID=sendsasa-key-1                              # Key ID (must match JWKS)
-JWT_ISSUER=https://api.sendsasa.com                 # Your API domain
-JWT_AUDIENCE=urn:sendsasa-wallet                    # Custom audience
-
-# ============= CHAIN RPC URLS =============
-BSC_RPC_URL=https://rpc.ankr.com/bsc
-BASE_RPC_URL=https://mainnet.base.org
-ETHEREUM_RPC_URL=https://rpc.ankr.com/eth
-XRPL_WSS_URL=wss://xrplcluster.com                 # XRPL Mainnet
-
-# ============= EXISTING VARIABLES (Keep) =============
-# MongoDB, WhatsApp, etc. - already in your .env
-```
-
-## Package Dependencies to Install
-
-```bash
-# Web3Auth packages
-npm install @web3auth/single-factor-auth
-npm install @web3auth/ethereum-provider
-npm install @web3auth/xrpl-provider
-npm install @web3auth/base
-npm install @web3auth/base-provider
-
-# Blockchain libraries
-npm install ethers@6  # EVM chains
-npm install xrpl@4    # XRP Ledger
-
-# JWT & Crypto
-npm install jsonwebtoken
-npm install @types/jsonwebtoken --save-dev
-
-# Utilities
-npm install libphonenumber-js  # E.164 phone normalization
-npm install @noble/secp256k1   # For XRPL key derivation
-npm install @toruslabs/openlogin-ed25519  # secp256k1 → ed25519
-```
-
-## Database Schema Changes
-
-### Current User Model (src/models/User.ts)
-
-```typescript
-// Fields to REMOVE (legacy encrypted seeds):
-encryptedXRPLSeed: string
-xrplSeedIV: string
-xrplSeedAuthTag: string
-encryptedBSCPrivateKey: string
-bscPrivateKeyIV: string
-bscPrivateKeyAuthTag: string
-// ... all encryption-related fields
-```
-
-### New User Model (Web3Auth)
-
-```typescript
-// Fields to ADD:
-web3auth_verifier: string;           // "sendsasa-whatsapp"
-web3auth_verifier_id: string;        // E.164 phone number
-evm_address: string;                  // Cached 0x... (same for BSC/Base/ETH)
-xrpl_address: string;                 // Cached r...
-wallet_created_at: Date;
-migration_status: enum;               // "pending" | "completed" | "n/a"
-old_wallet_exists: boolean;
-```
-
-## Critical Implementation Rules
-
-### 1. Phone Number Normalization
-
-**ALWAYS** normalize to E.164 before using as `verifier_id`:
-
-```typescript
-import { parsePhoneNumber } from 'libphonenumber-js'
-
-function normalizePhone(phone: string, country: string = 'CM'): string {
-  const parsed = parsePhoneNumber(phone, country)
-  return parsed.number // Returns "+237612345678"
-}
-```
-
-❌ Wrong: `"237612345678"`, `"0612345678"`  
-✅ Correct: `"+237612345678"`
-
-### 2. JWT Token Generation
-
-Generate **fresh JWT** for every Web3Auth `connect()` call:
-
-```typescript
-// Include iat (issued at) - REQUIRED
-// Tokens are single-use - Web3Auth rejects duplicates
-```
-
-### 3. Private Key Handling
-
-```typescript
-// ✅ DO:
-- Derive keys on-demand when signing transactions
-- Cache wallet addresses in database
-- Discard keys immediately after signing
-
-// ❌ DON'T:
-- Store private keys in database
-- Log private keys
-- Keep keys in memory longer than needed
-```
-
-### 4. EVM Multi-Chain
-
-All EVM chains share the **same address**:
-
-```typescript
-// User has ONE 0x... address for:
-// - BSC (BNB, USDT, USDC, BUSD)
-// - Base (ETH, USDC)
-// - Ethereum (ETH, USDC)
-
-// Store ONCE in database as evm_address
-```
-
-## Next Steps for Claude Code Implementation
-
-1. **Read existing codebase**: Understand current services and models
-2. **Create Web3Auth config**: `src/config/web3auth.ts`
-3. **Implement JWT service**: `src/services/jwt-auth.service.ts`
-4. **Create JWKS endpoint**: `src/routes/jwks.routes.ts`
-5. **Build wallet service**: `src/services/wallet.service.ts`
-6. **Update User model**: Add Web3Auth fields
-7. **Test integration**: Verify wallet creation works
-
-## Resources
-
-- **Web3Auth Docs**: https://web3auth.io/docs/sdk/core-kit/sfa-node
-- **Dashboard**: https://dashboard.web3auth.io
-- **XRPL Docs**: https://js.xrpl.org
-- **Ethers Docs**: https://docs.ethers.org/v6
-- **Your Production API**: https://api.sendsasa.com
+> Read this file completely before writing a single line of code.
 
 ---
 
-**Last Updated**: 2026-04-01  
-**Phase**: Web3Auth Migration Implementation  
-**Status**: Ready for Claude Code development
+## What This Codebase Already Is
+
+This is **SendSasa** — a production WhatsApp-native remittance app built on:
+
+- **NestJS** (modular architecture with decorators)
+- **MongoDB Atlas** (via Mongoose)
+- **Meta WhatsApp Business Cloud API** (messages, flows, webhooks)
+- **XRPL** (XRP Ledger for crypto rails)
+- **pawaPay** (mobile money — already integrated in `src/services/mobile-money.service.ts`)
+- **Web3Auth** (wallet creation)
+
+### What already works — DO NOT TOUCH
+
+- `src/webhook/` — incoming WhatsApp message handler
+- `src/whatsapp/` — WhatsApp client, message parser, menu service
+- `src/flow/` — Flow launcher, Flow data exchange, Flow controller
+- `src/services/mobile-money.service.ts` — pawaPay integration
+- `src/services/fx-rate.service.ts` — FX rates
+- `src/services/receipt-generator.service.ts` — PDF receipts
+- `src/models/` — User, Transaction, PaymentRequest, MessageLog, etc.
+- `flows/` — existing Flow JSON files (send-money, offramp, pin-setup, etc.)
+- `src/xrpl/`, `src/chains/` — blockchain services
+- All existing routes, auth, middleware
+
+---
+
+## What We Are Adding
+
+Five new financial features as **NestJS modules** that plug into the existing WhatsApp menu. Each feature is self-contained. None modifies existing code — they only extend it.
+
+| Module           | Feature                     | pawaPay primitive                |
+| ---------------- | --------------------------- | -------------------------------- |
+| `src/trustlock/` | Marketplace escrow          | deposit → hold → payout / refund |
+| `src/njangi/`    | Rotating savings (tontine)  | bulk deposit → payout            |
+| `src/splitchat/` | Group collections           | deposit (multi) → payout         |
+| `src/payday/`    | Bulk payroll                | bulk payout                      |
+| `src/safipay/`   | SME invoicing + collections | payment page → payout            |
+
+---
+
+## Existing Architecture — Key Files Claude Must Read First
+
+Before implementing anything, Claude Code must read these files to understand existing patterns:
+
+```
+src/webhook/message-handler.service.ts   ← how incoming WhatsApp messages are routed
+src/whatsapp/whatsapp-menu.service.ts    ← how menus are built and sent
+src/whatsapp/whatsapp.service.ts         ← how WhatsApp messages are sent
+src/whatsapp/message-parser.service.ts   ← how incoming messages are parsed
+src/flow/flow-launcher.service.ts        ← how Flows are triggered
+src/flow/flow-data-exchange.service.ts   ← how Flow data exchange works
+src/flow/flow.controller.ts              ← Flow endpoint handler
+src/services/mobile-money.service.ts     ← existing pawaPay client
+src/models/User.ts                       ← User model schema
+src/models/Transaction.ts                ← Transaction model schema
+src/app.module.ts                        ← module registration pattern
+```
+
+**Follow every pattern you see in these files exactly.** Do not invent new patterns.
+
+---
+
+## Existing pawaPay Integration
+
+`src/services/mobile-money.service.ts` already wraps the pawaPay API.
+Before building anything, read this file to understand:
+
+- How the pawaPay client is initialized
+- What methods already exist (deposit, payout, etc.)
+- How errors are handled
+- What the callback/webhook handler looks like
+
+**Extend this service** with any missing pawaPay methods (bulkPayout, refund, remittance, paymentPage).
+Do NOT create a second pawaPay client.
+
+---
+
+## Existing Flow Infrastructure
+
+`flows/` directory contains existing Flow JSON files.
+`src/flow/flow-launcher.service.ts` knows how to send Flows to users.
+`src/flow/flow-data-exchange.service.ts` handles dynamic Flow screen data.
+`src/flow/flow.controller.ts` is the Flow endpoint.
+
+**Add new Flow JSON files to the `flows/` directory.**
+**Add new Flow handling to `flow-data-exchange.service.ts`** following the existing pattern.
+Do NOT create a new Flow endpoint or controller.
+
+---
+
+## Existing Menu System
+
+`src/whatsapp/whatsapp-menu.service.ts` builds and sends menus.
+`src/webhook/message-handler.service.ts` routes menu selections to handlers.
+
+**Add the 5 new features to the existing main menu as a new section.**
+**Add new menu selection handlers in `message-handler.service.ts`.**
+Do NOT replace the existing menu — append to it.
+
+---
+
+## New Module Structure to Create
+
+Each new feature follows this NestJS module pattern (same as existing modules):
+
+```
+src/{feature}/
+├── {feature}.module.ts          ← NestJS module
+├── {feature}.service.ts         ← business logic
+├── {feature}-flow.service.ts    ← Flow handling for this feature
+└── {feature}.schema.ts          ← Mongoose schema
+```
+
+---
+
+## MongoDB — New Collections
+
+Add these collections alongside existing ones.
+Follow the Mongoose schema pattern in `src/models/`.
+
+### deals (TrustLock)
+
+```typescript
+{
+  shortCode: string           // 6-char unique code
+  buyerPhone: string          // E.164 format
+  sellerPhone: string
+  title: string
+  description?: string
+  category: string
+  amount: number              // XAF integer
+  fee: number
+  amountToSeller: number
+  status: DealStatus          // enum
+  pawapayDepositId?: string
+  pawapayPayoutId?: string
+  pawapayRefundId?: string
+  expiresAt: Date
+  completedAt?: Date
+  createdAt: Date
+  updatedAt: Date
+}
+```
+
+### groups (NjangiBot + SplitChat)
+
+```typescript
+{
+  shortCode: string
+  type: 'NJANGI' | 'SPLITCHAT'
+  adminPhone: string
+  name: string
+  contributionAmount: number
+  currency: string            // default 'XAF'
+  fee: number
+
+  // NJANGI
+  cycleDurationDays?: number
+  totalCycles?: number
+  currentCycle?: number
+  currentRecipientPhone?: string
+  payoutOrder?: 'sequential' | 'random' | 'admin_choice'
+
+  // SPLITCHAT
+  targetAmount?: number
+  targetParticipants?: number
+  deadline?: Date
+
+  status: GroupStatus         // enum
+  pawapayPayoutId?: string
+  createdAt: Date
+  updatedAt: Date
+}
+```
+
+### groupMembers
+
+```typescript
+{
+  groupId: ObjectId
+  phone: string
+  displayName?: string
+  rotationPosition?: number
+  hasPaidCurrentCycle: boolean
+  paidAt?: Date
+  pawapayDepositId?: string
+  totalContributed: number
+  totalReceived: number
+  cyclesPaid: number
+  joinedAt: Date
+}
+```
+
+### payrolls (PayDay)
+
+```typescript
+{
+  shortCode: string
+  employerPhone: string
+  name: string
+  totalAmount: number
+  fee: number
+  recipientCount: number
+  paidCount: number
+  status: PayrollStatus       // enum
+  items: PayrollItem[]        // embedded
+  createdAt: Date
+  updatedAt: Date
+}
+
+// embedded PayrollItem
+{
+  recipientPhone: string
+  recipientName?: string
+  amount: number
+  provider?: string
+  status: 'PENDING' | 'COMPLETED' | 'FAILED'
+  pawapayPayoutId?: string
+  failureReason?: string
+  paidAt?: Date
+}
+```
+
+### invoices (SafiPay)
+
+```typescript
+{
+  shortCode: string
+  merchantPhone: string
+  clientPhone: string
+  clientName?: string
+  description: string
+  total: number
+  currency: string
+  status: InvoiceStatus       // enum
+  paymentPageUrl?: string
+  pawapayDepositId?: string
+  dueDate: Date
+  paidAt?: Date
+  reminderCount: number
+  lastReminderAt?: Date
+  createdAt: Date
+  updatedAt: Date
+}
+```
+
+### disputes (TrustLock)
+
+```typescript
+{
+  dealId: ObjectId
+  filedByPhone: string
+  reason: string
+  description?: string
+  evidenceUrls: string[]
+  aiVerdict?: 'RELEASE' | 'REFUND' | 'MANUAL_REVIEW'
+  aiReasoning?: string
+  aiConfidence?: number
+  resolvedAt?: Date
+  createdAt: Date
+}
+```
+
+---
+
+## Status Enums
+
+```typescript
+export enum DealStatus {
+  PENDING_PAYMENT = 'PENDING_PAYMENT',
+  PAYMENT_PROCESSING = 'PAYMENT_PROCESSING',
+  ACTIVE = 'ACTIVE',
+  RELEASING = 'RELEASING',
+  COMPLETED = 'COMPLETED',
+  DISPUTED = 'DISPUTED',
+  REFUNDING = 'REFUNDING',
+  REFUNDED = 'REFUNDED',
+  CANCELLED = 'CANCELLED',
+  MANUAL_REVIEW = 'MANUAL_REVIEW',
+  EXPIRED = 'EXPIRED',
+}
+
+export enum GroupStatus {
+  SETUP = 'SETUP',
+  ACTIVE = 'ACTIVE',
+  COLLECTING = 'COLLECTING',
+  PAYING_OUT = 'PAYING_OUT',
+  CYCLE_COMPLETE = 'CYCLE_COMPLETE',
+  COMPLETED = 'COMPLETED',
+  REFUNDING = 'REFUNDING',
+  REFUNDED = 'REFUNDED',
+  DISSOLVED = 'DISSOLVED',
+}
+
+export enum PayrollStatus {
+  DRAFT = 'DRAFT',
+  APPROVED = 'APPROVED',
+  DISBURSING = 'DISBURSING',
+  COMPLETED = 'COMPLETED',
+  PARTIAL_FAILURE = 'PARTIAL_FAILURE',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum InvoiceStatus {
+  DRAFT = 'DRAFT',
+  SENT = 'SENT',
+  PAID = 'PAID',
+  OVERDUE = 'OVERDUE',
+  REMINDER_SENT = 'REMINDER_SENT',
+  CANCELLED = 'CANCELLED',
+}
+```
+
+---
+
+## User Context / Session
+
+The existing `User` model manages session state.
+**Add a `momotrustContext` field to the existing User model:**
+
+```typescript
+momotrustContext?: string  // e.g. 'TRUSTLOCK:dealId', 'NJANGI:groupId', etc.
+momotrustContextUpdatedAt?: Date
+```
+
+Do NOT replace the existing context/session mechanism — add alongside it.
+
+Context values:
+
+```
+'TRUSTLOCK:{id}'    → active deal
+'NJANGI:{id}'       → active group
+'SPLITCHAT:{id}'    → active pot
+'PAYDAY:{id}'       → active payroll
+'SAFIPAY:{id}'      → active invoice
+'DISPUTE:{id}'      → collecting dispute evidence
+```
+
+---
+
+## pawaPay Business Rules
+
+- XAF integers only — always `Math.round()` before any pawaPay call
+- Minimum: 500 XAF. Maximum: 5,000,000 XAF
+- MoMo Trust fee: 1% per transaction (min 100 XAF, max 2,000 XAF)
+- All pawaPay calls are async — state updates only via callback
+- Store pawaPay UUID in DB BEFORE calling the API
+- Bulk payout: max 20 per call — chunk arrays before calling
+- Always return HTTP 200 immediately from callback handler
+- Validate callback signature before processing
+
+---
+
+## Gemini AI (NEW — not in existing codebase)
+
+Install: `npm install @google/generative-ai`
+Add `GEMINI_API_KEY` to `.env`
+
+Used for:
+
+1. Dispute adjudication in TrustLock
+2. Natural language parsing for PayDay and SafiPay
+
+Create `src/services/gemini.service.ts` as a shared NestJS service.
+Register in `src/shared/shared.module.ts`.
+
+---
+
+## Environment Variables to Add
+
+```env
+# Gemini (new)
+GEMINI_API_KEY=your_gemini_api_key
+
+# MoMo Trust fees
+MOMOTRUST_FEE_PERCENT=0.01
+
+# Support number
+SUPPORT_WA_NUMBER=237XXXXXXXXX
+
+# Flow IDs (add after registering new Flows in Meta dashboard)
+FLOW_ID_TRUSTLOCK_CREATE=
+FLOW_ID_NJANGI_CREATE=
+FLOW_ID_SPLITCHAT_CREATE=
+FLOW_ID_PAYDAY_CREATE=
+FLOW_ID_SAFIPAY_CREATE=
+FLOW_ID_DISPUTE_FILE=
+```
+
+---
+
+## Sandbox Test Numbers (Cameroon)
+
+| Phone        | Provider     | Deposit                       | Payout    |
+| ------------ | ------------ | ----------------------------- | --------- |
+| 237653456789 | MTN_MOMO_CMR | COMPLETED                     | COMPLETED |
+| 237693456789 | ORANGE_CMR   | COMPLETED                     | COMPLETED |
+| 237650000001 | MTN_MOMO_CMR | FAILED (PAYER_LIMIT_REACHED)  | —         |
+| 237650000002 | MTN_MOMO_CMR | FAILED (INSUFFICIENT_BALANCE) | —         |
+
+---
+
+## Demo Script (Hackathon Day 3 — 4 minutes)
+
+### Act 1 — TrustLock (1:00)
+
+1. User texts → main menu → selects "🔒 Sécuriser un deal"
+2. TrustLock Flow opens → fills title, amount 150 000 XAF, seller phone
+3. Taps "Payer maintenant" → MTN sandbox deposit fires
+4. Status: "🔒 Fonds sécurisés. Le vendeur a été notifié."
+5. Seller receives notification
+6. Buyer taps "Confirmer la livraison" → payout fires → "✅ Deal terminé!"
+
+### Act 2 — NjangiBot (1:00)
+
+1. Selects "💰 Mon njangi" → create group: 3 members, 5 000 XAF
+2. Members join via "REJOINDRE NJ-XXXX"
+3. All 3 pay → "🎊 14 850 XAF envoyés à Duclair!"
+
+### Act 3 — PayDay (0:45)
+
+1. Selects "💼 Payer mon équipe"
+2. Voice: "paye Jean 15000, Marie 20000, Paul 12000"
+3. Gemini parses → shows list → approve → 3 payouts fire simultaneously
+
+### Act 4 — Platform vision (0:45)
+
+1. Show full main menu with all features including existing remittance
+2. "Ce n'est pas un chatbot. C'est une banque dans WhatsApp."

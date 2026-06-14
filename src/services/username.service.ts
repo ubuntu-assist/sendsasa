@@ -1,7 +1,9 @@
+import { Injectable } from '@nestjs/common'
 import { User } from '../models/User'
 import { ValidationError } from '../middleware/error-handler'
 
-class UsernameService {
+@Injectable()
+export class UsernameService {
   private readonly SUFFIX = '.sasa'
   private readonly MIN_LENGTH = 3
   private readonly MAX_LENGTH = 20

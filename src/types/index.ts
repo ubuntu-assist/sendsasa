@@ -208,6 +208,8 @@ export interface IUser extends Document {
   solana_address: string           // Cached base58 Solana public key
   wallet_created_at: Date
   beneficiaries: IBeneficiary[]
+  momotrustContext?: string
+  momotrustContextUpdatedAt?: Date
 }
 
 export interface IBeneficiary {
@@ -260,4 +262,149 @@ export interface IMessageLog extends Document {
   messageType: 'text' | 'interactive' | 'button'
   message: string
   timestamp: Date
+}
+
+// ── MoMo Trust enums ──────────────────────────────────────────────────────────
+
+export enum DealStatus {
+  PENDING_PAYMENT = 'PENDING_PAYMENT',
+  PAYMENT_PROCESSING = 'PAYMENT_PROCESSING',
+  ACTIVE = 'ACTIVE',
+  RELEASING = 'RELEASING',
+  COMPLETED = 'COMPLETED',
+  DISPUTED = 'DISPUTED',
+  REFUNDING = 'REFUNDING',
+  REFUNDED = 'REFUNDED',
+  CANCELLED = 'CANCELLED',
+  MANUAL_REVIEW = 'MANUAL_REVIEW',
+  EXPIRED = 'EXPIRED',
+}
+
+export enum GroupStatus {
+  SETUP = 'SETUP',
+  ACTIVE = 'ACTIVE',
+  COLLECTING = 'COLLECTING',
+  PAYING_OUT = 'PAYING_OUT',
+  CYCLE_COMPLETE = 'CYCLE_COMPLETE',
+  COMPLETED = 'COMPLETED',
+  REFUNDING = 'REFUNDING',
+  REFUNDED = 'REFUNDED',
+  DISSOLVED = 'DISSOLVED',
+}
+
+export enum PayrollStatus {
+  DRAFT = 'DRAFT',
+  APPROVED = 'APPROVED',
+  DISBURSING = 'DISBURSING',
+  COMPLETED = 'COMPLETED',
+  PARTIAL_FAILURE = 'PARTIAL_FAILURE',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum InvoiceStatus {
+  DRAFT = 'DRAFT',
+  SENT = 'SENT',
+  PAID = 'PAID',
+  OVERDUE = 'OVERDUE',
+  REMINDER_SENT = 'REMINDER_SENT',
+  CANCELLED = 'CANCELLED',
+}
+
+// ── MoMo Trust DTOs ───────────────────────────────────────────────────────────
+
+export interface CreateDealDto {
+  title: string
+  description?: string
+  category: string
+  amount: number
+  sellerPhone: string
+}
+
+export interface FileDisputeDto {
+  reason: string
+  description?: string
+}
+
+export interface CreateGroupDto {
+  name: string
+  contributionAmount: number
+  cycleDurationDays: number
+  totalCycles: number
+  payoutOrder?: 'sequential' | 'random' | 'admin_choice'
+}
+
+export interface CreatePotDto {
+  name: string
+  amountPerPerson: number
+  targetParticipants: number
+  deadline?: Date
+}
+
+export interface PayrollItem {
+  recipientPhone: string
+  recipientName?: string
+  amount: number
+  provider?: string
+  status: 'PENDING' | 'COMPLETED' | 'FAILED'
+  pawapayPayoutId?: string
+  failureReason?: string
+  paidAt?: Date
+}
+
+export interface CreatePayrollDto {
+  name: string
+  items: PayrollItem[]
+}
+
+export interface CreateInvoiceDto {
+  clientPhone: string
+  clientName?: string
+  description: string
+  total: number
+  dueDate: Date
+}
+
+// ── KoboKall types ───────────────────────────────────────────────────────────
+
+export enum RemittanceStatus {
+  INITIATED  = 'INITIATED',
+  PROCESSING = 'PROCESSING',
+  COMPLETED  = 'COMPLETED',
+  FAILED     = 'FAILED',
+  CANCELLED  = 'CANCELLED',
+}
+
+export interface KoboKallRemittance {
+  remittanceId: string
+  senderPhone: string
+  recipientPhone: string
+  recipientCountry: string
+  sendAmount: number
+  receiveAmount: number
+  receiveCurrency: string
+  exchangeRate: number
+  correspondent: string
+  status: RemittanceStatus
+  failureCode?: string
+}
+
+export interface CreateKoboKallDto {
+  recipientPhone: string
+  recipientCountry: string
+  sendAmount: number
+}
+
+// ── Gemini AI types ───────────────────────────────────────────────────────────
+
+export interface AdjudicationParams {
+  dealTitle: string
+  dealAmount: number
+  buyerReason: string
+  evidenceUrls: string[]
+}
+
+export interface DisputeVerdict {
+  verdict: 'RELEASE' | 'REFUND' | 'MANUAL_REVIEW'
+  confidence: number
+  reasoning: string
 }

@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common'
 import { fxRateService, OFFRAMP_SPREAD } from './fx-rate.service'
 import logger from '../utils/logger'
 
@@ -110,4 +111,10 @@ export async function getFlowRateComparison(
     logger.error('rates.service: getFlowRateComparison failed', err)
     return '' // degrade gracefully — don't block the send flow
   }
+}
+
+@Injectable()
+export class RatesService {
+  formatRatesMessage(usdAmount?: number) { return formatRatesMessage(usdAmount) }
+  getFlowRateComparison(usdAmount: number, currency: string) { return getFlowRateComparison(usdAmount, currency) }
 }

@@ -133,6 +133,8 @@ const UserSchema = new Schema<IUser>({
     type: [BeneficiarySchema],
     default: [],
   },
+  momotrustContext: { type: String },
+  momotrustContextUpdatedAt: { type: Date },
 })
 
 

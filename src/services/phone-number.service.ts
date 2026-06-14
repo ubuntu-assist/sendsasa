@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common'
 import {
   parsePhoneNumberWithError,
   isValidPhoneNumber,
@@ -180,4 +181,13 @@ export function isE164(phone: string): boolean {
 export function maskPhone(phone: string): string {
   if (phone.length < 8) return '***'
   return phone.slice(0, 6) + '***' + phone.slice(-3)
+}
+
+@Injectable()
+export class PhoneNumberService {
+  normalizeToE164(phone: string, defaultCountry?: CountryCode, options?: { strict?: boolean }) {
+    return normalizeToE164(phone, defaultCountry, options)
+  }
+  isE164(phone: string) { return isE164(phone) }
+  maskPhone(phone: string) { return maskPhone(phone) }
 }

@@ -6,7 +6,7 @@ import {
   isPhoneNumber,
   isUsername,
   validateAmount,
-} from '../../services/message-parser.service.js'
+} from '../../whatsapp/message-parser.service.js'
 
 describe('parseButtonInteraction', () => {
   it('returns correct action for known simple IDs', () => {

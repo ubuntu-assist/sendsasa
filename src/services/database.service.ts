@@ -1,7 +1,7 @@
 import { User, Transaction, PaymentRequest, MessageLog } from '../models'
 import { IUser, ITransaction, IPaymentRequest, IMessageLog } from '../types'
-import { getAllBalances } from './xrpl.service'
-import { walletService } from './wallet.service'
+import { getAllBalances } from '../chains/xrpl.service'
+import { walletService } from '../chains/wallet.service'
 import { normalizeToE164 } from './phone-number.service'
 
 export class UserService {

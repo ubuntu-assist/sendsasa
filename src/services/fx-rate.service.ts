@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common'
 import axios from 'axios'
 import config from '../utils/config'
 import logger from '../utils/logger'
@@ -32,7 +33,8 @@ interface CacheEntry {
   expiresAt: number
 }
 
-class FxRateService {
+@Injectable()
+export class FxRateService {
   private readonly cache = new Map<string, CacheEntry>()
 
   // ── Internal helpers ──────────────────────────────────────────────────────

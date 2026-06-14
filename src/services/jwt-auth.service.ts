@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common'
 import crypto from 'node:crypto'
 import jwt from 'jsonwebtoken'
 import config from '../utils/config'
@@ -9,7 +10,8 @@ const JWT_AUDIENCE = config.JWT_AUDIENCE
 const JWT_KID = config.JWT_KID
 const JWT_EXPIRY = '1h'
 
-class JwtAuthService {
+@Injectable()
+export class JwtAuthService {
   /**
    * Generate a fresh JWT for Web3Auth authentication.
    * Must be called once per Web3Auth connect() — tokens are single-use.

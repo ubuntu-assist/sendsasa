@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common'
 import PDFDocument from 'pdfkit'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -319,4 +320,12 @@ export async function generateAndUploadReceipt(
     }
     throw error
   }
+}
+
+@Injectable()
+export class ReceiptGeneratorService {
+  generateReceipt(data: ReceiptData) { return generateReceipt(data) }
+  uploadReceiptToWhatsApp(filepath: string) { return uploadReceiptToWhatsApp(filepath) }
+  deleteReceipt(filepath: string) { return deleteReceipt(filepath) }
+  generateAndUploadReceipt(data: ReceiptData) { return generateAndUploadReceipt(data) }
 }
