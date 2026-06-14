@@ -58,6 +58,10 @@ export function parseButtonInteraction(buttonId: string): ButtonInteraction {
     return { action: 'kobokall_cancel', phone: buttonId.slice('kobokall_cancel:'.length) }
   if (buttonId.startsWith('payday_approve:'))
     return { action: 'payday_approve', phone: buttonId.slice('payday_approve:'.length) }
+  if (buttonId.startsWith('njangi_pay:'))
+    return { action: 'njangi_pay', phone: buttonId.slice('njangi_pay:'.length) }
+  if (buttonId.startsWith('njangi_status:'))
+    return { action: 'njangi_status', phone: buttonId.slice('njangi_status:'.length) }
 
   if (buttonId.startsWith('save_contact:')) {
     return { action: 'save_contact', phone: buttonId.slice('save_contact:'.length) }

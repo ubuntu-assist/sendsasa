@@ -370,13 +370,41 @@ export class NjangiService {
   ): Promise<void> {
     const text = message.trim().toLowerCase()
     const group = await Group.findById(contextId).catch(() => null)
-    if (!group) return
-
-    if (text === 'pay' && (group as any).status === 'COLLECTING') {
-      await this.collectContribution(contextId, phone)
-    } else if (text === 'status' || text === 'ledger') {
-      await this.getLedger(contextId, phone)
+    if (!group) {
+      const { sendMainMenu } = await import('../whatsapp/whatsapp-menu.service')
+      const user = await (await import('../models/User')).User.findOne({ phoneNumber: phone })
+      await sendMainMenu(phone, user?.username ?? '')
+      return
     }
+
+    await this.sendGroupButtons(phone, group)
+  }
+
+  async sendGroupButtons(phone: string, group: any): Promise<void> {
+    const { WhatsAppService } = await import('../whatsapp/whatsapp.service')
+    const groupId = String(group._id)
+    const status = group.status
+    const rows: any[] = []
+
+    if (status === 'COLLECTING') {
+      rows.push({ id: `njangi_pay:${groupId}`, title: '💰 Pay contribution', description: `${group.contributionAmount?.toLocaleString()} XAF` })
+    }
+    rows.push({ id: `njangi_status:${groupId}`, title: '📊 View status', description: 'See contributions and ledger' })
+
+    await WhatsAppService.sendMessage({
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: phone,
+      type: 'interactive',
+      interactive: {
+        type: 'list',
+        body: { text: `*${group.name}* · Code: *${group.shortCode}*\nContribution: ${group.contributionAmount?.toLocaleString()} XAF · ${status}` },
+        action: {
+          button: 'View options',
+          sections: [{ title: 'Njangi Actions', rows }],
+        },
+      },
+    })
   }
 }
 

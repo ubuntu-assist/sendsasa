@@ -17,7 +17,7 @@ export async function handleMomotrustMessage(
   if (feature === 'NJANGI' && text.trim().toLowerCase() === 'pay') {
     const { FlowLauncherService } = await import('../flow/flow-launcher.service')
     await FlowLauncherService.launchPinConfirmFlow(
-      phone,
+      phone.replace(/^\+/, ''),
       'njangi_pay',
       contextId,
       'Confirm your Njangi contribution. Accept the USSD prompt after PIN verification.',

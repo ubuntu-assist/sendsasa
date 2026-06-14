@@ -399,6 +399,19 @@ export async function handleInteraction(
         )
         break
       }
+      case 'njangi_pay': {
+        const groupId = interaction.phone
+        if (groupId) await FlowLauncherService.launchPinConfirmFlow(
+          whatsappId, 'njangi_pay', groupId,
+          'Confirm your Njangi contribution. Accept the USSD prompt after PIN verification.',
+        )
+        break
+      }
+      case 'njangi_status': {
+        const groupId = interaction.phone
+        if (groupId) await njangiService.getLedger(groupId, phoneNumber)
+        break
+      }
 
       default:
         await sendMainMenu(phoneNumber, user.username)
