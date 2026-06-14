@@ -323,6 +323,9 @@ export class FlowDataExchangeService {
       } else if (decryptedBody.screen === 'REQUEST_CARD_CONFIRM') {
         responseData =
           await FlowDataExchangeService.handleRequestCardConfirm(decryptedBody)
+      } else if (decryptedBody.screen === 'GROUP_DETAILS') {
+        responseData =
+          await FlowDataExchangeService.handleGroupDetails(decryptedBody)
       } else if (decryptedBody.screen === 'DEAL_DETAILS') {
         responseData =
           await FlowDataExchangeService.handleDealDetails(decryptedBody)
@@ -2746,6 +2749,25 @@ export class FlowDataExchangeService {
         deal_short_code,
         message:
           'Your dispute has been filed. Our AI will review your case and the evidence within 24 hours. The funds remain locked until a decision is made.',
+      },
+    }
+  }
+
+  // ── Njangi ───────────────────────────────────────────────────────────────
+
+  private static async handleGroupDetails(
+    flowData: FlowDataExchangeRequest,
+  ): Promise<FlowDataExchangeResponse> {
+    const { name, contribution_amount, cycle_days, total_cycles, payout_order } = flowData.data
+    return {
+      version: flowData.version,
+      screen: 'GROUP_CONFIRM',
+      data: {
+        name,
+        contribution_amount: Number(contribution_amount),
+        cycle_days: Number(cycle_days),
+        total_cycles: Number(total_cycles),
+        payout_order,
       },
     }
   }

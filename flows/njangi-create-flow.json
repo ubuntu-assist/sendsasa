@@ -74,6 +74,9 @@
             "type": "Switch",
             "value": "${form.payout_order}",
             "cases": {
+              "sequential": [
+                { "type": "TextBody", "text": "Members receive the pot in the order they joined." }
+              ],
               "random": [
                 { "type": "TextBody", "text": "Payout order will be randomly assigned when the group starts." }
               ],
@@ -86,8 +89,7 @@
             "type": "Footer",
             "label": "See Summary",
             "on-click-action": {
-              "name": "navigate",
-              "next": { "type": "screen", "name": "GROUP_CONFIRM" },
+              "name": "data_exchange",
               "payload": {
                 "name": "${form.name}",
                 "contribution_amount": "${form.contribution_amount}",
