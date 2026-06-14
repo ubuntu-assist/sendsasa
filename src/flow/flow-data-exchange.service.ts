@@ -364,7 +364,7 @@ export class FlowDataExchangeService {
         }
       }
 
-      res.send(
+      res.status(200).send(
         FlowDataExchangeService.encryptResponse(
           responseData,
           aesKeyBuffer,
