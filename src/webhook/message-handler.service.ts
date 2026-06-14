@@ -148,6 +148,12 @@ export async function handleMessage(
       return
     }
 
+    // Block all features until PIN setup is complete
+    if (!user.pinSetupComplete) {
+      await FlowLauncherService.launchPinSetupFlow(user)
+      return
+    }
+
     // Route messages to active MoMo Trust feature session
     if ((user as any).momotrustContext && (user as any).momotrustContextUpdatedAt) {
       const ageMs = Date.now() - (user as any).momotrustContextUpdatedAt.getTime()
@@ -240,6 +246,12 @@ export async function handleInteraction(
 
     if (!user) {
       await sendWelcomeMessage(phoneNumber, profileName)
+      return
+    }
+
+    // Block all interactions until PIN setup is complete
+    if (!user.pinSetupComplete) {
+      await FlowLauncherService.launchPinSetupFlow(user)
       return
     }
 
@@ -1122,6 +1134,7 @@ async function handlePinSetupComplete(
     user.pinLastChanged = new Date()
     user.pinAttempts = 0
     user.pinLockedUntil = undefined
+    user.pinSetupComplete = true
 
     // Hash and store security question answers (answers normalised to lowercase+trimmed)
     const securityQuestions: { questionId: string; answerHash: string }[] = []

@@ -53,6 +53,10 @@ const UserSchema = new Schema<IUser>({
     type: Number,
     default: 0,
   },
+  pinSetupComplete: {
+    type: Boolean,
+    default: false,
+  },
   pinLockedUntil: {
     type: Date,
   },

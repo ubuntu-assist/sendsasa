@@ -185,6 +185,7 @@ export interface IUser extends Document {
   pinAttempts: number
   pinLockedUntil?: Date
   pinLastChanged: Date
+  pinSetupComplete: boolean
 
   // Username fields
   username: string // @marie.sasa
