@@ -365,10 +365,9 @@ export class NjangiService {
 
   async handleMessage(
     phone: string,
-    message: string,
+    _message: string,
     contextId: string,
   ): Promise<void> {
-    const text = message.trim().toLowerCase()
     const group = await Group.findById(contextId).catch(() => null)
     if (!group) {
       const { sendMainMenu } = await import('../whatsapp/whatsapp-menu.service')
