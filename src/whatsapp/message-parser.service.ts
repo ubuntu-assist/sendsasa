@@ -31,6 +31,34 @@ export function parseButtonInteraction(buttonId: string): ButtonInteraction {
   if (buttonId === 'my_contacts') return { action: 'my_contacts' }
   if (buttonId === 'buy_crypto') return { action: 'buy_crypto' }
 
+  // Section navigation (two-level main menu)
+  if (buttonId === 'section_money')     return { action: 'section_money' }
+  if (buttonId === 'section_account')   return { action: 'section_account' }
+  if (buttonId === 'section_momotrust') return { action: 'section_momotrust' }
+
+  // MoMo Trust features
+  if (buttonId === 'trustlock')      return { action: 'trustlock' }
+  if (buttonId === 'njangi')         return { action: 'njangi' }
+  if (buttonId === 'splitchat')      return { action: 'splitchat' }
+  if (buttonId === 'kobokall')       return { action: 'kobokall' }
+  if (buttonId === 'payday')         return { action: 'payday' }
+  if (buttonId === 'safipay')        return { action: 'safipay' }
+  if (buttonId === 'trustlock_cancel') return { action: 'trustlock_cancel' }
+
+  // MoMo Trust action buttons with embedded ID (format: action:resourceId)
+  if (buttonId.startsWith('trustlock_pay:'))
+    return { action: 'trustlock_pay', phone: buttonId.slice('trustlock_pay:'.length) }
+  if (buttonId.startsWith('trustlock_confirm:'))
+    return { action: 'trustlock_confirm', phone: buttonId.slice('trustlock_confirm:'.length) }
+  if (buttonId.startsWith('trustlock_dispute:'))
+    return { action: 'trustlock_dispute', phone: buttonId.slice('trustlock_dispute:'.length) }
+  if (buttonId.startsWith('kobokall_confirm:'))
+    return { action: 'kobokall_confirm', phone: buttonId.slice('kobokall_confirm:'.length) }
+  if (buttonId.startsWith('kobokall_cancel:'))
+    return { action: 'kobokall_cancel', phone: buttonId.slice('kobokall_cancel:'.length) }
+  if (buttonId.startsWith('payday_approve:'))
+    return { action: 'payday_approve', phone: buttonId.slice('payday_approve:'.length) }
+
   if (buttonId.startsWith('save_contact:')) {
     return { action: 'save_contact', phone: buttonId.slice('save_contact:'.length) }
   }
