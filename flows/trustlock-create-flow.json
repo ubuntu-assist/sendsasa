@@ -1,0 +1,195 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "DEAL_DETAILS": ["DEAL_CONFIRM", "SELECT_SELLER_CONTACT"],
+    "SELECT_SELLER_CONTACT": ["DEAL_CONFIRM"],
+    "DEAL_CONFIRM": []
+  },
+  "screens": [
+    {
+      "id": "DEAL_DETAILS",
+      "title": "Secure a Deal",
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Deal Details"
+          },
+          {
+            "type": "Image",
+            "src": "https://res.cloudinary.com/YOUR_CLOUD/image/upload/v1/momotrust/trustlock.png",
+            "scale-type": "contain",
+            "aspect-ratio": 1.91
+          },
+          {
+            "type": "TextBody",
+            "text": "Funds will be held until delivery is confirmed."
+          },
+          {
+            "type": "TextInput",
+            "label": "Deal Title",
+            "name": "title",
+            "required": true,
+            "input-type": "text",
+            "helper-text": "e.g. iPhone 15, Laptop HP, etc."
+          },
+          {
+            "type": "TextInput",
+            "label": "Description (optional)",
+            "name": "description",
+            "required": false,
+            "input-type": "text"
+          },
+          {
+            "type": "TextInput",
+            "label": "Category",
+            "name": "category",
+            "required": true,
+            "input-type": "text",
+            "helper-text": "e.g. Electronics, Clothing, Services, etc."
+          },
+          {
+            "type": "TextInput",
+            "label": "Amount (XAF)",
+            "name": "amount",
+            "required": true,
+            "input-type": "number",
+            "helper-text": "Minimum 500 XAF"
+          },
+          {
+            "type": "Dropdown",
+            "label": "Seller",
+            "name": "recipient_type",
+            "required": true,
+            "data-source": [
+              { "id": "Phone Number", "title": "Phone Number" },
+              { "id": "Saved Contact", "title": "Saved Contact" }
+            ]
+          },
+          {
+            "type": "TextInput",
+            "label": "Seller's Phone",
+            "name": "seller_phone",
+            "required": true,
+            "input-type": "phone",
+            "visible": "`${form.recipient_type} == 'Phone Number'`"
+          },
+          {
+            "type": "OptIn",
+            "name": "terms_accepted",
+            "label": "I understand funds will be held in escrow until I confirm delivery",
+            "required": true
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "title": "${form.title}",
+                "description": "${form.description}",
+                "category": "${form.category}",
+                "amount": "${form.amount}",
+                "recipient_type": "${form.recipient_type}",
+                "seller_phone": "${form.seller_phone}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "SELECT_SELLER_CONTACT",
+      "title": "Select Seller",
+      "data": {
+        "title": { "type": "string", "__example__": "iPhone 15" },
+        "description": { "type": "string", "__example__": "" },
+        "category": { "type": "string", "__example__": "Electronics" },
+        "amount": { "type": "string", "__example__": "150000" },
+        "contacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" }
+            }
+          },
+          "__example__": [{ "id": "+237612345678", "title": "John (+237612345678)" }]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Select Seller"
+          },
+          {
+            "type": "Dropdown",
+            "name": "contact",
+            "label": "Choose from saved contacts",
+            "required": true,
+            "data-source": "${data.contacts}"
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "title": "${data.title}",
+                "description": "${data.description}",
+                "category": "${data.category}",
+                "amount": "${data.amount}",
+                "contact": "${form.contact}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "DEAL_CONFIRM",
+      "title": "Confirm Deal",
+      "terminal": true,
+      "data": {
+        "title": { "type": "string", "__example__": "iPhone 15" },
+        "description": { "type": "string", "__example__": "" },
+        "category": { "type": "string", "__example__": "Electronics" },
+        "amount": { "type": "string", "__example__": "150000" },
+        "seller_phone": { "type": "string", "__example__": "237653456789" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Deal Summary"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.title}\n${data.amount} XAF\nSeller: ${data.seller_phone}\n\nOnce paid, funds will be held until you confirm delivery."
+          },
+          {
+            "type": "Footer",
+            "label": "Create Deal",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "title": "${data.title}",
+                "description": "${data.description}",
+                "category": "${data.category}",
+                "amount": "${data.amount}",
+                "seller_phone": "${data.seller_phone}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

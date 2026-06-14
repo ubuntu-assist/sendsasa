@@ -1,0 +1,147 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "DISPUTE_REASON": ["DISPUTE_EVIDENCE"],
+    "DISPUTE_EVIDENCE": ["DISPUTE_CONFIRM"],
+    "DISPUTE_CONFIRM": []
+  },
+  "screens": [
+    {
+      "id": "DISPUTE_REASON",
+      "title": "Report an Issue",
+      "data": {
+        "deal_short_code": { "type": "string", "__example__": "A3F7B2" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Open a Dispute"
+          },
+          {
+            "type": "Image",
+            "src": "https://res.cloudinary.com/YOUR_CLOUD/image/upload/v1/momotrust/dispute.png",
+            "scale-type": "contain",
+            "aspect-ratio": 1.91
+          },
+          {
+            "type": "TextBody",
+            "text": "Describe the issue. Our AI system will review your case and the evidence."
+          },
+          {
+            "type": "Dropdown",
+            "label": "Dispute Reason",
+            "name": "reason",
+            "required": true,
+            "data-source": [
+              { "id": "not_received", "title": "Item not received" },
+              { "id": "not_as_described", "title": "Item not as described" },
+              { "id": "damaged", "title": "Damaged item" },
+              { "id": "fraud", "title": "Suspected fraud" },
+              { "id": "other", "title": "Other" }
+            ]
+          },
+          {
+            "type": "TextArea",
+            "label": "Detailed Description",
+            "name": "description",
+            "required": false,
+            "helper-text": "Provide as much detail as possible"
+          },
+          {
+            "type": "Footer",
+            "label": "Add Evidence",
+            "on-click-action": {
+              "name": "navigate",
+              "next": { "type": "screen", "name": "DISPUTE_EVIDENCE" },
+              "payload": {
+                "deal_short_code": "${data.deal_short_code}",
+                "reason": "${form.reason}",
+                "description": "${form.description}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "DISPUTE_EVIDENCE",
+      "title": "Upload Evidence",
+      "data": {
+        "deal_short_code": { "type": "string", "__example__": "A3F7B2" },
+        "reason": { "type": "string", "__example__": "not_received" },
+        "description": { "type": "string", "__example__": "" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Upload Evidence"
+          },
+          {
+            "type": "TextBody",
+            "text": "Photos help our AI resolve your case faster. You can skip this step."
+          },
+          {
+            "type": "PhotoPicker",
+            "name": "evidence_photos",
+            "label": "Evidence Photos",
+            "description": "Add up to 3 photos (receipts, product photos, screenshots)",
+            "photo-source": "camera_gallery",
+            "min-uploaded-photos": 0,
+            "max-uploaded-photos": 3,
+            "max-file-size-kb": 10240
+          },
+          {
+            "type": "Footer",
+            "label": "Submit Dispute",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "deal_short_code": "${data.deal_short_code}",
+                "reason": "${data.reason}",
+                "description": "${data.description}",
+                "media": "${form.evidence_photos}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "DISPUTE_CONFIRM",
+      "title": "Dispute Filed",
+      "terminal": true,
+      "data": {
+        "deal_short_code": { "type": "string", "__example__": "A3F7B2" },
+        "message": { "type": "string", "__example__": "Your dispute has been filed." }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Dispute Filed"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.message}"
+          },
+          {
+            "type": "Footer",
+            "label": "Close",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "deal_short_code": "${data.deal_short_code}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

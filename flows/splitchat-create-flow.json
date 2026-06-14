@@ -1,0 +1,122 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "POT_DETAILS": ["POT_CONFIRM"],
+    "POT_CONFIRM": []
+  },
+  "screens": [
+    {
+      "id": "POT_DETAILS",
+      "title": "Create a Group Pot",
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "New Group Pot"
+          },
+          {
+            "type": "Image",
+            "src": "https://res.cloudinary.com/YOUR_CLOUD/image/upload/v1/momotrust/splitchat.png",
+            "scale-type": "contain",
+            "aspect-ratio": 1.91
+          },
+          {
+            "type": "TextBody",
+            "text": "Collect money from multiple people for a shared goal."
+          },
+          {
+            "type": "TextInput",
+            "label": "Pot Name",
+            "name": "name",
+            "required": true,
+            "input-type": "text",
+            "helper-text": "e.g. Wedding gift, Group trip, etc."
+          },
+          {
+            "type": "TextInput",
+            "label": "Amount per person (XAF)",
+            "name": "amount_per_person",
+            "required": true,
+            "input-type": "number",
+            "helper-text": "Minimum 500 XAF"
+          },
+          {
+            "type": "TextInput",
+            "label": "Number of participants",
+            "name": "target_participants",
+            "required": true,
+            "input-type": "number"
+          },
+          {
+            "type": "DatePicker",
+            "label": "Collection Deadline (optional)",
+            "name": "deadline",
+            "required": false
+          },
+          {
+            "type": "Footer",
+            "label": "See Summary",
+            "on-click-action": {
+              "name": "navigate",
+              "next": { "type": "screen", "name": "POT_CONFIRM" },
+              "payload": {
+                "name": "${form.name}",
+                "amount_per_person": "${form.amount_per_person}",
+                "target_participants": "${form.target_participants}",
+                "deadline": "${form.deadline}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "POT_CONFIRM",
+      "title": "Confirm Pot",
+      "terminal": true,
+      "data": {
+        "name": { "type": "string", "__example__": "Wedding gift" },
+        "amount_per_person": { "type": "number", "__example__": 5000 },
+        "target_participants": { "type": "number", "__example__": 10 },
+        "deadline": { "type": "string", "__example__": "" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Pot Summary"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.name}\n${data.amount_per_person} XAF x ${data.target_participants} people\n\nShare the code with participants after creation."
+          },
+          {
+            "type": "If",
+            "condition": "`${data.deadline} != ''`",
+            "then": [
+              { "type": "TextBody", "text": "Deadline: ${data.deadline}" }
+            ],
+            "else": []
+          },
+          {
+            "type": "Footer",
+            "label": "Start Collection",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "name": "${data.name}",
+                "amount_per_person": "${data.amount_per_person}",
+                "target_participants": "${data.target_participants}",
+                "deadline": "${data.deadline}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

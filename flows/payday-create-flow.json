@@ -1,0 +1,239 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "PAYROLL_INPUT": ["PAYROLL_PICK_EMPLOYEES", "PAYROLL_TEXT_INPUT"],
+    "PAYROLL_PICK_EMPLOYEES": ["PAYROLL_REVIEW"],
+    "PAYROLL_TEXT_INPUT": ["PAYROLL_REVIEW"],
+    "PAYROLL_REVIEW": []
+  },
+  "screens": [
+    {
+      "id": "PAYROLL_INPUT",
+      "title": "Create a Payroll",
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "New Payroll" },
+          {
+            "type": "Image",
+            "src": "https://res.cloudinary.com/YOUR_CLOUD/image/upload/v1/momotrust/payday.png",
+            "scale-type": "contain",
+            "aspect-ratio": 1.91
+          },
+          {
+            "type": "TextInput",
+            "label": "Payroll Name",
+            "name": "payroll_name",
+            "required": true,
+            "input-type": "text",
+            "helper-text": "e.g. January 2025 Payroll"
+          },
+          {
+            "type": "Dropdown",
+            "label": "How to add employees",
+            "name": "mode",
+            "required": true,
+            "data-source": [
+              { "id": "pick_contacts", "title": "Pick from contacts (up to 5)" },
+              { "id": "type_list", "title": "Type or paste list (AI)" }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "payroll_name": "${form.payroll_name}",
+                "mode": "${form.mode}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PAYROLL_PICK_EMPLOYEES",
+      "title": "Pick Employees",
+      "data": {
+        "payroll_name": { "type": "string", "__example__": "January Payroll" },
+        "contacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" }
+            }
+          },
+          "__example__": [
+            { "id": "__none__", "title": "— Skip —" },
+            { "id": "+237612345678", "title": "Jean (+237612345678)" }
+          ]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Pick Employees" },
+          {
+            "type": "TextBody",
+            "text": "Select up to 5 employees. Use '— Skip —' for unused slots."
+          },
+          {
+            "type": "Dropdown",
+            "name": "contact_1",
+            "label": "Employee 1",
+            "required": true,
+            "data-source": "${data.contacts}"
+          },
+          {
+            "type": "TextInput",
+            "name": "amount_1",
+            "label": "Amount 1 (XAF)",
+            "required": false,
+            "input-type": "number"
+          },
+          {
+            "type": "Dropdown",
+            "name": "contact_2",
+            "label": "Employee 2 (optional)",
+            "required": true,
+            "data-source": "${data.contacts}"
+          },
+          {
+            "type": "TextInput",
+            "name": "amount_2",
+            "label": "Amount 2 (XAF)",
+            "required": false,
+            "input-type": "number"
+          },
+          {
+            "type": "Dropdown",
+            "name": "contact_3",
+            "label": "Employee 3 (optional)",
+            "required": true,
+            "data-source": "${data.contacts}"
+          },
+          {
+            "type": "TextInput",
+            "name": "amount_3",
+            "label": "Amount 3 (XAF)",
+            "required": false,
+            "input-type": "number"
+          },
+          {
+            "type": "Dropdown",
+            "name": "contact_4",
+            "label": "Employee 4 (optional)",
+            "required": true,
+            "data-source": "${data.contacts}"
+          },
+          {
+            "type": "TextInput",
+            "name": "amount_4",
+            "label": "Amount 4 (XAF)",
+            "required": false,
+            "input-type": "number"
+          },
+          {
+            "type": "Dropdown",
+            "name": "contact_5",
+            "label": "Employee 5 (optional)",
+            "required": true,
+            "data-source": "${data.contacts}"
+          },
+          {
+            "type": "TextInput",
+            "name": "amount_5",
+            "label": "Amount 5 (XAF)",
+            "required": false,
+            "input-type": "number"
+          },
+          {
+            "type": "Footer",
+            "label": "Review Payroll",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "payroll_name": "${data.payroll_name}",
+                "contact_1": "${form.contact_1}",
+                "amount_1": "${form.amount_1}",
+                "contact_2": "${form.contact_2}",
+                "amount_2": "${form.amount_2}",
+                "contact_3": "${form.contact_3}",
+                "amount_3": "${form.amount_3}",
+                "contact_4": "${form.contact_4}",
+                "amount_4": "${form.amount_4}",
+                "contact_5": "${form.contact_5}",
+                "amount_5": "${form.amount_5}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PAYROLL_TEXT_INPUT",
+      "title": "Employee List",
+      "data": {
+        "payroll_name": { "type": "string", "__example__": "January Payroll" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Employee List" },
+          { "type": "TextBody", "text": "Our AI will parse your list automatically." },
+          {
+            "type": "TextArea",
+            "label": "Employee List",
+            "name": "recipients_text",
+            "required": true,
+            "helper-text": "e.g. Jean 653456789 15000, Marie 693456789 20000"
+          },
+          {
+            "type": "Footer",
+            "label": "Parse List",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "payroll_name": "${data.payroll_name}",
+                "recipients_text": "${form.recipients_text}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PAYROLL_REVIEW",
+      "title": "Review Payroll",
+      "terminal": true,
+      "data": {
+        "payroll_name": { "type": "string", "__example__": "January Payroll" },
+        "summary": { "type": "string", "__example__": "3 employees · 47,000 XAF total" },
+        "parsed_items": { "type": "string", "__example__": "[]" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "${data.payroll_name}" },
+          { "type": "TextBody", "text": "${data.summary}" },
+          {
+            "type": "Footer",
+            "label": "Create Payroll",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "payroll_name": "${data.payroll_name}",
+                "parsed_items": "${data.parsed_items}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

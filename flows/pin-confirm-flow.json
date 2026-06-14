@@ -1,0 +1,76 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "PIN_CONFIRM": ["PIN_RESULT"],
+    "PIN_RESULT": []
+  },
+  "screens": [
+    {
+      "id": "PIN_CONFIRM",
+      "title": "Confirm with PIN",
+      "data": {
+        "pin_confirmed_action": { "type": "string", "__example__": "trustlock_pay" },
+        "pin_confirmed_resource_id": { "type": "string", "__example__": "" },
+        "description": { "type": "string", "__example__": "Confirm this action." },
+        "error_transaction_pin": { "type": "string", "__example__": "" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Enter your PIN" },
+          { "type": "TextBody", "text": "${data.description}" },
+          {
+            "type": "TextInput",
+            "label": "Transaction PIN",
+            "name": "transaction_pin",
+            "required": true,
+            "input-type": "password",
+            "helper-text": "${data.error_transaction_pin}"
+          },
+          {
+            "type": "Footer",
+            "label": "Confirm",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "pin_confirmed_action": "${data.pin_confirmed_action}",
+                "pin_confirmed_resource_id": "${data.pin_confirmed_resource_id}",
+                "description": "${data.description}",
+                "transaction_pin": "${form.transaction_pin}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PIN_RESULT",
+      "title": "Confirmed",
+      "terminal": true,
+      "data": {
+        "message": { "type": "string", "__example__": "Action confirmed." },
+        "pin_confirmed_action": { "type": "string", "__example__": "trustlock_pay" },
+        "pin_confirmed_resource_id": { "type": "string", "__example__": "" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Confirmed" },
+          { "type": "TextBody", "text": "${data.message}" },
+          {
+            "type": "Footer",
+            "label": "Close",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "pin_confirmed_action": "${data.pin_confirmed_action}",
+                "pin_confirmed_resource_id": "${data.pin_confirmed_resource_id}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

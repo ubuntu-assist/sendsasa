@@ -1,0 +1,143 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "GROUP_DETAILS": ["GROUP_CONFIRM"],
+    "GROUP_CONFIRM": []
+  },
+  "screens": [
+    {
+      "id": "GROUP_DETAILS",
+      "title": "Create a Njangi",
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "New Njangi"
+          },
+          {
+            "type": "Image",
+            "src": "https://res.cloudinary.com/YOUR_CLOUD/image/upload/v1/momotrust/njangi.png",
+            "scale-type": "contain",
+            "aspect-ratio": 1.91
+          },
+          {
+            "type": "TextBody",
+            "text": "Create your rotating savings group. Members contribute each cycle and take turns receiving the pot."
+          },
+          {
+            "type": "TextInput",
+            "label": "Group Name",
+            "name": "name",
+            "required": true,
+            "input-type": "text",
+            "helper-text": "e.g. Family Njangi 2025"
+          },
+          {
+            "type": "TextInput",
+            "label": "Contribution per cycle (XAF)",
+            "name": "contribution_amount",
+            "required": true,
+            "input-type": "number",
+            "helper-text": "Minimum 500 XAF"
+          },
+          {
+            "type": "TextInput",
+            "label": "Cycle duration (days)",
+            "name": "cycle_days",
+            "required": true,
+            "input-type": "number",
+            "helper-text": "e.g. 30 for monthly, 7 for weekly"
+          },
+          {
+            "type": "TextInput",
+            "label": "Number of cycles",
+            "name": "total_cycles",
+            "required": true,
+            "input-type": "number",
+            "helper-text": "Equal to the number of members"
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "label": "Payout order",
+            "name": "payout_order",
+            "required": true,
+            "data-source": [
+              { "id": "sequential", "title": "Sequential (join order)" },
+              { "id": "random", "title": "Random" },
+              { "id": "admin_choice", "title": "Admin's choice" }
+            ]
+          },
+          {
+            "type": "Switch",
+            "value": "${form.payout_order}",
+            "cases": {
+              "random": [
+                { "type": "TextBody", "text": "Payout order will be randomly assigned when the group starts." }
+              ],
+              "admin_choice": [
+                { "type": "TextBody", "text": "You will manually assign payout slots after members join." }
+              ]
+            }
+          },
+          {
+            "type": "Footer",
+            "label": "See Summary",
+            "on-click-action": {
+              "name": "navigate",
+              "next": { "type": "screen", "name": "GROUP_CONFIRM" },
+              "payload": {
+                "name": "${form.name}",
+                "contribution_amount": "${form.contribution_amount}",
+                "cycle_days": "${form.cycle_days}",
+                "total_cycles": "${form.total_cycles}",
+                "payout_order": "${form.payout_order}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "GROUP_CONFIRM",
+      "title": "Confirm Njangi",
+      "terminal": true,
+      "data": {
+        "name": { "type": "string", "__example__": "Family Njangi" },
+        "contribution_amount": { "type": "number", "__example__": 5000 },
+        "cycle_days": { "type": "number", "__example__": 30 },
+        "total_cycles": { "type": "number", "__example__": 6 },
+        "payout_order": { "type": "string", "__example__": "sequential" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Njangi Summary"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.name}\nContribution: ${data.contribution_amount} XAF / ${data.cycle_days} days\n${data.total_cycles} cycles\n\nShare the code with your members after creation."
+          },
+          {
+            "type": "Footer",
+            "label": "Create Njangi",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "name": "${data.name}",
+                "contribution_amount": "${data.contribution_amount}",
+                "cycle_days": "${data.cycle_days}",
+                "total_cycles": "${data.total_cycles}",
+                "payout_order": "${data.payout_order}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

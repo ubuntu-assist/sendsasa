@@ -1,0 +1,154 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "KOBOKALL_SEND": ["KOBOKALL_CONFIRM", "SELECT_RECIPIENT_CONTACT"],
+    "SELECT_RECIPIENT_CONTACT": ["KOBOKALL_CONFIRM"],
+    "KOBOKALL_CONFIRM": []
+  },
+  "screens": [
+    {
+      "id": "KOBOKALL_SEND",
+      "title": "KoboKall — Send Abroad",
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Dropdown",
+            "name": "recipient_type",
+            "label": "Recipient",
+            "required": true,
+            "data-source": [
+              { "id": "Phone Number", "title": "Phone Number" },
+              { "id": "Saved Contact", "title": "Saved Contact" }
+            ]
+          },
+          {
+            "type": "TextInput",
+            "name": "recipient_phone",
+            "label": "Recipient's Number (E.164)",
+            "input-type": "phone",
+            "required": true,
+            "visible": "`${form.recipient_type} == 'Phone Number'`"
+          },
+          {
+            "type": "Dropdown",
+            "name": "recipient_country",
+            "label": "Destination Country",
+            "required": true,
+            "data-source": [
+              { "id": "GAB", "title": "Gabon" },
+              { "id": "COG", "title": "Congo-Brazzaville" },
+              { "id": "TZA", "title": "Tanzania" },
+              { "id": "UGA", "title": "Uganda" },
+              { "id": "ZMB", "title": "Zambia" }
+            ]
+          },
+          {
+            "type": "TextInput",
+            "name": "send_amount",
+            "label": "Amount to Send (XAF)",
+            "input-type": "number",
+            "required": true
+          },
+          {
+            "type": "Footer",
+            "label": "Send",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "recipient_type": "${form.recipient_type}",
+                "recipient_phone": "${form.recipient_phone}",
+                "recipient_country": "${form.recipient_country}",
+                "send_amount": "${form.send_amount}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "SELECT_RECIPIENT_CONTACT",
+      "title": "Select Recipient",
+      "data": {
+        "recipient_country": { "type": "string", "__example__": "NGA" },
+        "send_amount": { "type": "string", "__example__": "5000" },
+        "contacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" }
+            }
+          },
+          "__example__": [{ "id": "+234612345678", "title": "John (+234612345678)" }]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Select Recipient"
+          },
+          {
+            "type": "Dropdown",
+            "name": "contact",
+            "label": "Choose from saved contacts",
+            "required": true,
+            "data-source": "${data.contacts}"
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "recipient_country": "${data.recipient_country}",
+                "send_amount": "${data.send_amount}",
+                "contact": "${form.contact}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "KOBOKALL_CONFIRM",
+      "title": "Confirm Transfer",
+      "terminal": true,
+      "data": {
+        "recipient_phone": { "type": "string", "__example__": "+234612345678" },
+        "recipient_country": { "type": "string", "__example__": "NGA" },
+        "send_amount": { "type": "string", "__example__": "5000" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Transfer Summary"
+          },
+          {
+            "type": "TextBody",
+            "text": "Recipient: ${data.recipient_phone}\nCountry: ${data.recipient_country}\nAmount: ${data.send_amount} XAF\n\nYou'll see the exact exchange rate before final confirmation."
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "recipient_phone": "${data.recipient_phone}",
+                "recipient_country": "${data.recipient_country}",
+                "send_amount": "${data.send_amount}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

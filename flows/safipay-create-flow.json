@@ -1,0 +1,185 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "INVOICE_DETAILS": ["INVOICE_CONFIRM", "SELECT_CLIENT_CONTACT"],
+    "SELECT_CLIENT_CONTACT": ["INVOICE_CONFIRM"],
+    "INVOICE_CONFIRM": []
+  },
+  "screens": [
+    {
+      "id": "INVOICE_DETAILS",
+      "title": "Create an Invoice",
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "New Invoice"
+          },
+          {
+            "type": "Image",
+            "src": "https://res.cloudinary.com/YOUR_CLOUD/image/upload/v1/momotrust/safipay.png",
+            "scale-type": "contain",
+            "aspect-ratio": 1.91
+          },
+          {
+            "type": "TextBody",
+            "text": "The invoice will be sent to your client with a MoMo payment link."
+          },
+          {
+            "type": "Dropdown",
+            "label": "Client",
+            "name": "recipient_type",
+            "required": true,
+            "data-source": [
+              { "id": "Phone Number", "title": "Phone Number" },
+              { "id": "Saved Contact", "title": "Saved Contact" }
+            ]
+          },
+          {
+            "type": "TextInput",
+            "label": "Client's Phone",
+            "name": "client_phone",
+            "required": true,
+            "input-type": "phone",
+            "visible": "`${form.recipient_type} == 'Phone Number'`"
+          },
+          {
+            "type": "TextInput",
+            "label": "Client Name (optional)",
+            "name": "client_name",
+            "required": false,
+            "input-type": "text"
+          },
+          {
+            "type": "TextArea",
+            "label": "Description / service",
+            "name": "description",
+            "required": true,
+            "helper-text": "e.g. Samsung S21 phone repair"
+          },
+          {
+            "type": "TextInput",
+            "label": "Total Amount (XAF)",
+            "name": "total",
+            "required": true,
+            "input-type": "number"
+          },
+          {
+            "type": "DatePicker",
+            "label": "Due Date",
+            "name": "due_date",
+            "required": true
+          },
+          {
+            "type": "Footer",
+            "label": "See Summary",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "recipient_type": "${form.recipient_type}",
+                "client_phone": "${form.client_phone}",
+                "client_name": "${form.client_name}",
+                "description": "${form.description}",
+                "total": "${form.total}",
+                "due_date": "${form.due_date}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "SELECT_CLIENT_CONTACT",
+      "title": "Select Client",
+      "data": {
+        "client_name": { "type": "string", "__example__": "" },
+        "description": { "type": "string", "__example__": "Phone repair" },
+        "total": { "type": "string", "__example__": "25000" },
+        "due_date": { "type": "string", "__example__": "2025-01-31" },
+        "contacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" }
+            }
+          },
+          "__example__": [{ "id": "+237612345678", "title": "John (+237612345678)" }]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Select Client"
+          },
+          {
+            "type": "Dropdown",
+            "name": "contact",
+            "label": "Choose from saved contacts",
+            "required": true,
+            "data-source": "${data.contacts}"
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "client_name": "${data.client_name}",
+                "description": "${data.description}",
+                "total": "${data.total}",
+                "due_date": "${data.due_date}",
+                "contact": "${form.contact}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "INVOICE_CONFIRM",
+      "title": "Confirm Invoice",
+      "terminal": true,
+      "data": {
+        "client_phone": { "type": "string", "__example__": "237653456789" },
+        "client_name": { "type": "string", "__example__": "" },
+        "description": { "type": "string", "__example__": "Phone repair" },
+        "total": { "type": "string", "__example__": "25000" },
+        "due_date": { "type": "string", "__example__": "2025-01-31" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Invoice Summary"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.description}\nClient: ${data.client_phone}\n${data.total} XAF\nDue: ${data.due_date}\n\nThe client will receive a MoMo payment link."
+          },
+          {
+            "type": "Footer",
+            "label": "Send Invoice",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "client_phone": "${data.client_phone}",
+                "client_name": "${data.client_name}",
+                "description": "${data.description}",
+                "total": "${data.total}",
+                "due_date": "${data.due_date}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
