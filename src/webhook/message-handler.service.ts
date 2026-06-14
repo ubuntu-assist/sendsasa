@@ -634,7 +634,7 @@ async function handleGetStarted(
 
     // Web3Auth fields shared across both testnet/mainnet branches
     const web3authFields = {
-      xrpl_address: address,
+      xrpl_address: address || undefined,
       evm_address: evmAddress,
       solana_address: solanaAddress,
       web3auth_verifier_id: e164Phone,
@@ -647,6 +647,7 @@ async function handleGetStarted(
         phoneNumber: e164Phone,
         pinHash: defaultPinHash,
         pinAttempts: 0,
+        pinSetupComplete: false,
         username,
         ...web3authFields,
       })
@@ -660,6 +661,7 @@ async function handleGetStarted(
         phoneNumber: e164Phone,
         pinHash: defaultPinHash,
         pinAttempts: 0,
+        pinSetupComplete: false,
         username,
         rlusdTrustLineCreated: false,
         usdcTrustLineCreated: false,
@@ -810,6 +812,7 @@ async function handleWalletImportComplete(
       phoneNumber: e164Phone,
       pinHash: defaultPinHash,
       pinAttempts: 0,
+      pinSetupComplete: false,
       username,
       rlusdTrustLineCreated: rlusdCreated,
       usdcTrustLineCreated: usdcCreated,
