@@ -229,7 +229,7 @@ export class FlowDataExchangeService {
       // HEALTH CHECK
       if (decryptedBody.action === 'ping') {
         console.log('🏥 Health check (ping) request detected')
-        res.send(
+        res.status(200).send(
           FlowDataExchangeService.encryptResponse(
             { version: decryptedBody.version, data: { status: 'active' } },
             aesKeyBuffer,
@@ -241,7 +241,7 @@ export class FlowDataExchangeService {
 
       // INIT — return screen as-is with its current data (no validation)
       if (decryptedBody.action === 'init') {
-        res.send(
+        res.status(200).send(
           FlowDataExchangeService.encryptResponse(
             {
               version: decryptedBody.version,
