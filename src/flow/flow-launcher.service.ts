@@ -255,6 +255,7 @@ export class FlowLauncherService {
               flow_action: 'navigate',
               flow_action_payload: {
                 screen: 'PIN_SETUP',
+                data: { error_pin: '', error_confirm_pin: '' },
               },
             },
           },

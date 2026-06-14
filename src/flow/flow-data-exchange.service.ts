@@ -239,6 +239,22 @@ export class FlowDataExchangeService {
         return
       }
 
+      // INIT — return screen as-is with its current data (no validation)
+      if (decryptedBody.action === 'init') {
+        res.send(
+          FlowDataExchangeService.encryptResponse(
+            {
+              version: decryptedBody.version,
+              screen: decryptedBody.screen,
+              data: decryptedBody.data ?? {},
+            },
+            aesKeyBuffer,
+            initialVectorBuffer,
+          ),
+        )
+        return
+      }
+
       let responseData: FlowDataExchangeResponse
 
       if (decryptedBody.screen === 'PIN_SETUP') {

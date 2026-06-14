@@ -2,7 +2,9 @@
   "version": "7.3",
   "data_api_version": "3.0",
   "routing_model": {
-    "PIN_SETUP": ["SECURITY_QUESTIONS"],
+    "PIN_SETUP": [
+      "SECURITY_QUESTIONS"
+    ],
     "SECURITY_QUESTIONS": []
   },
   "screens": [
@@ -42,7 +44,7 @@
                 "type": "TextInput",
                 "name": "pin",
                 "label": "Enter PIN",
-                "input-type": "passcode",
+                "input-type": "password",
                 "min-chars": 4,
                 "max-chars": 6,
                 "required": true,
@@ -52,7 +54,7 @@
                 "type": "TextInput",
                 "name": "confirm_pin",
                 "label": "Confirm PIN",
-                "input-type": "passcode",
+                "input-type": "password",
                 "min-chars": 4,
                 "max-chars": 6,
                 "required": true,
