@@ -16,6 +16,9 @@ import {
   sendFundingMessage,
   sendSaveContactPrompt,
   sendRequestTypeButtons,
+  sendMoneySection,
+  sendAccountSection,
+  sendMomotrustSection,
 } from '../whatsapp/whatsapp-menu.service'
 import {
   getAllBalances,
@@ -243,6 +246,18 @@ export async function handleInteraction(
     switch (interaction.action) {
       case 'main_menu':
         await sendMainMenu(phoneNumber, user.username)
+        break
+
+      case 'section_money':
+        await sendMoneySection(phoneNumber)
+        break
+
+      case 'section_account':
+        await sendAccountSection(phoneNumber)
+        break
+
+      case 'section_momotrust':
+        await sendMomotrustSection(phoneNumber)
         break
 
       case 'buy_crypto':

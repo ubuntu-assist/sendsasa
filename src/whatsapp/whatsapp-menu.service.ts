@@ -34,87 +34,22 @@ export async function sendMainMenu(
         button: 'Menu',
         sections: [
           {
-            title: 'Transactions',
+            title: 'Navigate',
             rows: [
               {
-                id: 'buy_crypto',
-                title: 'Buy Crypto',
-                description: 'Card, Apple Pay or Google Pay',
+                id: 'section_money',
+                title: '💸 Money & Transfers',
+                description: 'Send, receive, buy or cash out',
               },
               {
-                id: 'send_money',
-                title: 'Send Money',
-                description: 'Send crypto to anyone',
+                id: 'section_account',
+                title: '👤 My Account',
+                description: 'Wallet, contacts & history',
               },
               {
-                id: 'offramp_money',
-                title: 'Cash Out',
-                description: 'Send to MTN, Orange or UBA M2U',
-              },
-              {
-                id: 'request_money',
-                title: 'Request Money',
-                description: 'Request crypto from anyone',
-              },
-            ],
-          },
-          {
-            title: 'Account',
-            rows: [
-              {
-                id: 'my_wallet',
-                title: 'My Wallet',
-                description: 'View wallet details',
-              },
-              {
-                id: 'my_contacts',
-                title: 'My Contacts',
-                description: 'Manage saved contacts',
-              },
-              {
-                id: 'transaction_history',
-                title: 'History',
-                description: 'Transaction history',
-              },
-              {
-                id: 'pending_requests',
-                title: 'Requests',
-                description: 'Pending requests',
-              },
-            ],
-          },
-          {
-            title: '🏦 MoMo Trust',
-            rows: [
-              {
-                id: 'trustlock',
-                title: '🔒 Secure a Deal',
-                description: 'Escrow for peer-to-peer purchases',
-              },
-              {
-                id: 'njangi',
-                title: '💰 My Njangi',
-                description: 'Rotating savings group',
-              },
-              {
-                id: 'splitchat',
-                title: '🎉 Group Collection',
-                description: 'Collect money from a group',
-              },
-              {
-                id: 'kobokall',
-                title: '✈️ Send Abroad',
-                description: 'International Mobile Money transfer',
-              },
-              {
-                id: 'payday',
-                title: '💼 Pay My Team',
-                description: 'Bulk payroll disbursement',
-              },
-              {
-                id: 'safipay',
-                title: '🧾 Invoice a Client',
-                description: 'Invoices + collections',
+                id: 'section_momotrust',
+                title: '🏦 MoMo Trust',
+                description: 'Escrow, savings, payroll & more',
               },
             ],
           },
@@ -456,6 +391,92 @@ export async function sendRequestTypeButtons(to: string): Promise<void> {
   await WhatsAppService.sendMessage(payload)
 }
 
+export async function sendMoneySection(to: string): Promise<void> {
+  await WhatsAppService.sendMessage({
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'list',
+      header: { type: 'text', text: '💸 Money & Transfers' },
+      body: { text: 'What would you like to do?' },
+      action: {
+        button: 'Choose',
+        sections: [
+          {
+            title: 'Options',
+            rows: [
+              { id: 'buy_crypto',    title: 'Buy Crypto',      description: 'Card, Apple Pay or Google Pay' },
+              { id: 'send_money',    title: 'Send Money',       description: 'Send crypto to anyone' },
+              { id: 'offramp_money', title: 'Cash Out',         description: 'Send to MTN, Orange or UBA M2U' },
+              { id: 'request_money', title: 'Request Money',    description: 'Request crypto from anyone' },
+            ],
+          },
+        ],
+      },
+    },
+  })
+}
+
+export async function sendAccountSection(to: string): Promise<void> {
+  await WhatsAppService.sendMessage({
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'list',
+      header: { type: 'text', text: '👤 My Account' },
+      body: { text: 'What would you like to do?' },
+      action: {
+        button: 'Choose',
+        sections: [
+          {
+            title: 'Options',
+            rows: [
+              { id: 'my_wallet',           title: 'My Wallet',   description: 'View balances & wallet details' },
+              { id: 'my_contacts',         title: 'My Contacts', description: 'Manage saved contacts' },
+              { id: 'transaction_history', title: 'History',     description: 'Recent transactions' },
+              { id: 'pending_requests',    title: 'Requests',    description: 'Pending payment requests' },
+            ],
+          },
+        ],
+      },
+    },
+  })
+}
+
+export async function sendMomotrustSection(to: string): Promise<void> {
+  await WhatsAppService.sendMessage({
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'list',
+      header: { type: 'text', text: '🏦 MoMo Trust' },
+      body: { text: 'What would you like to do?' },
+      action: {
+        button: 'Choose',
+        sections: [
+          {
+            title: 'Features',
+            rows: [
+              { id: 'trustlock', title: '🔒 Secure a Deal',    description: 'Escrow for peer-to-peer purchases' },
+              { id: 'njangi',    title: '💰 My Njangi',        description: 'Rotating savings group' },
+              { id: 'splitchat', title: '🎉 Group Collection', description: 'Collect money from a group' },
+              { id: 'kobokall',  title: '✈️ Send Abroad',      description: 'International Mobile Money transfer' },
+              { id: 'payday',    title: '💼 Pay My Team',      description: 'Bulk payroll disbursement' },
+              { id: 'safipay',   title: '🧾 Invoice a Client', description: 'Invoices + collections' },
+            ],
+          },
+        ],
+      },
+    },
+  })
+}
+
 export async function sendBackToMenuButton(
   to: string,
   message: string,
@@ -502,4 +523,7 @@ export class WhatsAppMenuService {
   sendSendMoneyTypeList(to: string) { return sendSendMoneyTypeList(to) }
   sendRequestTypeButtons(to: string) { return sendRequestTypeButtons(to) }
   sendBackToMenuButton(to: string, message: string) { return sendBackToMenuButton(to, message) }
+  sendMoneySection(to: string) { return sendMoneySection(to) }
+  sendAccountSection(to: string) { return sendAccountSection(to) }
+  sendMomotrustSection(to: string) { return sendMomotrustSection(to) }
 }
