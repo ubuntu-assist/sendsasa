@@ -118,8 +118,7 @@ const UserSchema = new Schema<IUser>({
   xrpl_address: {
     type: String,
     required: false,
-    unique: true,
-    index: true,
+    sparse: true,
     trim: true,
   },
   solana_address: {
