@@ -61,7 +61,7 @@ export async function tryJoinGroup(
     // Payment is triggered on join — require PIN first via flow
     const { FlowLauncherService } = await import('../flow/flow-launcher.service')
     await FlowLauncherService.launchPinConfirmFlow(
-      phone,
+      phone.replace(/^\+/, ''),
       'splitchat_join',
       shortCode,
       `Pay ${(group as any).contributionAmount.toLocaleString()} XAF to join *${(group as any).name}*.`,
