@@ -48,8 +48,7 @@
             "type": "Footer",
             "label": "See Summary",
             "on-click-action": {
-              "name": "navigate",
-              "next": { "type": "screen", "name": "POT_CONFIRM" },
+              "name": "data_exchange",
               "payload": {
                 "name": "${form.name}",
                 "amount_per_person": "${form.amount_per_person}",
