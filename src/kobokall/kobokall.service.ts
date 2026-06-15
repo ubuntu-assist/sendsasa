@@ -14,22 +14,34 @@ const COUNTRY_NAMES: Record<string, string> = {
   ZMB: 'Zambia',
 }
 
+// Approximate display rates: 1 XAF → destination currency
+// Used only for the confirmation screen; pawaPay applies the real rate on settlement.
+const CORRIDOR_DEFAULTS: Record<string, { currency: string; rate: number }> = {
+  GAB: { currency: 'XAF', rate: 1 },
+  COG: { currency: 'XAF', rate: 1 },
+  TZA: { currency: 'TZS', rate: 3.7 },
+  UGA: { currency: 'UGX', rate: 3.7 },
+  ZMB: { currency: 'ZMW', rate: 0.026 },
+}
+
 @Injectable()
 export class KoboKallService {
   async initiateRemittance(senderPhone: string, dto: CreateKoboKallDto): Promise<void> {
     const corridors = await pawapayService.getActiveRemittanceCorridors()
-    const corridor = corridors.find((c: any) => c.receivingCountry === dto.recipientCountry)
+    logger.info(`[KoboKall] Active corridors: ${corridors.map((c: any) => c.receivingCountry).join(', ') || 'none'}`)
 
-    if (!corridor) {
+    const defaults = CORRIDOR_DEFAULTS[dto.recipientCountry]
+    if (!defaults) {
       await sendTextMessage(
         senderPhone,
-        `❌ *Corridor unavailable*\n\nTransfer to ${COUNTRY_NAMES[dto.recipientCountry] ?? dto.recipientCountry} is not yet enabled.\nContact support for more information.`,
+        `❌ *Destination unavailable*\n\nTransfer to ${COUNTRY_NAMES[dto.recipientCountry] ?? dto.recipientCountry} is not yet supported.\nContact support for more information.`,
       )
       return
     }
 
-    const exchangeRate: number = corridor.exchangeRate?.rate ?? 0
-    const receiveCurrency: string = corridor.receivingCurrency ?? ''
+    const corridor = corridors.find((c: any) => c.receivingCountry === dto.recipientCountry)
+    const receiveCurrency: string = corridor?.receivingCurrency ?? defaults.currency
+    const exchangeRate: number = defaults.rate
     const receiveAmount = Math.round(dto.sendAmount * exchangeRate)
     const correspondent = await pawapayService.predictCorrespondent(senderPhone)
     const remittanceId = pawapayService.generateId()
