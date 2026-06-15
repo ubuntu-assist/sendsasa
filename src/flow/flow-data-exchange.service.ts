@@ -359,6 +359,9 @@ export class FlowDataExchangeService {
       } else if (decryptedBody.screen === 'PIN_CONFIRM') {
         responseData =
           await FlowDataExchangeService.handlePinConfirm(decryptedBody)
+      } else if (decryptedBody.screen === 'POT_DETAILS') {
+        responseData =
+          await FlowDataExchangeService.handlePotDetails(decryptedBody)
       } else {
         responseData = {
           version: decryptedBody.version,
@@ -2768,6 +2771,24 @@ export class FlowDataExchangeService {
         cycle_days: Number(cycle_days),
         total_cycles: Number(total_cycles),
         payout_order,
+      },
+    }
+  }
+
+  // ── SplitChat ────────────────────────────────────────────────────────────
+
+  private static async handlePotDetails(
+    flowData: FlowDataExchangeRequest,
+  ): Promise<FlowDataExchangeResponse> {
+    const { name, amount_per_person, target_participants, deadline } = flowData.data
+    return {
+      version: flowData.version,
+      screen: 'POT_CONFIRM',
+      data: {
+        name,
+        amount_per_person: Number(amount_per_person),
+        target_participants: Number(target_participants),
+        deadline: deadline ?? '',
       },
     }
   }
