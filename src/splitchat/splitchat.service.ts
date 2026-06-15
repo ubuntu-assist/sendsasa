@@ -66,17 +66,19 @@ export class SplitChatService {
 
     const existing = await GroupMember.findOne({ groupId: (group as any)._id, phone })
     if (existing) {
-      await sendTextMessage(phone, `ℹ️ You are already in *${(group as any).name}*.`)
-      return
+      if ((existing as any).hasPaidCurrentCycle) {
+        await sendTextMessage(phone, `ℹ️ You have already paid into *${(group as any).name}*.`)
+        return
+      }
+      // Existing unpaid member (e.g. admin) — fall through to initiate payment
+    } else {
+      const count = await GroupMember.countDocuments({ groupId: (group as any)._id })
+      if ((group as any).targetParticipants && count >= (group as any).targetParticipants) {
+        await sendTextMessage(phone, `⚠️ The pot *${(group as any).name}* is full.`)
+        return
+      }
+      await GroupMember.create({ groupId: (group as any)._id, phone })
     }
-
-    const count = await GroupMember.countDocuments({ groupId: (group as any)._id })
-    if ((group as any).targetParticipants && count >= (group as any).targetParticipants) {
-      await sendTextMessage(phone, `⚠️ The pot *${(group as any).name}* is full.`)
-      return
-    }
-
-    await GroupMember.create({ groupId: (group as any)._id, phone })
 
     await User.findOneAndUpdate(
       { phoneNumber: phone },
