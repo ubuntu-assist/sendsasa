@@ -290,17 +290,22 @@ export class PawapayService {
           },
           identification: {
             type: 'NATIONAL_ID',
-            number: 'N/A',
+            number: '000000000',
           },
         },
       },
     }
-    const { data } = await this.http.post('/v2/remittances', body)
-    logger.info(`[pawaPay] Remittance ${remittanceId} → ${data.status}`)
-    return {
-      remittanceId: data.remittanceId ?? remittanceId,
-      status: data.status === 'ACCEPTED' ? 'ACCEPTED' : 'REJECTED',
-      rejectionReason: data.failureReason?.failureMessage,
+    try {
+      const { data } = await this.http.post('/v2/remittances', body)
+      logger.info(`[pawaPay] Remittance ${remittanceId} → ${data.status}`)
+      return {
+        remittanceId: data.remittanceId ?? remittanceId,
+        status: data.status === 'ACCEPTED' ? 'ACCEPTED' : 'REJECTED',
+        rejectionReason: data.failureReason?.failureMessage,
+      }
+    } catch (err: any) {
+      logger.error(`[pawaPay] Remittance ${remittanceId} failed: ${JSON.stringify(err?.response?.data ?? err?.message)}`)
+      throw err
     }
   }
 }
