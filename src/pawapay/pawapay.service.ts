@@ -242,9 +242,11 @@ export class PawapayService {
     senderPhone: string,
     recipientPhone: string,
     _recipientCountry: string,
-    amount: number,
+    sendAmount: number,
     exchangeRate: number,
     description: string,
+    receiveCurrency: string,
+    receiveAmount: number,
   ): Promise<{
     remittanceId: string
     status: 'ACCEPTED' | 'REJECTED'
@@ -253,8 +255,8 @@ export class PawapayService {
     const recipientProvider = await this.predictCorrespondent(recipientPhone)
     const body = {
       remittanceId,
-      amount: String(Math.round(amount)),
-      currency: 'XAF',
+      amount: String(Math.round(receiveAmount)),
+      currency: receiveCurrency,
       customerMessage: this.sanitizeCustomerMessage(description),
       recipient: {
         type: 'MMO',
@@ -270,7 +272,7 @@ export class PawapayService {
       sender: {
         transactionDetails: {
           transactionReference: remittanceId,
-          originalAmount: String(Math.round(amount)),
+          originalAmount: String(Math.round(sendAmount)),
           originalCurrency: 'XAF',
           buyFxRate: String(exchangeRate),
           senderFees: '0',

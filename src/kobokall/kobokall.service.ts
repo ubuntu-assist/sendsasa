@@ -116,6 +116,8 @@ export class KoboKallService {
       (remittance as any).sendAmount,
       (remittance as any).exchangeRate,
       `KoboKall${(remittance as any).recipientCountry}`,
+      (remittance as any).receiveCurrency,
+      (remittance as any).receiveAmount,
     )
 
     if (result.status === 'REJECTED') {
