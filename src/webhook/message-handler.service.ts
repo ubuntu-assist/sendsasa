@@ -358,13 +358,13 @@ export async function handleInteraction(
         await KoboKallFlowService.sendKoboKallFlow(phoneNumber)
         break
       case 'kobokall_confirm': {
-        const remittanceId = interaction.phone
-        if (remittanceId) await kobokallService.confirmRemittance(remittanceId, phoneNumber)
+        const transferId = interaction.phone
+        if (transferId) await kobokallService.confirmTransfer(transferId, phoneNumber)
         break
       }
       case 'kobokall_cancel': {
-        const remittanceId = interaction.phone
-        if (remittanceId) await kobokallService.cancelRemittance(remittanceId, phoneNumber)
+        const transferId = interaction.phone
+        if (transferId) await kobokallService.cancelTransfer(transferId, phoneNumber)
         break
       }
       case 'trustlock_pay': {
@@ -593,13 +593,11 @@ export async function handleFlowResponse(
       })
     } else if (
       !hasPinSetupData && !hasImportData &&
-      responseJson.recipient_phone !== undefined && responseJson.recipient_country !== undefined &&
-      responseJson.send_amount !== undefined
+      responseJson.recipient_phone !== undefined && responseJson.send_amount !== undefined
     ) {
-      await kobokallService.initiateRemittance(phoneNumber, {
+      await kobokallService.initiateTransfer(phoneNumber, {
         recipientPhone: responseJson.recipient_phone,
-        recipientCountry: responseJson.recipient_country,
-        sendAmount: Number(responseJson.send_amount),
+        amount: Number(responseJson.send_amount),
       })
     } else {
       console.log('⚠️ Unknown flow response format:', responseJson)

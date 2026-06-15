@@ -368,32 +368,9 @@ export interface CreateInvoiceDto {
 
 // ── KoboKall types ───────────────────────────────────────────────────────────
 
-export enum RemittanceStatus {
-  INITIATED  = 'INITIATED',
-  PROCESSING = 'PROCESSING',
-  COMPLETED  = 'COMPLETED',
-  FAILED     = 'FAILED',
-  CANCELLED  = 'CANCELLED',
-}
-
-export interface KoboKallRemittance {
-  remittanceId: string
-  senderPhone: string
-  recipientPhone: string
-  recipientCountry: string
-  sendAmount: number
-  receiveAmount: number
-  receiveCurrency: string
-  exchangeRate: number
-  correspondent: string
-  status: RemittanceStatus
-  failureCode?: string
-}
-
 export interface CreateKoboKallDto {
   recipientPhone: string
-  recipientCountry: string
-  sendAmount: number
+  amount: number
 }
 
 // ── Gemini AI types ───────────────────────────────────────────────────────────

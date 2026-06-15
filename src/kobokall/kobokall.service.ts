@@ -1,70 +1,50 @@
 import { Injectable } from '@nestjs/common'
-import { KoboKallRemittance } from './kobokall-remittance.schema'
+import { LocalTransfer } from './kobokall-remittance.schema'
 import { pawapayService } from '../pawapay/pawapay.service'
+import { calculateFee } from '../common/fee'
 import { sendTextMessage, WhatsAppService } from '../whatsapp/whatsapp.service'
 import { User } from '../models/User'
 import type { CreateKoboKallDto } from '../types'
 import logger from '../utils/logger'
 
-const COUNTRY_NAMES: Record<string, string> = {
-  GAB: 'Gabon',
-  COG: 'Congo-Brazzaville',
-  TZA: 'Tanzania',
-  UGA: 'Uganda',
-  ZMB: 'Zambia',
+const OPERATOR_LABELS: Record<string, string> = {
+  MTN_MOMO_CMR: 'MTN MoMo',
+  ORANGE_CMR: 'Orange Money',
 }
 
-// Approximate display rates: 1 XAF → destination currency
-// Used only for the confirmation screen; pawaPay applies the real rate on settlement.
-const CORRIDOR_DEFAULTS: Record<string, { currency: string; rate: number }> = {
-  GAB: { currency: 'XAF', rate: 1 },
-  COG: { currency: 'XAF', rate: 1 },
-  TZA: { currency: 'TZS', rate: 3.7 },
-  UGA: { currency: 'UGX', rate: 3.7 },
-  ZMB: { currency: 'ZMW', rate: 0.026 },
+function operatorLabel(code: string): string {
+  return OPERATOR_LABELS[code] ?? code
 }
 
 @Injectable()
 export class KoboKallService {
-  async initiateRemittance(senderPhone: string, dto: CreateKoboKallDto): Promise<void> {
-    const corridors = await pawapayService.getActiveRemittanceCorridors()
-    logger.info(`[KoboKall] Active corridors: ${corridors.map((c: any) => c.receivingCountry).join(', ') || 'none'}`)
+  async initiateTransfer(senderPhone: string, dto: CreateKoboKallDto): Promise<void> {
+    const [senderOperator, recipientOperator] = await Promise.all([
+      pawapayService.predictCorrespondent(senderPhone),
+      pawapayService.predictCorrespondent(dto.recipientPhone),
+    ])
 
-    const defaults = CORRIDOR_DEFAULTS[dto.recipientCountry]
-    if (!defaults) {
-      await sendTextMessage(
-        senderPhone,
-        `❌ *Destination unavailable*\n\nTransfer to ${COUNTRY_NAMES[dto.recipientCountry] ?? dto.recipientCountry} is not yet supported.\nContact support for more information.`,
-      )
-      return
-    }
+    const amount = Math.round(dto.amount)
+    const fee = calculateFee(amount)
+    const netAmount = amount - fee
+    const transferId = pawapayService.generateId()
 
-    const corridor = corridors.find((c: any) => c.receivingCountry === dto.recipientCountry)
-    const receiveCurrency: string = corridor?.receivingCurrency ?? defaults.currency
-    const exchangeRate: number = defaults.rate
-    const receiveAmount = Math.round(dto.sendAmount * exchangeRate)
-    const correspondent = await pawapayService.predictCorrespondent(senderPhone)
-    const remittanceId = pawapayService.generateId()
-
-    await KoboKallRemittance.create({
-      remittanceId,
+    await LocalTransfer.create({
+      transferId,
       senderPhone,
       recipientPhone: dto.recipientPhone,
-      recipientCountry: dto.recipientCountry,
-      sendAmount: Math.round(dto.sendAmount),
-      receiveAmount,
-      receiveCurrency,
-      exchangeRate,
-      correspondent,
+      amount,
+      fee,
+      netAmount,
+      senderOperator,
+      recipientOperator,
       status: 'INITIATED',
     })
 
     await User.findOneAndUpdate(
       { phoneNumber: senderPhone },
-      { momotrustContext: `KOBOKALL:${remittanceId}`, momotrustContextUpdatedAt: new Date() },
+      { momotrustContext: `KOBOKALL:${transferId}`, momotrustContextUpdatedAt: new Date() },
     )
-
-    const countryLabel = COUNTRY_NAMES[dto.recipientCountry] ?? dto.recipientCountry
 
     await WhatsAppService.sendMessage({
       messaging_product: 'whatsapp',
@@ -75,117 +55,177 @@ export class KoboKallService {
         type: 'button',
         body: {
           text:
-            `✈️ *International Transfer*\n\n` +
-            `📤 You send: ${Math.round(dto.sendAmount).toLocaleString()} XAF\n` +
+            `📲 *MoMo Transfer*\n\n` +
+            `📤 You send: ${amount.toLocaleString()} XAF\n` +
             `📱 Recipient: ${dto.recipientPhone}\n` +
-            `🌍 Country: ${countryLabel}\n` +
-            `💰 They receive: ~${receiveAmount.toLocaleString()} ${receiveCurrency}\n` +
-            `💸 Rate: 1 XAF = ${exchangeRate} ${receiveCurrency}\n\n` +
+            `📶 ${operatorLabel(senderOperator)} → ${operatorLabel(recipientOperator)}\n` +
+            `💰 They receive: ${netAmount.toLocaleString()} XAF\n\n` +
             `Do you confirm this transfer?`,
         },
         action: {
           buttons: [
-            { type: 'reply', reply: { id: `kobokall_confirm:${remittanceId}`, title: '✅ Confirm' } },
-            { type: 'reply', reply: { id: `kobokall_cancel:${remittanceId}`, title: '❌ Cancel' } },
+            { type: 'reply', reply: { id: `kobokall_confirm:${transferId}`, title: '✅ Confirm' } },
+            { type: 'reply', reply: { id: `kobokall_cancel:${transferId}`, title: '❌ Cancel' } },
           ],
         },
       },
     })
 
-    logger.info(`[KoboKall] Remittance ${remittanceId} initiated: ${senderPhone} → ${dto.recipientPhone} (${dto.recipientCountry})`)
+    logger.info(`[KoboKall] Transfer ${transferId} initiated: ${senderPhone} → ${dto.recipientPhone}`)
   }
 
-  async confirmRemittance(remittanceId: string, phone: string): Promise<void> {
-    const remittance = await KoboKallRemittance.findOne({ remittanceId })
-    if (!remittance || (remittance as any).senderPhone !== phone) return
-    if ((remittance as any).status !== 'INITIATED') return
+  async confirmTransfer(transferId: string, phone: string): Promise<void> {
+    const transfer = await LocalTransfer.findOne({ transferId })
+    if (!transfer || (transfer as any).senderPhone !== phone) return
+    if ((transfer as any).status !== 'INITIATED') return
 
-    ;(remittance as any).status = 'PROCESSING'
-    await (remittance as any).save()
+    const depositId = pawapayService.generateId()
+    ;(transfer as any).depositId = depositId
+    ;(transfer as any).status = 'PROCESSING'
+    await (transfer as any).save()
 
-    await sendTextMessage(
+    await sendTextMessage(phone, `⏳ *Transfer in progress...*\n\nAccept the USSD prompt on your phone.`)
+
+    const result = await pawapayService.initiateDeposit(
+      depositId,
       phone,
-      `⏳ *Transfer in progress...*\n\nYour transfer of ${(remittance as any).sendAmount.toLocaleString()} XAF is being processed. You will be notified upon confirmation.`,
-    )
-
-    const result = await pawapayService.remittance(
-      remittanceId,
-      phone,
-      (remittance as any).recipientPhone,
-      (remittance as any).recipientCountry,
-      (remittance as any).sendAmount,
-      (remittance as any).exchangeRate,
-      `KoboKall${(remittance as any).recipientCountry}`,
-      (remittance as any).receiveCurrency,
-      (remittance as any).receiveAmount,
+      (transfer as any).amount,
+      'MoMoTransfer',
+      transferId,
     )
 
     if (result.status === 'REJECTED') {
-      ;(remittance as any).status = 'FAILED'
-      ;(remittance as any).failureCode = result.rejectionReason ?? 'REJECTED'
-      await (remittance as any).save()
+      ;(transfer as any).status = 'FAILED'
+      ;(transfer as any).failureCode = result.rejectionReason ?? 'REJECTED'
+      await (transfer as any).save()
+      await sendTextMessage(phone, `❌ *Transfer rejected*\n\n${result.rejectionReason ?? ''}\nPlease try again.`)
+    }
+
+    logger.info(`[KoboKall] Transfer ${transferId} deposit initiated, status: ${result.status}`)
+  }
+
+  async onDepositCompleted(depositId: string): Promise<void> {
+    const transfer = await LocalTransfer.findOne({ depositId })
+    if (!transfer) return
+
+    ;(transfer as any).status = 'DEPOSIT_CONFIRMED'
+    const payoutId = pawapayService.generateId()
+    ;(transfer as any).payoutId = payoutId
+    await (transfer as any).save()
+
+    const result = await pawapayService.initiatePayout(
+      payoutId,
+      (transfer as any).recipientPhone,
+      (transfer as any).netAmount,
+      'MoMoTransfer',
+      (transfer as any).transferId,
+    )
+
+    if (result.status === 'REJECTED') {
+      ;(transfer as any).status = 'FAILED'
+      ;(transfer as any).failureCode = result.rejectionReason ?? 'PAYOUT_REJECTED'
+      await (transfer as any).save()
+
+      const refundId = pawapayService.generateId()
+      await pawapayService.initiateRefund(
+        refundId,
+        depositId,
+        (transfer as any).amount,
+        'MoMoRefund',
+      )
+
       await sendTextMessage(
-        phone,
-        `❌ *Transfer rejected*\n\n${result.rejectionReason ?? ''}\nPlease try again or contact support.`,
+        (transfer as any).senderPhone,
+        `❌ *Transfer failed*\n\nPayout to ${(transfer as any).recipientPhone} was rejected. A refund of ${(transfer as any).amount.toLocaleString()} XAF will be returned to your account.`,
       )
     }
 
-    logger.info(`[KoboKall] Remittance ${remittanceId} confirmed, pawaPay status: ${result.status}`)
+    logger.info(`[KoboKall] Payout initiated for transfer ${(transfer as any).transferId}, status: ${result.status}`)
   }
 
-  async onRemittanceCompleted(remittanceId: string): Promise<void> {
-    const remittance = await KoboKallRemittance.findOne({ remittanceId })
-    if (!remittance) return
+  async onDepositFailed(depositId: string, failureCode: string): Promise<void> {
+    const transfer = await LocalTransfer.findOne({ depositId })
+    if (!transfer) return
 
-    ;(remittance as any).status = 'COMPLETED'
-    await (remittance as any).save()
-
-    const countryLabel = COUNTRY_NAMES[(remittance as any).recipientCountry] ?? (remittance as any).recipientCountry
+    ;(transfer as any).status = 'FAILED'
+    ;(transfer as any).failureCode = failureCode
+    await (transfer as any).save()
 
     await sendTextMessage(
-      (remittance as any).senderPhone,
-      `✅ *Transfer confirmed!*\n\n` +
-        `📤 ${(remittance as any).sendAmount.toLocaleString()} XAF sent\n` +
-        `📱 Recipient: ${(remittance as any).recipientPhone}\n` +
-        `🌍 ${countryLabel}\n` +
-        `💰 Amount received: ${(remittance as any).receiveAmount.toLocaleString()} ${(remittance as any).receiveCurrency}\n\n` +
-        `Thank you for using KoboKall!`,
+      (transfer as any).senderPhone,
+      `❌ *Transfer failed*\n\nCode: ${failureCode}\nPlease try again.`,
     )
 
-    logger.info(`[KoboKall] Remittance ${remittanceId} completed`)
+    logger.info(`[KoboKall] Deposit failed for transfer ${(transfer as any).transferId}: ${failureCode}`)
   }
 
-  async onRemittanceFailed(remittanceId: string, failureCode: string): Promise<void> {
-    const remittance = await KoboKallRemittance.findOne({ remittanceId })
-    if (!remittance) return
+  async onPayoutCompleted(payoutId: string): Promise<void> {
+    const transfer = await LocalTransfer.findOne({ payoutId })
+    if (!transfer) return
 
-    ;(remittance as any).status = 'FAILED'
-    ;(remittance as any).failureCode = failureCode
-    await (remittance as any).save()
+    ;(transfer as any).status = 'COMPLETED'
+    await (transfer as any).save()
 
     await sendTextMessage(
-      (remittance as any).senderPhone,
-      `❌ *Transfer failed*\n\nCode: ${failureCode}\nPlease try again or contact support.`,
+      (transfer as any).senderPhone,
+      `✅ *Transfer confirmed!*\n\n${(transfer as any).netAmount.toLocaleString()} XAF sent to ${(transfer as any).recipientPhone}.\n\nThank you for using SendSasa!`,
     )
 
-    logger.info(`[KoboKall] Remittance ${remittanceId} failed: ${failureCode}`)
+    await sendTextMessage(
+      (transfer as any).recipientPhone,
+      `💰 *You received ${(transfer as any).netAmount.toLocaleString()} XAF* from ****${String((transfer as any).senderPhone).slice(-4)} via SendSasa.`,
+    )
+
+    logger.info(`[KoboKall] Transfer ${(transfer as any).transferId} completed`)
   }
 
-  async cancelRemittance(remittanceId: string, phone: string): Promise<void> {
-    const remittance = await KoboKallRemittance.findOne({ remittanceId })
-    if (!remittance || (remittance as any).senderPhone !== phone) return
-    if ((remittance as any).status !== 'INITIATED') return
+  async onPayoutFailed(payoutId: string, failureCode: string): Promise<void> {
+    const transfer = await LocalTransfer.findOne({ payoutId })
+    if (!transfer) return
 
-    ;(remittance as any).status = 'CANCELLED'
-    await (remittance as any).save()
+    ;(transfer as any).status = 'FAILED'
+    ;(transfer as any).failureCode = failureCode
+    await (transfer as any).save()
+
+    const refundId = pawapayService.generateId()
+    await pawapayService.initiateRefund(
+      refundId,
+      (transfer as any).depositId,
+      (transfer as any).amount,
+      'MoMoRefund',
+    )
+
+    await sendTextMessage(
+      (transfer as any).senderPhone,
+      `❌ *Transfer failed*\n\nCode: ${failureCode}\nA refund of ${(transfer as any).amount.toLocaleString()} XAF will be returned to your account.`,
+    )
+
+    logger.info(`[KoboKall] Payout failed for transfer ${(transfer as any).transferId}: ${failureCode}`)
+  }
+
+  async cancelTransfer(transferId: string, phone: string): Promise<void> {
+    const transfer = await LocalTransfer.findOne({ transferId })
+    if (!transfer || (transfer as any).senderPhone !== phone) return
+    if ((transfer as any).status !== 'INITIATED') return
+
+    ;(transfer as any).status = 'CANCELLED'
+    await (transfer as any).save()
 
     await sendTextMessage(phone, `↩️ Transfer cancelled.`)
-    logger.info(`[KoboKall] Remittance ${remittanceId} cancelled`)
+    logger.info(`[KoboKall] Transfer ${transferId} cancelled`)
   }
 
-  async handleMessage(phone: string, message: string, remittanceId: string): Promise<void> {
+  async getTransferByDepositId(depositId: string) {
+    return LocalTransfer.findOne({ depositId })
+  }
+
+  async getTransferByPayoutId(payoutId: string) {
+    return LocalTransfer.findOne({ payoutId })
+  }
+
+  async handleMessage(phone: string, message: string, transferId: string): Promise<void> {
     if (message.trim().toLowerCase() === 'cancel') {
-      await this.cancelRemittance(remittanceId, phone)
+      await this.cancelTransfer(transferId, phone)
     }
   }
 }

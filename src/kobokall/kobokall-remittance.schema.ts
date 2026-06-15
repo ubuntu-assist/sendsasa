@@ -1,30 +1,29 @@
 import mongoose from 'mongoose'
 
-const KoboKallRemittanceSchema = new mongoose.Schema(
+const LocalTransferSchema = new mongoose.Schema(
   {
-    remittanceId: { type: String, required: true, unique: true },
+    transferId: { type: String, required: true, unique: true },
     senderPhone: { type: String, required: true },
     recipientPhone: { type: String, required: true },
-    recipientCountry: { type: String, required: true },
-    sendAmount: { type: Number, required: true },
-    receiveAmount: { type: Number, required: true },
-    receiveCurrency: { type: String, required: true },
-    exchangeRate: { type: Number, required: true },
-    correspondent: { type: String, required: true },
+    amount: { type: Number, required: true },
+    fee: { type: Number, required: true },
+    netAmount: { type: Number, required: true },
+    senderOperator: { type: String },
+    recipientOperator: { type: String },
     status: {
       type: String,
-      enum: ['INITIATED', 'PROCESSING', 'COMPLETED', 'FAILED', 'CANCELLED'],
+      enum: ['INITIATED', 'PROCESSING', 'DEPOSIT_CONFIRMED', 'COMPLETED', 'FAILED', 'CANCELLED'],
       default: 'INITIATED',
     },
-    failureCode: String,
+    depositId: { type: String, sparse: true },
+    payoutId: { type: String, sparse: true },
+    failureCode: { type: String },
   },
   { timestamps: true },
 )
 
-KoboKallRemittanceSchema.index({ remittanceId: 1 })
-KoboKallRemittanceSchema.index({ senderPhone: 1, createdAt: -1 })
+LocalTransferSchema.index({ transferId: 1 })
+LocalTransferSchema.index({ depositId: 1 }, { sparse: true })
+LocalTransferSchema.index({ payoutId: 1 }, { sparse: true })
 
-export const KoboKallRemittance = mongoose.model(
-  'KoboKallRemittance',
-  KoboKallRemittanceSchema,
-)
+export const LocalTransfer = mongoose.model('LocalTransfer', LocalTransferSchema)

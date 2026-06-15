@@ -11,7 +11,10 @@ import logger from '../utils/logger'
 
 async function shortenUrl(url: string): Promise<string> {
   try {
-    const { data } = await axios.get(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`, { timeout: 5000 })
+    const { data } = await axios.get(
+      `https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`,
+      { timeout: 5000 },
+    )
     return typeof data === 'string' && data.startsWith('http') ? data : url
   } catch {
     return url
@@ -39,7 +42,9 @@ export class SafiPayService {
       paymentPageUrl = await shortenUrl(page.pageUrl)
       pawapayDepositId = page.depositId
     } catch (err: any) {
-      logger.error(`[SafiPay] Payment page creation failed for ${shortCode}: ${err?.response?.data ? JSON.stringify(err.response.data) : err?.message ?? err}`)
+      logger.error(
+        `[SafiPay] Payment page creation failed for ${shortCode}: ${err?.response?.data ? JSON.stringify(err.response.data) : (err?.message ?? err)}`,
+      )
     }
 
     const invoice = await Invoice.create({

@@ -466,7 +466,7 @@ export async function sendMomotrustSection(to: string): Promise<void> {
               { id: 'trustlock', title: '🔒 Secure a Deal',    description: 'Escrow for peer-to-peer purchases' },
               { id: 'njangi',    title: '💰 My Njangi',        description: 'Rotating savings group' },
               { id: 'splitchat', title: '🎉 Group Collection', description: 'Collect money from a group' },
-              { id: 'kobokall',  title: '✈️ Send Abroad',      description: 'International Mobile Money transfer' },
+              { id: 'kobokall',  title: '📲 MoMo Transfer',     description: 'Send money via MTN or Orange MoMo' },
               { id: 'payday',    title: '💼 Pay My Team',      description: 'Bulk payroll disbursement' },
               { id: 'safipay',   title: '🧾 Invoice a Client', description: 'Invoices + collections' },
             ],

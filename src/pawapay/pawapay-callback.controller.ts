@@ -7,6 +7,7 @@ import { PayDayService } from '../payday/payday.service'
 import { SafiPayService } from '../safipay/safipay.service'
 import { KoboKallService } from '../kobokall/kobokall.service'
 import { Group } from '../njangi/group.schema'
+import { LocalTransfer } from '../kobokall/kobokall-remittance.schema'
 import logger from '../utils/logger'
 
 @Controller('pawapay')
@@ -25,7 +26,7 @@ export class PawapayCallbackController {
     res.json({ received: true })
 
     setImmediate(async () => {
-      const { depositId, payoutId, refundId, remittanceId, status } = req.body
+      const { depositId, payoutId, refundId, status } = req.body
       const failureCode: string = req.body.failureReason?.failureCode ?? ''
       try {
         if (depositId) {
@@ -51,6 +52,15 @@ export class PawapayCallbackController {
             return
           }
 
+          const transfer = await LocalTransfer.findOne({ depositId })
+          if (transfer) {
+            if (status === 'COMPLETED')
+              await this.kobokall.onDepositCompleted(depositId)
+            else if (status === 'FAILED')
+              await this.kobokall.onDepositFailed(depositId, failureCode ?? '')
+            return
+          }
+
           if (status === 'COMPLETED')
             await this.safipay.onInvoicePaid(depositId)
           return
@@ -72,6 +82,15 @@ export class PawapayCallbackController {
             return
           }
 
+          const transfer = await LocalTransfer.findOne({ payoutId })
+          if (transfer) {
+            if (status === 'COMPLETED')
+              await this.kobokall.onPayoutCompleted(payoutId)
+            else if (status === 'FAILED')
+              await this.kobokall.onPayoutFailed(payoutId, failureCode ?? '')
+            return
+          }
+
           if (status === 'COMPLETED') await this.payday.onItemPaid(payoutId)
           else await this.payday.onItemFailed(payoutId, failureCode ?? '')
           return
@@ -82,11 +101,6 @@ export class PawapayCallbackController {
           if (deal && status === 'COMPLETED')
             await this.trustlock.onRefundCompleted(refundId)
           return
-        }
-
-        if (remittanceId) {
-          if (status === 'COMPLETED') await this.kobokall.onRemittanceCompleted(remittanceId)
-          else await this.kobokall.onRemittanceFailed(remittanceId, failureCode ?? '')
         }
       } catch (err) {
         logger.error(`[PawaPay] Callback error: ${(err as Error).message}`)
