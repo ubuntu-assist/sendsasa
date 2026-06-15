@@ -18,6 +18,7 @@ export class SplitChatService {
     const group = await Group.create({
       shortCode,
       type: 'SPLITCHAT',
+      mode: data.mode ?? 'ORGANIZER',
       adminPhone: organizerPhone,
       name: data.name,
       contributionAmount: data.amountPerPerson,
@@ -29,16 +30,16 @@ export class SplitChatService {
 
     const groupId = String((group as any)._id)
 
-    await GroupMember.create({
-      groupId,
-      phone: organizerPhone,
-    })
+    if (data.mode === 'SPLIT') {
+      await GroupMember.create({ groupId, phone: organizerPhone })
+    }
 
     await User.findOneAndUpdate(
       { phoneNumber: organizerPhone },
       { momotrustContext: `SPLITCHAT:${groupId}`, momotrustContextUpdatedAt: new Date() },
     )
 
+    const splitHint = data.mode === 'SPLIT' ? `\n\nType *pay* to add your own contribution.` : ''
     await sendTextMessage(
       organizerPhone,
       `✅ *Group pot created!*\n\n` +
@@ -46,7 +47,8 @@ export class SplitChatService {
       `💰 Contribution: ${data.amountPerPerson.toLocaleString()} XAF / person\n` +
       `👥 Target participants: ${data.targetParticipants}\n` +
       `🔑 Code: *${shortCode}*\n\n` +
-      `Share this code with your friends: *JOIN ${shortCode}*`,
+      `Share this code with your friends: *JOIN ${shortCode}*` +
+      splitHint,
     )
 
     logger.info(`[SplitChat] Pot created: ${shortCode} by ${organizerPhone}`)

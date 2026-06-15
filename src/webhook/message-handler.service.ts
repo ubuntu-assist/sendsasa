@@ -569,6 +569,7 @@ export async function handleFlowResponse(
     ) {
       await splitchatService.createPot(phoneNumber, {
         name: responseJson.name,
+        mode: responseJson.mode ?? 'ORGANIZER',
         amountPerPerson: Number(responseJson.amount_per_person),
         targetParticipants: Number(responseJson.target_participants),
         deadline: responseJson.deadline ? new Date(responseJson.deadline) : undefined,

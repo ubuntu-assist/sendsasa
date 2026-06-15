@@ -5,6 +5,7 @@ const GroupSchema = new mongoose.Schema(
   {
     shortCode: { type: String, unique: true, required: true },
     type: { type: String, enum: ['NJANGI', 'SPLITCHAT'], required: true },
+    mode: { type: String, enum: ['ORGANIZER', 'SPLIT'], default: 'ORGANIZER' },
     adminPhone: { type: String, required: true },
     name: { type: String, required: true },
     contributionAmount: { type: Number, required: true },

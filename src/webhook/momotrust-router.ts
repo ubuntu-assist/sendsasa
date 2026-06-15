@@ -27,7 +27,7 @@ export async function handleMomotrustMessage(
 
   if (feature === 'SPLITCHAT' && text.trim().toLowerCase() === 'pay') {
     const group = await Group.findById(contextId)
-    if (group) {
+    if (group && (group as any).mode === 'SPLIT') {
       const { FlowLauncherService } = await import('../flow/flow-launcher.service')
       await FlowLauncherService.launchPinConfirmFlow(
         phone.replace(/^\+/, ''),
@@ -35,6 +35,8 @@ export async function handleMomotrustMessage(
         (group as any).shortCode,
         `Pay ${(group as any).contributionAmount.toLocaleString()} XAF to contribute to *${(group as any).name}*.`,
       )
+    } else if (group) {
+      await sendTextMessage(phone, `ℹ️ As the organizer, you receive the pot — you don't need to contribute.`)
     }
     return
   }

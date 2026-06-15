@@ -336,6 +336,7 @@ export interface CreateGroupDto {
 
 export interface CreatePotDto {
   name: string
+  mode: 'ORGANIZER' | 'SPLIT'
   amountPerPerson: number
   targetParticipants: number
   deadline?: Date

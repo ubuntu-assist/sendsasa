@@ -27,7 +27,17 @@
             "name": "name",
             "required": true,
             "input-type": "text",
-            "helper-text": "e.g. Wedding gift, Group trip, etc."
+            "helper-text": "e.g. Wedding gift, Restaurant bill, Group trip"
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "label": "Pot type",
+            "name": "mode",
+            "required": true,
+            "data-source": [
+              { "id": "ORGANIZER", "title": "Collect for me (I receive the pot)" },
+              { "id": "SPLIT", "title": "Split expense (everyone pays, including me)" }
+            ]
           },
           {
             "type": "TextInput",
@@ -51,6 +61,7 @@
               "name": "data_exchange",
               "payload": {
                 "name": "${form.name}",
+                "mode": "${form.mode}",
                 "amount_per_person": "${form.amount_per_person}",
                 "target_participants": "${form.target_participants}"
               }
@@ -65,6 +76,7 @@
       "terminal": true,
       "data": {
         "name": { "type": "string", "__example__": "Wedding gift" },
+        "mode": { "type": "string", "__example__": "ORGANIZER" },
         "amount_per_person": { "type": "number", "__example__": 5000 },
         "target_participants": { "type": "number", "__example__": 10 }
       },
@@ -86,6 +98,7 @@
               "name": "complete",
               "payload": {
                 "name": "${data.name}",
+                "mode": "${data.mode}",
                 "amount_per_person": "${data.amount_per_person}",
                 "target_participants": "${data.target_participants}"
               }

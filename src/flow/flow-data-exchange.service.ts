@@ -2780,15 +2780,15 @@ export class FlowDataExchangeService {
   private static async handlePotDetails(
     flowData: FlowDataExchangeRequest,
   ): Promise<FlowDataExchangeResponse> {
-    const { name, amount_per_person, target_participants, deadline } = flowData.data
+    const { name, mode, amount_per_person, target_participants } = flowData.data
     return {
       version: flowData.version,
       screen: 'POT_CONFIRM',
       data: {
         name,
+        mode: mode ?? 'ORGANIZER',
         amount_per_person: Number(amount_per_person),
         target_participants: Number(target_participants),
-        deadline: deadline ?? '',
       },
     }
   }
