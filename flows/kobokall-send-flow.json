@@ -2,7 +2,8 @@
   "version": "7.3",
   "data_api_version": "3.0",
   "routing_model": {
-    "KOBOKALL_SEND": ["KOBOKALL_CONFIRM"],
+    "KOBOKALL_SEND": ["KOBOKALL_CONFIRM", "SELECT_RECIPIENT_CONTACT"],
+    "SELECT_RECIPIENT_CONTACT": ["KOBOKALL_CONFIRM"],
     "KOBOKALL_CONFIRM": []
   },
   "screens": [
@@ -14,11 +15,21 @@
         "type": "SingleColumnLayout",
         "children": [
           {
+            "type": "RadioButtonsGroup",
+            "name": "recipient_type",
+            "label": "Recipient",
+            "required": true,
+            "data-source": [
+              { "id": "phone", "title": "Enter phone number" },
+              { "id": "contact", "title": "Choose from saved contacts" }
+            ]
+          },
+          {
             "type": "TextInput",
             "name": "recipient_phone",
             "label": "Recipient Phone (e.g. 237653456789)",
             "input-type": "phone",
-            "required": true
+            "required": false
           },
           {
             "type": "TextInput",
@@ -33,8 +44,50 @@
             "on-click-action": {
               "name": "data_exchange",
               "payload": {
+                "recipient_type": "${form.recipient_type}",
                 "recipient_phone": "${form.recipient_phone}",
                 "send_amount": "${form.send_amount}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "SELECT_RECIPIENT_CONTACT",
+      "title": "Select Recipient",
+      "data": {
+        "send_amount": { "type": "string", "__example__": "5000" },
+        "contacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" }
+            }
+          },
+          "__example__": [{ "id": "237653456789", "title": "John (237653456789)" }]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Dropdown",
+            "name": "contact",
+            "label": "Choose from saved contacts",
+            "required": true,
+            "data-source": "${data.contacts}"
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "send_amount": "${data.send_amount}",
+                "contact": "${form.contact}"
               }
             }
           }

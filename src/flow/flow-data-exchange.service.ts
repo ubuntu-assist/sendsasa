@@ -341,6 +341,9 @@ export class FlowDataExchangeService {
       } else if (decryptedBody.screen === 'KOBOKALL_SEND') {
         responseData =
           await FlowDataExchangeService.handleKobokallSend(decryptedBody)
+      } else if (decryptedBody.screen === 'SELECT_RECIPIENT_CONTACT') {
+        responseData =
+          await FlowDataExchangeService.handleSelectRecipientContact(decryptedBody)
       } else if (decryptedBody.screen === 'PAYROLL_INPUT') {
         responseData =
           await FlowDataExchangeService.handlePaydayInputMode(decryptedBody)
@@ -2583,11 +2586,12 @@ export class FlowDataExchangeService {
   private static async handleKobokallSend(
     flowData: FlowDataExchangeRequest,
   ): Promise<FlowDataExchangeResponse> {
-    const { recipient_phone, send_amount } = flowData.data
+    const { recipient_type, recipient_phone, send_amount } = flowData.data
 
     const errors: Record<string, string> = {}
+    const isSavedContact = recipient_type === 'contact'
 
-    if (!recipient_phone || recipient_phone.trim() === '') {
+    if (!isSavedContact && (!recipient_phone || recipient_phone.trim() === '')) {
       errors['recipient_phone'] = "Recipient's phone is required"
     }
 
@@ -2607,10 +2611,57 @@ export class FlowDataExchangeService {
       }
     }
 
+    if (isSavedContact) {
+      const whatsappId = FlowDataExchangeService.extractWhatsappIdFromToken(flowData.flow_token)
+      const user = await User.findOne({ whatsappId })
+      const contacts = (user?.beneficiaries ?? []).map((b: any) => ({
+        id: b.phoneNumber,
+        title: `${b.nickname} (${b.phoneNumber})`,
+      }))
+      if (contacts.length === 0) {
+        return {
+          version: flowData.version,
+          screen: flowData.screen,
+          data: {
+            ...flowData.data,
+            ...FlowDataExchangeService.errorFields(
+              { recipient_type: 'No saved contacts. Add contacts via My Contacts first.' },
+              ['recipient_phone', 'send_amount'],
+            ),
+          },
+        }
+      }
+      return {
+        version: flowData.version,
+        screen: 'SELECT_RECIPIENT_CONTACT',
+        data: { send_amount: numAmount.toString(), contacts },
+      }
+    }
+
     return {
       version: flowData.version,
       screen: 'KOBOKALL_CONFIRM',
       data: { recipient_phone, send_amount: numAmount.toString() },
+    }
+  }
+
+  private static async handleSelectRecipientContact(
+    flowData: FlowDataExchangeRequest,
+  ): Promise<FlowDataExchangeResponse> {
+    const { send_amount, contact } = flowData.data
+
+    if (!contact) {
+      return {
+        version: flowData.version,
+        screen: 'SELECT_RECIPIENT_CONTACT' as const,
+        data: { ...flowData.data, error_contact: 'Please select a contact' },
+      }
+    }
+
+    return {
+      version: flowData.version,
+      screen: 'KOBOKALL_CONFIRM',
+      data: { recipient_phone: contact, send_amount },
     }
   }
 
