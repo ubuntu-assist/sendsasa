@@ -18,12 +18,6 @@
             "text": "New Group Pot"
           },
           {
-            "type": "Image",
-            "src": "https://res.cloudinary.com/YOUR_CLOUD/image/upload/v1/momotrust/splitchat.png",
-            "scale-type": "contain",
-            "aspect-ratio": 1.91
-          },
-          {
             "type": "TextBody",
             "text": "Collect money from multiple people for a shared goal."
           },
@@ -51,12 +45,6 @@
             "input-type": "number"
           },
           {
-            "type": "DatePicker",
-            "label": "Collection Deadline (optional)",
-            "name": "deadline",
-            "required": false
-          },
-          {
             "type": "Footer",
             "label": "See Summary",
             "on-click-action": {
@@ -65,8 +53,7 @@
               "payload": {
                 "name": "${form.name}",
                 "amount_per_person": "${form.amount_per_person}",
-                "target_participants": "${form.target_participants}",
-                "deadline": "${form.deadline}"
+                "target_participants": "${form.target_participants}"
               }
             }
           }
@@ -80,8 +67,7 @@
       "data": {
         "name": { "type": "string", "__example__": "Wedding gift" },
         "amount_per_person": { "type": "number", "__example__": 5000 },
-        "target_participants": { "type": "number", "__example__": 10 },
-        "deadline": { "type": "string", "__example__": "" }
+        "target_participants": { "type": "number", "__example__": 10 }
       },
       "layout": {
         "type": "SingleColumnLayout",
@@ -95,14 +81,6 @@
             "text": "${data.name}\n${data.amount_per_person} XAF x ${data.target_participants} people\n\nShare the code with participants after creation."
           },
           {
-            "type": "If",
-            "condition": "`${data.deadline} != ''`",
-            "then": [
-              { "type": "TextBody", "text": "Deadline: ${data.deadline}" }
-            ],
-            "else": []
-          },
-          {
             "type": "Footer",
             "label": "Start Collection",
             "on-click-action": {
@@ -110,8 +88,7 @@
               "payload": {
                 "name": "${data.name}",
                 "amount_per_person": "${data.amount_per_person}",
-                "target_participants": "${data.target_participants}",
-                "deadline": "${data.deadline}"
+                "target_participants": "${data.target_participants}"
               }
             }
           }
