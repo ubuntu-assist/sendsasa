@@ -3,7 +3,7 @@ import { Invoice } from './invoice.schema'
 import { generateShortCode } from '../common/short-code'
 import { pawapayService } from '../pawapay/pawapay.service'
 import { GeminiService } from '../services/gemini.service'
-import { sendTextMessage } from '../whatsapp/whatsapp.service'
+import { sendTextMessage, WhatsAppService } from '../whatsapp/whatsapp.service'
 import { User } from '../models/User'
 import type { CreateInvoiceDto } from '../types'
 import logger from '../utils/logger'
@@ -53,21 +53,36 @@ export class SafiPayService {
       },
     )
 
-    const clientMsg = paymentPageUrl
-      ? `🧾 *Invoice received*\n\n` +
-        `🏪 Merchant: ****${merchantPhone.slice(-4)}\n` +
-        `📝 ${data.description}\n` +
-        `💰 Amount: ${data.total.toLocaleString()} XAF\n` +
-        `📅 Due: ${new Date(data.dueDate).toLocaleDateString('en-US')}\n` +
-        `🔑 Ref: ${shortCode}\n\n` +
-        `💳 Pay here: ${paymentPageUrl}`
-      : `🧾 *Invoice received*\n\n` +
-        `📝 ${data.description}\n` +
-        `💰 ${data.total.toLocaleString()} XAF\n` +
-        `📅 Due: ${new Date(data.dueDate).toLocaleDateString('en-US')}\n` +
-        `🔑 Ref: ${shortCode}`
+    const invoiceBody =
+      `🧾 *Invoice received*\n\n` +
+      `🏪 Merchant: ****${merchantPhone.slice(-4)}\n` +
+      `📝 ${data.description}\n` +
+      `💰 Amount: ${data.total.toLocaleString()} XAF\n` +
+      `📅 Due: ${new Date(data.dueDate).toLocaleDateString('en-US')}\n` +
+      `🔑 Ref: ${shortCode}`
 
-    await sendTextMessage(data.clientPhone, clientMsg)
+    if (paymentPageUrl) {
+      await WhatsAppService.sendMessage({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: data.clientPhone,
+        type: 'interactive',
+        interactive: {
+          type: 'cta_url',
+          body: { text: invoiceBody },
+          action: {
+            name: 'cta_url',
+            parameters: {
+              display_text: '💳 Pay Invoice',
+              url: paymentPageUrl,
+            },
+          },
+          footer: { text: 'Powered by SendSasa · SafiPay' },
+        },
+      })
+    } else {
+      await sendTextMessage(data.clientPhone, invoiceBody)
+    }
 
     await sendTextMessage(
       merchantPhone,
