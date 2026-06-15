@@ -280,6 +280,7 @@ export class PawapayService {
         senderDetails: {
           firstName: 'Sender',
           lastName: 'Unknown',
+          dateOfBirth: '1990-01-01',
           nationality: 'CMR',
           phoneNumber: senderPhone.replace(/^\+/, ''),
           address: {
