@@ -85,6 +85,7 @@ const FLOW_ID_SAFIPAY_CREATE = process.env.FLOW_ID_SAFIPAY_CREATE
 const FLOW_ID_DISPUTE_FILE = process.env.FLOW_ID_DISPUTE_FILE
 const FLOW_ID_KOBOKALL_SEND = process.env.FLOW_ID_KOBOKALL_SEND ?? ''
 const FLOW_ID_PIN_CONFIRM = process.env.FLOW_ID_PIN_CONFIRM ?? ''
+const WELCOME_VIDEO_ID = process.env.WELCOME_VIDEO_ID ?? ''
 
 export default {
   MONGODB_URI,
@@ -142,4 +143,5 @@ export default {
   FLOW_ID_DISPUTE_FILE,
   FLOW_ID_KOBOKALL_SEND,
   FLOW_ID_PIN_CONFIRM,
+  WELCOME_VIDEO_ID,
 }

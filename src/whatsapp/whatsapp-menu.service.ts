@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { WhatsAppService } from './whatsapp.service'
+import config from '../utils/config'
 
 export interface MenuBalances {
   xrp: string
@@ -29,7 +30,7 @@ export async function sendMainMenu(
       body: {
         text: `*${username}*\n\nWhat would you like to do?`,
       },
-      footer: { text: 'Powered by XRPL' },
+      footer: { text: 'Powered by PawaPay' },
       action: {
         button: 'Menu',
         sections: [
@@ -77,8 +78,8 @@ export async function sendWelcomeMessage(
     interactive: {
       type: 'button',
       header: {
-        type: 'image',
-        image: { link: 'https://i.ibb.co/kgBsTrcR/welcome-sasa.jpg' },
+        type: 'video',
+        video: { id: config.WELCOME_VIDEO_ID },
       },
       body: {
         text:
@@ -407,10 +408,26 @@ export async function sendMoneySection(to: string): Promise<void> {
           {
             title: 'Options',
             rows: [
-              { id: 'buy_crypto',    title: 'Buy Crypto',      description: 'Card, Apple Pay or Google Pay' },
-              { id: 'send_money',    title: 'Send Money',       description: 'Send crypto to anyone' },
-              { id: 'offramp_money', title: 'Cash Out',         description: 'Send to MTN, Orange or UBA M2U' },
-              { id: 'request_money', title: 'Request Money',    description: 'Request crypto from anyone' },
+              {
+                id: 'buy_crypto',
+                title: 'Buy Crypto',
+                description: 'Card, Apple Pay or Google Pay',
+              },
+              {
+                id: 'send_money',
+                title: 'Send Money',
+                description: 'Send crypto to anyone',
+              },
+              {
+                id: 'offramp_money',
+                title: 'Cash Out',
+                description: 'Send to MTN, Orange or UBA M2U',
+              },
+              {
+                id: 'request_money',
+                title: 'Request Money',
+                description: 'Request crypto from anyone',
+              },
             ],
           },
         ],
@@ -435,10 +452,26 @@ export async function sendAccountSection(to: string): Promise<void> {
           {
             title: 'Options',
             rows: [
-              { id: 'my_wallet',           title: 'My Wallet',   description: 'View balances & wallet details' },
-              { id: 'my_contacts',         title: 'My Contacts', description: 'Manage saved contacts' },
-              { id: 'transaction_history', title: 'History',     description: 'Recent transactions' },
-              { id: 'pending_requests',    title: 'Requests',    description: 'Pending payment requests' },
+              {
+                id: 'my_wallet',
+                title: 'My Wallet',
+                description: 'View balances & wallet details',
+              },
+              {
+                id: 'my_contacts',
+                title: 'My Contacts',
+                description: 'Manage saved contacts',
+              },
+              {
+                id: 'transaction_history',
+                title: 'History',
+                description: 'Recent transactions',
+              },
+              {
+                id: 'pending_requests',
+                title: 'Requests',
+                description: 'Pending payment requests',
+              },
             ],
           },
         ],
@@ -463,12 +496,36 @@ export async function sendMomotrustSection(to: string): Promise<void> {
           {
             title: 'Features',
             rows: [
-              { id: 'trustlock', title: '🔒 Secure a Deal',    description: 'Escrow for peer-to-peer purchases' },
-              { id: 'njangi',    title: '💰 My Njangi',        description: 'Rotating savings group' },
-              { id: 'splitchat', title: '🎉 Group Collection', description: 'Collect money from a group' },
-              { id: 'kobokall',  title: '📲 MoMo Transfer',     description: 'Send money via MTN or Orange MoMo' },
-              { id: 'payday',    title: '💼 Pay My Team',      description: 'Bulk payroll disbursement' },
-              { id: 'safipay',   title: '🧾 Invoice a Client', description: 'Invoices + collections' },
+              {
+                id: 'trustlock',
+                title: '🔒 Secure a Deal',
+                description: 'Escrow for peer-to-peer purchases',
+              },
+              {
+                id: 'njangi',
+                title: '💰 My Njangi',
+                description: 'Rotating savings group',
+              },
+              {
+                id: 'splitchat',
+                title: '🎉 Group Collection',
+                description: 'Collect money from a group',
+              },
+              {
+                id: 'kobokall',
+                title: '📲 MoMo Transfer',
+                description: 'Send money via MTN or Orange MoMo',
+              },
+              {
+                id: 'payday',
+                title: '💼 Pay My Team',
+                description: 'Bulk payroll disbursement',
+              },
+              {
+                id: 'safipay',
+                title: '🧾 Invoice a Client',
+                description: 'Invoices + collections',
+              },
             ],
           },
         ],
@@ -513,17 +570,43 @@ export async function sendBackToMenuButton(
 
 @Injectable()
 export class WhatsAppMenuService {
-  sendMainMenu(to: string, username: string) { return sendMainMenu(to, username) }
-  sendWelcomeMessage(to: string, userName?: string) { return sendWelcomeMessage(to, userName) }
-  sendFundingMessage(to: string, xrplAddress: string) { return sendFundingMessage(to, xrplAddress) }
-  sendCurrencySelectionMenu(to: string, action: 'send' | 'request') { return sendCurrencySelectionMenu(to, action) }
-  sendRecipientTypeMenu(to: string, amount: number, currency: string) { return sendRecipientTypeMenu(to, amount, currency) }
-  sendWalletMenu(to: string, balances: MenuBalances, username: string) { return sendWalletMenu(to, balances, username) }
-  sendSaveContactPrompt(to: string, nickname: string, phone: string) { return sendSaveContactPrompt(to, nickname, phone) }
-  sendSendMoneyTypeList(to: string) { return sendSendMoneyTypeList(to) }
-  sendRequestTypeButtons(to: string) { return sendRequestTypeButtons(to) }
-  sendBackToMenuButton(to: string, message: string) { return sendBackToMenuButton(to, message) }
-  sendMoneySection(to: string) { return sendMoneySection(to) }
-  sendAccountSection(to: string) { return sendAccountSection(to) }
-  sendMomotrustSection(to: string) { return sendMomotrustSection(to) }
+  sendMainMenu(to: string, username: string) {
+    return sendMainMenu(to, username)
+  }
+  sendWelcomeMessage(to: string, userName?: string) {
+    return sendWelcomeMessage(to, userName)
+  }
+  sendFundingMessage(to: string, xrplAddress: string) {
+    return sendFundingMessage(to, xrplAddress)
+  }
+  sendCurrencySelectionMenu(to: string, action: 'send' | 'request') {
+    return sendCurrencySelectionMenu(to, action)
+  }
+  sendRecipientTypeMenu(to: string, amount: number, currency: string) {
+    return sendRecipientTypeMenu(to, amount, currency)
+  }
+  sendWalletMenu(to: string, balances: MenuBalances, username: string) {
+    return sendWalletMenu(to, balances, username)
+  }
+  sendSaveContactPrompt(to: string, nickname: string, phone: string) {
+    return sendSaveContactPrompt(to, nickname, phone)
+  }
+  sendSendMoneyTypeList(to: string) {
+    return sendSendMoneyTypeList(to)
+  }
+  sendRequestTypeButtons(to: string) {
+    return sendRequestTypeButtons(to)
+  }
+  sendBackToMenuButton(to: string, message: string) {
+    return sendBackToMenuButton(to, message)
+  }
+  sendMoneySection(to: string) {
+    return sendMoneySection(to)
+  }
+  sendAccountSection(to: string) {
+    return sendAccountSection(to)
+  }
+  sendMomotrustSection(to: string) {
+    return sendMomotrustSection(to)
+  }
 }
