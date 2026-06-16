@@ -30,6 +30,7 @@ import { getAdminEVMAddress } from '../config/admin-wallet'
 import { sendCtaUrlButton } from '../whatsapp/whatsapp.service'
 import { getFlowRateComparison } from '../services/rates.service'
 import config from '../utils/config'
+import { calculateFee } from '../common/fee'
 
 const OFFRAMP_CURRENCIES = ['XRP', 'RLUSD', 'USDC', 'USDT']
 const OFFRAMP_PROVIDERS: MobileMoneyProvider[] = ['mtn', 'orange', 'uba']
@@ -344,6 +345,9 @@ export class FlowDataExchangeService {
       } else if (decryptedBody.screen === 'SELECT_RECIPIENT_CONTACT') {
         responseData =
           await FlowDataExchangeService.handleSelectRecipientContact(decryptedBody)
+      } else if (decryptedBody.screen === 'KOBOKALL_CONFIRM') {
+        responseData =
+          await FlowDataExchangeService.handleKobokallConfirm(decryptedBody)
       } else if (decryptedBody.screen === 'PAYROLL_INPUT') {
         responseData =
           await FlowDataExchangeService.handlePaydayInputMode(decryptedBody)
@@ -2640,10 +2644,12 @@ export class FlowDataExchangeService {
       }
     }
 
+    const fee = calculateFee(numAmount)
+    const netAmount = numAmount - fee
     return {
       version: flowData.version,
       screen: 'KOBOKALL_CONFIRM',
-      data: { recipient_phone, send_amount: numAmount.toString() },
+      data: { recipient_phone, send_amount: numAmount.toString(), net_amount: netAmount.toString() },
     }
   }
 
@@ -2660,10 +2666,28 @@ export class FlowDataExchangeService {
       }
     }
 
+    const numAmount = Number(send_amount)
+    const fee = calculateFee(numAmount)
+    const netAmount = numAmount - fee
     return {
       version: flowData.version,
       screen: 'KOBOKALL_CONFIRM',
-      data: { recipient_phone: contact, send_amount },
+      data: { recipient_phone: contact, send_amount, net_amount: netAmount.toString() },
+    }
+  }
+
+  private static async handleKobokallConfirm(
+    flowData: FlowDataExchangeRequest,
+  ): Promise<FlowDataExchangeResponse> {
+    const { recipient_phone, send_amount, net_amount } = flowData.data
+    return {
+      version: flowData.version,
+      screen: 'PIN_CONFIRM',
+      data: {
+        pin_confirmed_action: 'kobokall_transfer',
+        pin_confirmed_resource_id: `${recipient_phone}:${send_amount}`,
+        description: `Transfer ${Number(send_amount).toLocaleString()} XAF to ${recipient_phone} (they receive ${Number(net_amount).toLocaleString()} XAF)`,
+      },
     }
   }
 
@@ -2839,6 +2863,7 @@ export class FlowDataExchangeService {
     }
 
     const messages: Record<string, string> = {
+      kobokall_transfer: 'Transfer initiated. Accept the USSD prompt on your phone.',
       trustlock_pay: 'Payment initiated. Accept the USSD prompt on your phone.',
       trustlock_confirm: 'Delivery confirmed. Releasing funds to the seller...',
       payday_approve: 'Payroll approved. Disbursing payments now...',

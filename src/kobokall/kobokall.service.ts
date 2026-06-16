@@ -227,6 +227,57 @@ export class KoboKallService {
     return LocalTransfer.findOne({ payoutId })
   }
 
+  async executeTransfer(senderPhone: string, recipientPhone: string, amount: number): Promise<void> {
+    const [senderOperator, recipientOperator] = await Promise.all([
+      pawapayService.predictCorrespondent(senderPhone),
+      pawapayService.predictCorrespondent(recipientPhone),
+    ])
+
+    const roundedAmount = Math.round(amount)
+    const fee = calculateFee(roundedAmount)
+    const netAmount = roundedAmount - fee
+    const transferId = pawapayService.generateId()
+    const depositId = pawapayService.generateId()
+
+    await LocalTransfer.create({
+      transferId,
+      senderPhone,
+      recipientPhone,
+      amount: roundedAmount,
+      fee,
+      netAmount,
+      senderOperator,
+      recipientOperator,
+      depositId,
+      status: 'PROCESSING',
+    })
+
+    await User.findOneAndUpdate(
+      { phoneNumber: senderPhone },
+      { momotrustContext: `KOBOKALL:${transferId}`, momotrustContextUpdatedAt: new Date() },
+    )
+
+    await sendTextMessage(senderPhone, `⏳ *Transfer in progress...*\n\nAccept the USSD prompt on your phone.`)
+
+    const result = await pawapayService.initiateDeposit(
+      depositId,
+      senderPhone,
+      roundedAmount,
+      'MoMoTransfer',
+      transferId,
+    )
+
+    if (result.status === 'REJECTED') {
+      await LocalTransfer.findOneAndUpdate(
+        { transferId },
+        { status: 'FAILED', failureCode: result.rejectionReason ?? 'REJECTED' },
+      )
+      await sendTextMessage(senderPhone, `❌ *Transfer rejected*\n\n${result.rejectionReason ?? ''}\nPlease try again.`)
+    }
+
+    logger.info(`[KoboKall] Transfer ${transferId} executing: ${senderPhone} → ${recipientPhone}`)
+  }
+
   async handleMessage(phone: string, message: string, transferId: string): Promise<void> {
     if (message.trim().toLowerCase() === 'cancel') {
       await this.cancelTransfer(transferId, phone)

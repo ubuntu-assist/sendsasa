@@ -4,7 +4,9 @@
   "routing_model": {
     "KOBOKALL_SEND": ["KOBOKALL_CONFIRM", "SELECT_RECIPIENT_CONTACT"],
     "SELECT_RECIPIENT_CONTACT": ["KOBOKALL_CONFIRM"],
-    "KOBOKALL_CONFIRM": []
+    "KOBOKALL_CONFIRM": ["PIN_CONFIRM"],
+    "PIN_CONFIRM": ["PIN_RESULT"],
+    "PIN_RESULT": []
   },
   "screens": [
     {
@@ -19,9 +21,10 @@
             "name": "recipient_type",
             "label": "Recipient",
             "required": true,
+            "error-message": "${data.error_recipient_type}",
             "data-source": [
-              { "id": "Phone Number", "title": "Enter phone number" },
-              { "id": "Saved Contact", "title": "Choose from saved contacts" }
+              { "id": "Phone Number", "title": "Phone Number" },
+              { "id": "Saved Contact", "title": "Saved Contact" }
             ]
           },
           {
@@ -30,14 +33,16 @@
             "label": "Recipient Phone (e.g. 237653456789)",
             "input-type": "phone",
             "required": true,
-            "visible": "`${form.recipient_type} == 'Phone Number'`"
+            "visible": "`${form.recipient_type} == 'Phone Number'`",
+            "error-message": "${data.error_recipient_phone}"
           },
           {
             "type": "TextInput",
             "name": "send_amount",
             "label": "Amount to Send (XAF)",
             "input-type": "number",
-            "required": true
+            "required": true,
+            "error-message": "${data.error_send_amount}"
           },
           {
             "type": "Footer",
@@ -98,10 +103,10 @@
     {
       "id": "KOBOKALL_CONFIRM",
       "title": "Confirm Transfer",
-      "terminal": true,
       "data": {
         "recipient_phone": { "type": "string", "__example__": "237653456789" },
-        "send_amount": { "type": "string", "__example__": "5000" }
+        "send_amount": { "type": "string", "__example__": "5000" },
+        "net_amount": { "type": "string", "__example__": "4950" }
       },
       "layout": {
         "type": "SingleColumnLayout",
@@ -112,16 +117,95 @@
           },
           {
             "type": "TextBody",
-            "text": "Recipient: ${data.recipient_phone}\nAmount: ${data.send_amount} XAF\n\nFee and final amount will be shown before payment."
+            "text": "Recipient: ${data.recipient_phone}\nYou send: ${data.send_amount} XAF\nThey receive: ${data.net_amount} XAF"
           },
           {
             "type": "Footer",
-            "label": "Send",
+            "label": "Enter PIN to Confirm",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "recipient_phone": "${data.recipient_phone}",
+                "send_amount": "${data.send_amount}",
+                "net_amount": "${data.net_amount}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PIN_CONFIRM",
+      "title": "Transaction PIN",
+      "data": {
+        "pin_confirmed_action": { "type": "string", "__example__": "kobokall_transfer" },
+        "pin_confirmed_resource_id": { "type": "string", "__example__": "237653456789:5000" },
+        "description": { "type": "string", "__example__": "Transfer 5,000 XAF to 237653456789" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Security Check"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.description}"
+          },
+          {
+            "type": "TextInput",
+            "name": "transaction_pin",
+            "label": "Transaction PIN",
+            "input-type": "number",
+            "required": true,
+            "helper-text": "Enter your 4-digit PIN",
+            "error-message": "${data.error_transaction_pin}"
+          },
+          {
+            "type": "Footer",
+            "label": "Confirm Transfer",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "pin_confirmed_action": "${data.pin_confirmed_action}",
+                "pin_confirmed_resource_id": "${data.pin_confirmed_resource_id}",
+                "description": "${data.description}",
+                "transaction_pin": "${form.transaction_pin}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PIN_RESULT",
+      "title": "Transfer Initiated",
+      "terminal": true,
+      "data": {
+        "message": { "type": "string", "__example__": "Transfer initiated. Accept the USSD prompt on your phone." },
+        "pin_confirmed_action": { "type": "string", "__example__": "kobokall_transfer" },
+        "pin_confirmed_resource_id": { "type": "string", "__example__": "237653456789:5000" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Transfer Initiated"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.message}"
+          },
+          {
+            "type": "Footer",
+            "label": "Done",
             "on-click-action": {
               "name": "complete",
               "payload": {
-                "recipient_phone": "${data.recipient_phone}",
-                "send_amount": "${data.send_amount}"
+                "pin_confirmed_action": "${data.pin_confirmed_action}",
+                "pin_confirmed_resource_id": "${data.pin_confirmed_resource_id}"
               }
             }
           }

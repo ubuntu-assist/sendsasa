@@ -591,14 +591,6 @@ export async function handleFlowResponse(
         total: Number(responseJson.total),
         dueDate: new Date(responseJson.due_date),
       })
-    } else if (
-      !hasPinSetupData && !hasImportData &&
-      responseJson.recipient_phone !== undefined && responseJson.send_amount !== undefined
-    ) {
-      await kobokallService.initiateTransfer(phoneNumber, {
-        recipientPhone: responseJson.recipient_phone,
-        amount: Number(responseJson.send_amount),
-      })
     } else {
       console.log('⚠️ Unknown flow response format:', responseJson)
       await sendTextMessage(phoneNumber, '✅ Done!')
@@ -1102,6 +1094,13 @@ async function handlePinConfirmedAction(
   resourceId: string,
 ): Promise<void> {
   switch (action) {
+    case 'kobokall_transfer': {
+      const [recipientPhone, amount] = (resourceId ?? '').split(':')
+      if (recipientPhone && amount) {
+        await kobokallService.executeTransfer(phoneNumber, recipientPhone, Number(amount))
+      }
+      break
+    }
     case 'trustlock_pay':
       await trustlockService.initiatePayment(resourceId, phoneNumber)
       break
