@@ -3,6 +3,7 @@ import { LocalTransfer } from './kobokall-remittance.schema'
 import { pawapayService } from '../pawapay/pawapay.service'
 import { calculateFee } from '../common/fee'
 import { sendTextMessage, WhatsAppService } from '../whatsapp/whatsapp.service'
+import { sendMoMoReceipt } from '../services/receipt-generator.service'
 import { User } from '../models/User'
 import type { CreateKoboKallDto } from '../types'
 import logger from '../utils/logger'
@@ -178,6 +179,19 @@ export class KoboKallService {
       (transfer as any).recipientPhone,
       `💰 *You received ${(transfer as any).netAmount.toLocaleString()} XAF* from ****${String((transfer as any).senderPhone).slice(-4)} via SendSasa.`,
     )
+
+    sendMoMoReceipt((transfer as any).senderPhone, {
+      type: 'transfer',
+      referenceId: (transfer as any).transferId,
+      dateTime: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
+      amount: (transfer as any).amount,
+      fee: (transfer as any).fee,
+      netAmount: (transfer as any).netAmount,
+      senderPhone: (transfer as any).senderPhone,
+      recipientPhone: (transfer as any).recipientPhone,
+      senderOperator: (transfer as any).senderOperator,
+      recipientOperator: (transfer as any).recipientOperator,
+    }).catch(() => {})
 
     logger.info(`[KoboKall] Transfer ${(transfer as any).transferId} completed`)
   }

@@ -5,6 +5,7 @@ import { generateShortCode } from '../common/short-code'
 import { calculateFee } from '../common/fee'
 import { pawapayService } from '../pawapay/pawapay.service'
 import { sendTextMessage } from '../whatsapp/whatsapp.service'
+import { sendMoMoReceipt } from '../services/receipt-generator.service'
 import { User } from '../models/User'
 import type { CreateGroupDto } from '../types'
 import logger from '../utils/logger'
@@ -345,6 +346,23 @@ export class NjangiService {
           : `✅ *Cycle ${(group as any).currentCycle} complete!*\n\n*${(group as any).name}* — Next cycle coming soon.`,
       )
     }
+
+    const memberCount = members.length
+    const total = (group as any).contributionAmount * memberCount
+    const cycleFee = calculateFee(total)
+    const payout = total - cycleFee
+    sendMoMoReceipt((group as any).currentRecipientPhone, {
+      type: 'njangi',
+      referenceId: (group as any).shortCode,
+      dateTime: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
+      amount: payout,
+      fee: cycleFee,
+      title: (group as any).name,
+      extraLines: [
+        { label: 'Cycle', value: `${(group as any).currentCycle} / ${(group as any).totalCycles}` },
+        { label: 'Contributors', value: String(memberCount) },
+      ],
+    }).catch(() => {})
 
     logger.info(
       `[Njangi] Payout completed for group ${(group as any).shortCode} cycle ${(group as any).currentCycle}`,

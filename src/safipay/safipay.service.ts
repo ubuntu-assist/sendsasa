@@ -5,6 +5,7 @@ import { generateShortCode } from '../common/short-code'
 import { pawapayService } from '../pawapay/pawapay.service'
 import { GeminiService } from '../services/gemini.service'
 import { sendTextMessage, WhatsAppService } from '../whatsapp/whatsapp.service'
+import { sendMoMoReceipt } from '../services/receipt-generator.service'
 import { User } from '../models/User'
 import type { CreateInvoiceDto } from '../types'
 import logger from '../utils/logger'
@@ -135,6 +136,21 @@ export class SafiPayService {
       (invoice as any).clientPhone,
       `✅ *Payment confirmed!*\n\nInvoice ${(invoice as any).shortCode} of ${(invoice as any).total.toLocaleString()} XAF paid. Thank you!`,
     )
+
+    const invoiceExtraLines: { label: string; value: string }[] = []
+    if ((invoice as any).clientName) invoiceExtraLines.push({ label: 'Client', value: (invoice as any).clientName })
+    invoiceExtraLines.push({ label: 'Due Date', value: new Date((invoice as any).dueDate).toLocaleDateString('en-US') })
+    invoiceExtraLines.push({ label: 'Paid At', value: new Date((invoice as any).paidAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) })
+    const invoiceReceiptData = {
+      type: 'invoice' as const,
+      referenceId: (invoice as any).shortCode,
+      dateTime: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
+      amount: (invoice as any).total,
+      title: (invoice as any).description,
+      extraLines: invoiceExtraLines,
+    }
+    sendMoMoReceipt((invoice as any).merchantPhone, invoiceReceiptData).catch(() => {})
+    sendMoMoReceipt((invoice as any).clientPhone, invoiceReceiptData).catch(() => {})
 
     logger.info(`[SafiPay] Invoice ${(invoice as any).shortCode} paid`)
   }

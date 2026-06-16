@@ -6,6 +6,7 @@ import { calculateFee } from '../common/fee'
 import { pawapayService } from '../pawapay/pawapay.service'
 import { GeminiService } from '../services/gemini.service'
 import { sendTextMessage } from '../whatsapp/whatsapp.service'
+import { sendMoMoReceipt } from '../services/receipt-generator.service'
 import { User } from '../models/User'
 import type { CreateDealDto, FileDisputeDto } from '../types'
 import logger from '../utils/logger'
@@ -257,6 +258,18 @@ export class TrustLockService {
       `💸 ${amount.toLocaleString()} XAF received in your account!\nDeal: *${(deal as any).shortCode}*`,
     )
 
+    sendMoMoReceipt((deal as any).buyerPhone, {
+      type: 'escrow',
+      referenceId: (deal as any).shortCode,
+      dateTime: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
+      amount: (deal as any).amount,
+      fee: (deal as any).fee,
+      netAmount: (deal as any).amountToSeller,
+      recipientPhone: (deal as any).sellerPhone,
+      title: (deal as any).title,
+      category: (deal as any).category,
+    }).catch(() => {})
+
     logger.info(`[TrustLock] Deal completed: ${(deal as any).shortCode}`)
   }
 
@@ -449,6 +462,14 @@ export class TrustLockService {
       (deal as any).buyerPhone,
       `↩️ *Refund processed!*\n\n${(deal as any).amount.toLocaleString()} XAF refunded to your MoMo account.\nDeal: *${(deal as any).shortCode}*`,
     )
+
+    sendMoMoReceipt((deal as any).buyerPhone, {
+      type: 'refund',
+      referenceId: (deal as any).shortCode,
+      dateTime: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
+      amount: (deal as any).amount,
+      title: (deal as any).title,
+    }).catch(() => {})
 
     logger.info(`[TrustLock] Refund completed for deal ${(deal as any).shortCode}`)
   }

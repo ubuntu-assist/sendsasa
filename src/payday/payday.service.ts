@@ -5,6 +5,7 @@ import { calculateFee } from '../common/fee'
 import { pawapayService } from '../pawapay/pawapay.service'
 import { GeminiService } from '../services/gemini.service'
 import { sendTextMessage } from '../whatsapp/whatsapp.service'
+import { sendMoMoReceipt } from '../services/receipt-generator.service'
 import { User } from '../models/User'
 import type { CreatePayrollDto, PayrollItem } from '../types'
 import logger from '../utils/logger'
@@ -206,6 +207,20 @@ export class PayDayService {
         ? `⚠️ *Payroll completed with errors*\n\n✅ ${paidCount} payments succeeded\n❌ ${failedCount} failed\nRef: ${payroll.shortCode}`
         : `🎉 *All payments sent!*\n\n${paidCount} employee(s) paid\nRef: ${payroll.shortCode}`,
     )
+
+    const extraLines: { label: string; value: string }[] = [
+      { label: 'Recipients', value: `${paidCount} / ${payroll.recipientCount}` },
+    ]
+    if (anyFailed) extraLines.push({ label: 'Failed', value: String(failedCount) })
+    sendMoMoReceipt(payroll.employerPhone, {
+      type: 'payroll',
+      referenceId: payroll.shortCode,
+      dateTime: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
+      amount: payroll.totalAmount,
+      fee: payroll.fee,
+      title: payroll.name,
+      extraLines,
+    }).catch(() => {})
   }
 
   async handleMessage(

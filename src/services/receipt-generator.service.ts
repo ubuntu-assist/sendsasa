@@ -5,6 +5,7 @@ import path from 'node:path'
 import axios from 'axios'
 import FormData from 'form-data'
 import config from '../utils/config'
+import logger from '../utils/logger'
 
 const WHATSAPP_API_URL = `${config.WHATSAPP_API_URL}/${config.PHONE_NUMBER_ID}`
 const WHATSAPP_TOKEN = config.ACCESS_TOKEN
@@ -321,6 +322,177 @@ export async function generateAndUploadReceipt(
     throw error
   }
 }
+
+// ─── MoMo Trust Receipt ──────────────────────────────────────────────────────
+
+const MOMO_TYPE_LABELS: Record<string, string> = {
+  transfer: 'MoMo Transfer',
+  escrow: 'Escrow Deal',
+  refund: 'Refund',
+  njangi: 'Njangi Payout',
+  splitchat: 'Group Pot',
+  payroll: 'Payroll',
+  invoice: 'Invoice Payment',
+}
+
+const MOMO_OPERATOR_LABELS: Record<string, string> = {
+  MTN_MOMO_CMR: 'MTN MoMo',
+  ORANGE_CMR: 'Orange Money',
+}
+
+function momoOperatorLabel(code?: string): string {
+  return code ? (MOMO_OPERATOR_LABELS[code] ?? code) : '—'
+}
+
+export interface MoMoReceiptData {
+  type: 'transfer' | 'escrow' | 'refund' | 'njangi' | 'splitchat' | 'payroll' | 'invoice'
+  referenceId: string
+  dateTime: string
+  amount: number
+  fee?: number
+  netAmount?: number
+  senderPhone?: string
+  recipientPhone?: string
+  senderOperator?: string
+  recipientOperator?: string
+  title?: string
+  description?: string
+  category?: string
+  extraLines?: { label: string; value: string }[]
+}
+
+export async function generateMoMoReceipt(data: MoMoReceiptData): Promise<string> {
+  const receiptsDir = path.join(process.cwd(), 'receipts')
+  if (!fs.existsSync(receiptsDir)) fs.mkdirSync(receiptsDir, { recursive: true })
+
+  const safeRef = data.referenceId.replaceAll(/[^a-zA-Z0-9]/g, '_')
+  const filename = `momo_receipt_${safeRef}_${Date.now()}.pdf`
+  const filepath = path.join(receiptsDir, filename)
+
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ size: 'A4', margin: 0, bufferPages: true })
+      const stream = fs.createWriteStream(filepath)
+      doc.pipe(stream)
+
+      const navy = '#1A1F71'
+      const green = '#10B981'
+      const blue = '#3B82F6'
+      const cardBg = '#F8F9FA'
+      const textDark = '#111827'
+      const textGray = '#6B7280'
+      const margin = 40
+      const pageW = 595
+
+      // ── Header strip ──────────────────────────────────────────────────────
+      doc.rect(0, 0, pageW, 80).fill(navy)
+
+      const logoPath = getSendSasaLogoPath()
+      if (imageExists(logoPath)) {
+        doc.image(logoPath, margin, 16, { height: 48, fit: [130, 48] })
+      } else {
+        doc.fontSize(22).font('Helvetica-Bold').fillColor('#FFFFFF').text('SendSasa', margin, 26)
+      }
+
+      const typeLabel = MOMO_TYPE_LABELS[data.type] ?? data.type
+      doc.fontSize(9).font('Helvetica-Bold').fillColor('#FFFFFF')
+        .text(typeLabel, pageW - 160, 35, { width: 120, align: 'right' })
+
+      // ── Status & date ─────────────────────────────────────────────────────
+      let y = 104
+      const isRefund = data.type === 'refund'
+      const statusText = isRefund ? '↩  Refunded' : '✓  Transaction Successful'
+      doc.fontSize(17).font('Helvetica-Bold').fillColor(isRefund ? blue : green)
+        .text(statusText, margin, y, { width: pageW - margin * 2, align: 'center' })
+
+      y += 28
+      doc.fontSize(10).font('Helvetica').fillColor(textGray)
+        .text(data.dateTime, margin, y, { width: pageW - margin * 2, align: 'center' })
+
+      // ── Details card ──────────────────────────────────────────────────────
+      y += 24
+      const rows: { label: string; value: string; highlight?: boolean }[] = []
+
+      const shortRef = data.referenceId.length > 22 ? data.referenceId.substring(0, 22) + '…' : data.referenceId
+      rows.push({ label: 'Reference', value: shortRef })
+
+      if (data.senderPhone) rows.push({ label: 'From', value: `****${data.senderPhone.slice(-4)}` })
+      if (data.senderOperator) rows.push({ label: 'Sender Network', value: momoOperatorLabel(data.senderOperator) })
+      if (data.recipientPhone) rows.push({ label: 'To', value: `****${data.recipientPhone.slice(-4)}` })
+      if (data.recipientOperator) rows.push({ label: 'Recipient Network', value: momoOperatorLabel(data.recipientOperator) })
+      if (data.title) rows.push({ label: 'Title', value: data.title.length > 40 ? data.title.substring(0, 40) + '…' : data.title })
+      if (data.description) rows.push({ label: 'Description', value: data.description.length > 40 ? data.description.substring(0, 40) + '…' : data.description })
+      if (data.category) rows.push({ label: 'Category', value: data.category })
+
+      rows.push({ label: 'Amount', value: `${data.amount.toLocaleString()} XAF`, highlight: true })
+      if (data.fee !== undefined && data.fee > 0) rows.push({ label: 'Fee', value: `${data.fee.toLocaleString()} XAF` })
+      if (data.netAmount !== undefined) {
+        const netLabel = data.type === 'transfer' ? 'Recipient Gets' : 'Net Amount'
+        rows.push({ label: netLabel, value: `${data.netAmount.toLocaleString()} XAF`, highlight: true })
+      }
+
+      for (const line of data.extraLines ?? []) rows.push({ label: line.label, value: line.value })
+
+      const rowH = 26
+      const pad = 16
+      const cardH = pad + rows.length * rowH + pad
+      const cardX = margin
+      const cardW = pageW - margin * 2
+
+      doc.roundedRect(cardX, y, cardW, cardH, 8).fill(cardBg)
+
+      let ry = y + pad
+      for (const row of rows) {
+        doc.fontSize(9).font('Helvetica-Bold').fillColor(textGray)
+          .text(row.label, cardX + 16, ry, { width: 145 })
+        doc.fontSize(row.highlight ? 13 : 10)
+          .font(row.highlight ? 'Helvetica-Bold' : 'Helvetica')
+          .fillColor(row.highlight ? navy : textDark)
+          .text(row.value, cardX + 170, ry - (row.highlight ? 2 : 0), { width: cardW - 186 })
+        ry += rowH
+      }
+
+      y += cardH + 18
+
+      // ── Footer notes ──────────────────────────────────────────────────────
+      doc.fontSize(7).font('Helvetica').fillColor(textGray)
+        .text(
+          'This is an automated receipt for your SendSasa transaction. All amounts in XAF. Keep this for your records.',
+          margin, y, { width: pageW - margin * 2, lineGap: 1 },
+        )
+
+      // ── Footer strip ──────────────────────────────────────────────────────
+      const footerY = 782
+      doc.rect(0, footerY, pageW, 60).fill(navy)
+      doc.fontSize(10).font('Helvetica-Bold').fillColor('#FFFFFF')
+        .text('Powered by SendSasa · sendsasa.com', margin, footerY + 14, { width: pageW - margin * 2, align: 'center' })
+      doc.fontSize(7).font('Helvetica').fillColor('#8B9BC8')
+        .text('All transactions are subject to fraud checks. SendSasa is not liable for unauthorized use.', margin, footerY + 34, { width: pageW - margin * 2, align: 'center' })
+
+      doc.end()
+      stream.on('finish', () => resolve(filepath))
+      stream.on('error', reject)
+    } catch (err) {
+      reject(err)
+    }
+  })
+}
+
+export async function sendMoMoReceipt(phone: string, data: MoMoReceiptData): Promise<void> {
+  let filepath: string | undefined
+  try {
+    filepath = await generateMoMoReceipt(data)
+    const mediaId = await uploadReceiptToWhatsApp(filepath)
+    const { sendDocumentByMediaId } = await import('../whatsapp/whatsapp.service')
+    await sendDocumentByMediaId(phone, mediaId, `SendSasa_Receipt_${data.referenceId}.pdf`, '📄 Your transaction receipt')
+  } catch (err) {
+    logger.error(`[Receipt] Failed to send MoMo receipt to ${phone}: ${err}`)
+  } finally {
+    if (filepath) await deleteReceipt(filepath)
+  }
+}
+
+// ─── NestJS service class ─────────────────────────────────────────────────────
 
 @Injectable()
 export class ReceiptGeneratorService {

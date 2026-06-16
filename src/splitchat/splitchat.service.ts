@@ -5,6 +5,7 @@ import { generateShortCode } from '../common/short-code'
 import { calculateFee } from '../common/fee'
 import { pawapayService } from '../pawapay/pawapay.service'
 import { sendTextMessage } from '../whatsapp/whatsapp.service'
+import { sendMoMoReceipt } from '../services/receipt-generator.service'
 import { User } from '../models/User'
 import type { CreatePotDto } from '../types'
 import logger from '../utils/logger'
@@ -199,6 +200,22 @@ export class SplitChatService {
         `🎉 *${(group as any).name} complete!*\n\nFunds have been transferred to the organizer. Thank you everyone!`,
       )
     }
+
+    const paidCount = members.filter((m: any) => m.hasPaidCurrentCycle).length
+    const potTotal = (group as any).contributionAmount * Math.max(paidCount, 1)
+    const potFee = calculateFee(potTotal)
+    const potPayout = potTotal - potFee
+    sendMoMoReceipt((group as any).adminPhone, {
+      type: 'splitchat',
+      referenceId: (group as any).shortCode,
+      dateTime: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
+      amount: potPayout,
+      fee: potFee,
+      title: (group as any).name,
+      extraLines: [
+        { label: 'Contributors', value: `${paidCount} / ${(group as any).targetParticipants ?? members.length}` },
+      ],
+    }).catch(() => {})
 
     logger.info(`[SplitChat] Pot ${(group as any).shortCode} completed`)
   }
