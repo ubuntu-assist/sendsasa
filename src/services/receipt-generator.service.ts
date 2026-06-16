@@ -361,7 +361,147 @@ export interface MoMoReceiptData {
   extraLines?: { label: string; value: string }[]
 }
 
+// ─── Invoice PDF (classic table layout) ──────────────────────────────────────
+
+function invoiceHr(doc: PDFKit.PDFDocument, y: number): void {
+  doc.strokeColor('#aaaaaa').lineWidth(1).moveTo(50, y).lineTo(545, y).stroke()
+}
+
+function invoiceTableRow(
+  doc: PDFKit.PDFDocument,
+  y: number,
+  service: string,
+  description: string,
+  amount: string,
+  bold = false,
+): void {
+  doc
+    .fontSize(10)
+    .font(bold ? 'Helvetica-Bold' : 'Helvetica')
+    .fillColor('#444444')
+    .text(service, 50, y, { width: 185 })
+    .text(description, 240, y, { width: 190 })
+    .text(amount, 430, y, { width: 115, align: 'right' })
+}
+
+async function generateInvoicePDF(data: MoMoReceiptData): Promise<string> {
+  const receiptsDir = path.join(process.cwd(), 'receipts')
+  if (!fs.existsSync(receiptsDir)) fs.mkdirSync(receiptsDir, { recursive: true })
+
+  const safeRef = data.referenceId.replaceAll(/[^a-zA-Z0-9]/g, '_')
+  const filename = `invoice_${safeRef}_${Date.now()}.pdf`
+  const filepath = path.join(receiptsDir, filename)
+
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ size: 'A4', margin: 50 })
+      const stream = fs.createWriteStream(filepath)
+      doc.pipe(stream)
+
+      const navy = '#1A1F71'
+      const dark = '#444444'
+      const muted = '#666666'
+
+      // ── Header ──────────────────────────────────────────────────────────────
+      const logoPath = getSendSasaLogoPath()
+      if (imageExists(logoPath)) {
+        doc.image(logoPath, 50, 45, { width: 55 })
+      }
+      doc
+        .fillColor(navy).fontSize(20).font('Helvetica-Bold').text('SendSasa', 115, 57)
+        .fillColor(dark).fontSize(10).font('Helvetica')
+        .text('SendSasa', 200, 50, { align: 'right' })
+        .text('sendsasa.com', 200, 65, { align: 'right' })
+        .text('Cameroon', 200, 80, { align: 'right' })
+        .moveDown()
+
+      // ── "Invoice" label ──────────────────────────────────────────────────────
+      doc.fillColor(dark).fontSize(20).font('Helvetica-Bold').text('Invoice', 50, 160).font('Helvetica')
+      invoiceHr(doc, 185)
+
+      // ── Customer info block ──────────────────────────────────────────────────
+      const infoTop = 200
+      const clientName = data.extraLines?.find(l => l.label === 'Client')?.value ?? '—'
+      const dueDate = data.extraLines?.find(l => l.label === 'Due Date')?.value ?? '—'
+      const paidAt = data.extraLines?.find(l => l.label === 'Paid At')?.value
+      const isPaid = Boolean(paidAt)
+
+      doc.fontSize(10)
+        .fillColor(muted).text('Invoice Number:', 50, infoTop)
+        .font('Helvetica-Bold').fillColor(dark).text(data.referenceId, 165, infoTop)
+        .font('Helvetica').fillColor(muted).text('Invoice Date:', 50, infoTop + 15)
+        .fillColor(dark).text(data.dateTime, 165, infoTop + 15)
+        .fillColor(muted).text('Due Date:', 50, infoTop + 30)
+        .fillColor(dark).text(dueDate, 165, infoTop + 30)
+        .fillColor(muted).text('Balance Due:', 50, infoTop + 45)
+        .font('Helvetica-Bold').fillColor(isPaid ? '#10B981' : '#EF4444')
+        .text(isPaid ? 'PAID' : `${data.amount.toLocaleString()} XAF`, 165, infoTop + 45)
+        .font('Helvetica').fillColor(dark)
+
+      // Right column: client details
+      doc
+        .font('Helvetica-Bold').fillColor(dark).text('Bill To:', 320, infoTop)
+        .font('Helvetica').fillColor(dark)
+        .text(clientName, 320, infoTop + 15)
+      if (data.recipientPhone) {
+        doc.fillColor(muted).text(data.recipientPhone, 320, infoTop + 30)
+      }
+
+      invoiceHr(doc, 262)
+
+      // ── Table ────────────────────────────────────────────────────────────────
+      const tableTop = 286
+
+      invoiceTableRow(doc, tableTop, 'Item / Service', 'Description', 'Amount (XAF)', true)
+      invoiceHr(doc, tableTop + 20)
+
+      const itemDesc = data.title ?? 'Service'
+      const itemDetail = (data.description && data.description !== data.title)
+        ? data.description
+        : ''
+      invoiceTableRow(doc, tableTop + 30, itemDesc, itemDetail, data.amount.toLocaleString())
+      invoiceHr(doc, tableTop + 52)
+
+      // Subtotal
+      const subtotalY = tableTop + 67
+      invoiceTableRow(doc, subtotalY, '', '', `Subtotal: ${data.amount.toLocaleString()} XAF`)
+
+      // Total due (bold)
+      const totalY = subtotalY + 20
+      doc.font('Helvetica-Bold')
+      invoiceTableRow(doc, totalY, '', '', `Total Due: ${data.amount.toLocaleString()} XAF`, true)
+      doc.font('Helvetica')
+
+      // Paid stamp (if paid)
+      if (isPaid) {
+        doc
+          .fontSize(28).font('Helvetica-Bold').fillColor('#10B981')
+          .opacity(0.15).text('PAID', 180, tableTop + 10, { width: 200, align: 'center' })
+          .opacity(1)
+      }
+
+      // ── Footer ────────────────────────────────────────────────────────────────
+      const footerMsg = isPaid
+        ? `Payment received on ${paidAt}. Thank you for your business.`
+        : `Payment is due by ${dueDate}. Please transfer to the payment link provided. Thank you.`
+      doc
+        .fontSize(10).font('Helvetica').fillColor(muted)
+        .text(footerMsg, 50, 780, { align: 'center', width: 495 })
+
+      doc.end()
+      stream.on('finish', () => resolve(filepath))
+      stream.on('error', reject)
+    } catch (err) {
+      reject(err)
+    }
+  })
+}
+
+// ─── MoMo receipt (card layout for transfers, escrow, payroll, etc.) ─────────
+
 export async function generateMoMoReceipt(data: MoMoReceiptData): Promise<string> {
+  if (data.type === 'invoice') return generateInvoicePDF(data)
+
   const receiptsDir = path.join(process.cwd(), 'receipts')
   if (!fs.existsSync(receiptsDir)) fs.mkdirSync(receiptsDir, { recursive: true })
 
