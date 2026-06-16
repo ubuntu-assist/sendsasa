@@ -355,7 +355,7 @@ export async function handleInteraction(
         await SafiPayFlowService.launchSafiPayCreateFlow(user)
         break
       case 'kobokall':
-        await KoboKallFlowService.sendKoboKallFlow(phoneNumber)
+        await KoboKallFlowService.sendKoboKallFlow(whatsappId)
         break
       case 'kobokall_confirm': {
         const transferId = interaction.phone

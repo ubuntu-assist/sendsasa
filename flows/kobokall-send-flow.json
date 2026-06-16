@@ -26,7 +26,7 @@
             "error-message": "${data.error_recipient_type}",
             "data-source": [
               { "id": "Phone Number", "title": "Phone Number" },
-              { "id": "Saved Contact", "title": "Saved Contact" }
+              { "id": "Saved Contact", "title": "Saved Contacts" }
             ]
           },
           {

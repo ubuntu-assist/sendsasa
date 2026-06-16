@@ -538,14 +538,25 @@ export async function generateMoMoReceipt(data: MoMoReceiptData): Promise<string
       doc.fontSize(9).font('Helvetica-Bold').fillColor('#FFFFFF')
         .text(typeLabel, pageW - 160, 35, { width: 120, align: 'right' })
 
-      // ── Status & date ─────────────────────────────────────────────────────
-      let y = 104
+      // ── Status badge & date ───────────────────────────────────────────────
+      let y = 100
       const isRefund = data.type === 'refund'
-      const statusText = isRefund ? '↩  Refunded' : '✓  Transaction Successful'
-      doc.fontSize(17).font('Helvetica-Bold').fillColor(isRefund ? blue : green)
-        .text(statusText, margin, y, { width: pageW - margin * 2, align: 'center' })
+      const badgeColor = isRefund ? blue : green
+      const badgeLabel = isRefund ? 'REFUNDED' : 'COMPLETED'
+      const statusLabel = isRefund ? 'Amount Refunded' : 'Transaction Successful'
 
-      y += 28
+      const badgeW = 120
+      const badgeH = 24
+      const badgeX = (pageW - badgeW) / 2
+      doc.roundedRect(badgeX, y, badgeW, badgeH, 12).fill(badgeColor)
+      doc.fontSize(10).font('Helvetica-Bold').fillColor('#FFFFFF')
+        .text(badgeLabel, badgeX, y + 6, { width: badgeW, align: 'center' })
+
+      y += 34
+      doc.fontSize(17).font('Helvetica-Bold').fillColor(badgeColor)
+        .text(statusLabel, margin, y, { width: pageW - margin * 2, align: 'center' })
+
+      y += 26
       doc.fontSize(10).font('Helvetica').fillColor(textGray)
         .text(data.dateTime, margin, y, { width: pageW - margin * 2, align: 'center' })
 
