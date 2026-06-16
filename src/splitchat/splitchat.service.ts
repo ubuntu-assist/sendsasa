@@ -115,6 +115,7 @@ export class SplitChatService {
   async onContributionReceived(pawapayDepositId: string): Promise<void> {
     const member = await GroupMember.findOne({ pawapayDepositId })
     if (!member) return
+    if ((member as any).hasPaidCurrentCycle) return
 
     const group = await Group.findById((member as any).groupId)
     if (!group) return
@@ -186,6 +187,7 @@ export class SplitChatService {
   async onPayoutCompleted(pawapayPayoutId: string): Promise<void> {
     const group = await Group.findOne({ pawapayPayoutId })
     if (!group) return
+    if ((group as any).status === 'COMPLETED') return
 
     ;(group as any).status = 'COMPLETED'
     await (group as any).save()

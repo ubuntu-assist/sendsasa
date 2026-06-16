@@ -237,6 +237,7 @@ export class NjangiService {
   async onMemberContributed(pawapayDepositId: string): Promise<void> {
     const member = await GroupMember.findOne({ pawapayDepositId })
     if (!member) return
+    if ((member as any).hasPaidCurrentCycle) return
 
     const group = await Group.findById((member as any).groupId)
     if (!group) return
@@ -316,6 +317,7 @@ export class NjangiService {
   async onPayoutCompleted(pawapayPayoutId: string): Promise<void> {
     const group = await Group.findOne({ pawapayPayoutId })
     if (!group) return
+    if ((group as any).status === 'COMPLETED' || (group as any).status === 'CYCLE_COMPLETE') return
 
     const recipient = (group as any).currentRecipientPhone
     const member = await GroupMember.findOne({

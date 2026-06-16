@@ -132,6 +132,7 @@ export class TrustLockService {
   async onDepositCompleted(pawapayDepositId: string): Promise<void> {
     const deal = await Deal.findOne({ pawapayDepositId })
     if (!deal) return
+    if ((deal as any).status !== 'PAYMENT_PROCESSING') return
     ;(deal as any).status = 'ACTIVE'
     await (deal as any).save()
 
@@ -194,6 +195,7 @@ export class TrustLockService {
   async onDepositFailed(pawapayDepositId: string, code: string): Promise<void> {
     const deal = await Deal.findOne({ pawapayDepositId })
     if (!deal) return
+    if ((deal as any).status !== 'PAYMENT_PROCESSING') return
     ;(deal as any).status = 'CANCELLED'
     await (deal as any).save()
 
@@ -242,6 +244,7 @@ export class TrustLockService {
   async onPayoutCompleted(pawapayPayoutId: string): Promise<void> {
     const deal = await Deal.findOne({ pawapayPayoutId })
     if (!deal) return
+    if ((deal as any).status !== 'RELEASING') return
     ;(deal as any).status = 'COMPLETED'
     ;(deal as any).completedAt = new Date()
     await (deal as any).save()
@@ -438,6 +441,7 @@ export class TrustLockService {
   async onRefundCompleted(pawapayRefundId: string): Promise<void> {
     const deal = await Deal.findOne({ pawapayRefundId })
     if (!deal) return
+    if ((deal as any).status !== 'REFUNDING') return
     ;(deal as any).status = 'REFUNDED'
     await (deal as any).save()
 

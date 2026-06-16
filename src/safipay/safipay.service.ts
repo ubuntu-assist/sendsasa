@@ -121,6 +121,7 @@ export class SafiPayService {
   async onInvoicePaid(pawapayDepositId: string): Promise<void> {
     const invoice = await Invoice.findOne({ pawapayDepositId })
     if (!invoice) return
+    if ((invoice as any).status === 'PAID') return
     ;(invoice as any).status = 'PAID'
     ;(invoice as any).paidAt = new Date()
     await (invoice as any).save()

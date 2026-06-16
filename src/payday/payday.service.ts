@@ -148,6 +148,7 @@ export class PayDayService {
       (i) => i.pawapayPayoutId === pawapayPayoutId,
     )
     if (!item) return
+    if (item.status === 'COMPLETED') return
 
     item.status = 'COMPLETED'
     item.paidAt = new Date()
@@ -175,6 +176,7 @@ export class PayDayService {
       (i) => i.pawapayPayoutId === pawapayPayoutId,
     )
     if (!item) return
+    if (item.status !== 'PENDING') return
 
     item.status = 'FAILED'
     item.failureReason = code

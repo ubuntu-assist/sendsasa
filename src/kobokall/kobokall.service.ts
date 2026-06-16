@@ -76,8 +76,8 @@ export class KoboKallService {
 
   async confirmTransfer(transferId: string, phone: string): Promise<void> {
     const transfer = await LocalTransfer.findOne({ transferId })
-    if (!transfer || (transfer as any).senderPhone !== phone) return
-    if ((transfer as any).status !== 'INITIATED') return
+    if (!transfer || (transfer as any).senderPhone !== phone) { return }
+    if ((transfer as any).status !== 'INITIATED') { return }
 
     const depositId = pawapayService.generateId()
     ;(transfer as any).depositId = depositId
@@ -106,7 +106,8 @@ export class KoboKallService {
 
   async onDepositCompleted(depositId: string): Promise<void> {
     const transfer = await LocalTransfer.findOne({ depositId })
-    if (!transfer) return
+    if (!transfer) { return }
+    if ((transfer as any).status !== 'PROCESSING') { return }
 
     ;(transfer as any).status = 'DEPOSIT_CONFIRMED'
     const payoutId = pawapayService.generateId()
@@ -145,7 +146,8 @@ export class KoboKallService {
 
   async onDepositFailed(depositId: string, failureCode: string): Promise<void> {
     const transfer = await LocalTransfer.findOne({ depositId })
-    if (!transfer) return
+    if (!transfer) { return }
+    if ((transfer as any).status !== 'PROCESSING') { return }
 
     ;(transfer as any).status = 'FAILED'
     ;(transfer as any).failureCode = failureCode
@@ -161,7 +163,8 @@ export class KoboKallService {
 
   async onPayoutCompleted(payoutId: string): Promise<void> {
     const transfer = await LocalTransfer.findOne({ payoutId })
-    if (!transfer) return
+    if (!transfer) { return }
+    if ((transfer as any).status !== 'DEPOSIT_CONFIRMED') { return }
 
     ;(transfer as any).status = 'COMPLETED'
     await (transfer as any).save()
@@ -181,7 +184,8 @@ export class KoboKallService {
 
   async onPayoutFailed(payoutId: string, failureCode: string): Promise<void> {
     const transfer = await LocalTransfer.findOne({ payoutId })
-    if (!transfer) return
+    if (!transfer) { return }
+    if ((transfer as any).status !== 'DEPOSIT_CONFIRMED') { return }
 
     ;(transfer as any).status = 'FAILED'
     ;(transfer as any).failureCode = failureCode
@@ -205,8 +209,8 @@ export class KoboKallService {
 
   async cancelTransfer(transferId: string, phone: string): Promise<void> {
     const transfer = await LocalTransfer.findOne({ transferId })
-    if (!transfer || (transfer as any).senderPhone !== phone) return
-    if ((transfer as any).status !== 'INITIATED') return
+    if (!transfer || (transfer as any).senderPhone !== phone) { return }
+    if ((transfer as any).status !== 'INITIATED') { return }
 
     ;(transfer as any).status = 'CANCELLED'
     await (transfer as any).save()
