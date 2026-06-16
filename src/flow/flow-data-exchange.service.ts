@@ -2588,8 +2588,10 @@ export class FlowDataExchangeService {
   ): Promise<FlowDataExchangeResponse> {
     const { recipient_type, recipient_phone, send_amount } = flowData.data
 
-    const errors: Record<string, string> = {}
     const isSavedContact = recipient_type === 'Saved Contact'
+    const errors: Record<string, string> = {}
+
+    if (!recipient_type) errors['recipient_type'] = 'Please select a recipient type'
 
     if (!isSavedContact && (!recipient_phone || recipient_phone.trim() === '')) {
       errors['recipient_phone'] = "Recipient's phone is required"
@@ -2606,7 +2608,7 @@ export class FlowDataExchangeService {
         screen: flowData.screen,
         data: {
           ...flowData.data,
-          ...FlowDataExchangeService.errorFields(errors, ['recipient_phone', 'send_amount']),
+          ...FlowDataExchangeService.errorFields(errors, ['recipient_type', 'recipient_phone', 'send_amount']),
         },
       }
     }
@@ -2626,7 +2628,7 @@ export class FlowDataExchangeService {
             ...flowData.data,
             ...FlowDataExchangeService.errorFields(
               { recipient_type: 'No saved contacts. Add contacts via My Contacts first.' },
-              ['recipient_phone', 'send_amount'],
+              ['recipient_type', 'recipient_phone', 'send_amount'],
             ),
           },
         }

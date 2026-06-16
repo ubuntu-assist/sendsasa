@@ -14,8 +14,8 @@ export class KoboKallFlowService {
       type: 'interactive',
       interactive: {
         type: 'flow',
-        header: { type: 'text', text: '✈️ KoboKall' },
-        body: { text: "Send money abroad via Mobile Money" },
+        header: { type: 'text', text: '📲 MoMo Transfer' },
+        body: { text: 'Send money to any MTN or Orange MoMo number in Cameroon.' },
         footer: { text: 'Powered by pawaPay' },
         action: {
           name: 'flow',
