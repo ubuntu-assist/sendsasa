@@ -4,15 +4,17 @@
   "routing_model": {
     "KOBOKALL_SEND": ["KOBOKALL_CONFIRM", "SELECT_RECIPIENT_CONTACT"],
     "SELECT_RECIPIENT_CONTACT": ["KOBOKALL_CONFIRM"],
-    "KOBOKALL_CONFIRM": ["PIN_CONFIRM"],
-    "PIN_CONFIRM": ["PIN_RESULT"],
-    "PIN_RESULT": []
+    "KOBOKALL_CONFIRM": []
   },
   "screens": [
     {
       "id": "KOBOKALL_SEND",
       "title": "MoMo Transfer",
-      "data": {},
+      "data": {
+        "error_recipient_type": { "type": "string", "__example__": "" },
+        "error_recipient_phone": { "type": "string", "__example__": "" },
+        "error_send_amount": { "type": "string", "__example__": "" }
+      },
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
@@ -32,7 +34,7 @@
             "name": "recipient_phone",
             "label": "Recipient Phone (e.g. 237653456789)",
             "input-type": "phone",
-            "required": true,
+            "required": false,
             "visible": "`${form.recipient_type} == 'Phone Number'`",
             "error-message": "${data.error_recipient_phone}"
           },
@@ -103,6 +105,7 @@
     {
       "id": "KOBOKALL_CONFIRM",
       "title": "Confirm Transfer",
+      "terminal": true,
       "data": {
         "recipient_phone": { "type": "string", "__example__": "237653456789" },
         "send_amount": { "type": "string", "__example__": "5000" },
@@ -121,91 +124,13 @@
           },
           {
             "type": "Footer",
-            "label": "Enter PIN to Confirm",
+            "label": "Confirm",
             "on-click-action": {
-              "name": "data_exchange",
+              "name": "complete",
               "payload": {
                 "recipient_phone": "${data.recipient_phone}",
                 "send_amount": "${data.send_amount}",
                 "net_amount": "${data.net_amount}"
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "id": "PIN_CONFIRM",
-      "title": "Transaction PIN",
-      "data": {
-        "pin_confirmed_action": { "type": "string", "__example__": "kobokall_transfer" },
-        "pin_confirmed_resource_id": { "type": "string", "__example__": "237653456789:5000" },
-        "description": { "type": "string", "__example__": "Transfer 5,000 XAF to 237653456789" }
-      },
-      "layout": {
-        "type": "SingleColumnLayout",
-        "children": [
-          {
-            "type": "TextHeading",
-            "text": "Security Check"
-          },
-          {
-            "type": "TextBody",
-            "text": "${data.description}"
-          },
-          {
-            "type": "TextInput",
-            "name": "transaction_pin",
-            "label": "Transaction PIN",
-            "input-type": "number",
-            "required": true,
-            "helper-text": "Enter your 4-digit PIN",
-            "error-message": "${data.error_transaction_pin}"
-          },
-          {
-            "type": "Footer",
-            "label": "Confirm Transfer",
-            "on-click-action": {
-              "name": "data_exchange",
-              "payload": {
-                "pin_confirmed_action": "${data.pin_confirmed_action}",
-                "pin_confirmed_resource_id": "${data.pin_confirmed_resource_id}",
-                "description": "${data.description}",
-                "transaction_pin": "${form.transaction_pin}"
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "id": "PIN_RESULT",
-      "title": "Transfer Initiated",
-      "terminal": true,
-      "data": {
-        "message": { "type": "string", "__example__": "Transfer initiated. Accept the USSD prompt on your phone." },
-        "pin_confirmed_action": { "type": "string", "__example__": "kobokall_transfer" },
-        "pin_confirmed_resource_id": { "type": "string", "__example__": "237653456789:5000" }
-      },
-      "layout": {
-        "type": "SingleColumnLayout",
-        "children": [
-          {
-            "type": "TextHeading",
-            "text": "Transfer Initiated"
-          },
-          {
-            "type": "TextBody",
-            "text": "${data.message}"
-          },
-          {
-            "type": "Footer",
-            "label": "Done",
-            "on-click-action": {
-              "name": "complete",
-              "payload": {
-                "pin_confirmed_action": "${data.pin_confirmed_action}",
-                "pin_confirmed_resource_id": "${data.pin_confirmed_resource_id}"
               }
             }
           }

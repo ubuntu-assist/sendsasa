@@ -359,7 +359,10 @@ export async function handleInteraction(
         break
       case 'kobokall_confirm': {
         const transferId = interaction.phone
-        if (transferId) await kobokallService.confirmTransfer(transferId, phoneNumber)
+        if (transferId) await FlowLauncherService.launchPinConfirmFlow(
+          whatsappId, 'kobokall_confirm', transferId,
+          'Confirm and send your MoMo transfer.',
+        )
         break
       }
       case 'kobokall_cancel': {
@@ -590,6 +593,15 @@ export async function handleFlowResponse(
         description: responseJson.description,
         total: Number(responseJson.total),
         dueDate: new Date(responseJson.due_date),
+      })
+    } else if (
+      !hasPinSetupData && !hasImportData &&
+      responseJson.recipient_phone !== undefined &&
+      responseJson.send_amount !== undefined
+    ) {
+      await kobokallService.initiateTransfer(phoneNumber, {
+        recipientPhone: responseJson.recipient_phone,
+        amount: Number(responseJson.send_amount),
       })
     } else {
       console.log('⚠️ Unknown flow response format:', responseJson)
@@ -1094,13 +1106,9 @@ async function handlePinConfirmedAction(
   resourceId: string,
 ): Promise<void> {
   switch (action) {
-    case 'kobokall_transfer': {
-      const [recipientPhone, amount] = (resourceId ?? '').split(':')
-      if (recipientPhone && amount) {
-        await kobokallService.executeTransfer(phoneNumber, recipientPhone, Number(amount))
-      }
+    case 'kobokall_confirm':
+      await kobokallService.confirmTransfer(resourceId, phoneNumber)
       break
-    }
     case 'trustlock_pay':
       await trustlockService.initiatePayment(resourceId, phoneNumber)
       break
