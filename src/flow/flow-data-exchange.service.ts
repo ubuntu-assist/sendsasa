@@ -2589,7 +2589,7 @@ export class FlowDataExchangeService {
     const { recipient_type, recipient_phone, send_amount } = flowData.data
 
     const errors: Record<string, string> = {}
-    const isSavedContact = recipient_type === 'contact'
+    const isSavedContact = recipient_type === 'Saved Contact'
 
     if (!isSavedContact && (!recipient_phone || recipient_phone.trim() === '')) {
       errors['recipient_phone'] = "Recipient's phone is required"

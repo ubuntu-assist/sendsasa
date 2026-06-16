@@ -15,13 +15,13 @@
         "type": "SingleColumnLayout",
         "children": [
           {
-            "type": "RadioButtonsGroup",
+            "type": "Dropdown",
             "name": "recipient_type",
             "label": "Recipient",
             "required": true,
             "data-source": [
-              { "id": "phone", "title": "Enter phone number" },
-              { "id": "contact", "title": "Choose from saved contacts" }
+              { "id": "Phone Number", "title": "Enter phone number" },
+              { "id": "Saved Contact", "title": "Choose from saved contacts" }
             ]
           },
           {
@@ -29,7 +29,8 @@
             "name": "recipient_phone",
             "label": "Recipient Phone (e.g. 237653456789)",
             "input-type": "phone",
-            "required": false
+            "required": true,
+            "visible": "`${form.recipient_type} == 'Phone Number'`"
           },
           {
             "type": "TextInput",
