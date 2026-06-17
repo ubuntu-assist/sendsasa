@@ -5,6 +5,7 @@ import { generateShortCode } from '../common/short-code'
 import { calculateFee } from '../common/fee'
 import { pawapayService } from '../pawapay/pawapay.service'
 import { sendTextMessage } from '../whatsapp/whatsapp.service'
+import { createWhatsAppGroup, getGroupInviteLink, sendGroupMessage } from '../whatsapp/whatsapp-group.service'
 import { sendMoMoReceipt } from '../services/receipt-generator.service'
 import { User } from '../models/User'
 import type { CreatePotDto } from '../types'
@@ -52,6 +53,12 @@ export class SplitChatService {
       splitHint,
     )
 
+    createWhatsAppGroup(data.name).then(async (waGroupId) => {
+      if (!waGroupId) return
+      const inviteLink = await getGroupInviteLink(waGroupId)
+      await Group.findByIdAndUpdate((group as any)._id, { whatsappGroupId: waGroupId, whatsappInviteLink: inviteLink })
+    }).catch(() => {})
+
     logger.info(`[SplitChat] Pot created: ${shortCode} by ${organizerPhone}`)
     return group
   }
@@ -95,7 +102,10 @@ export class SplitChatService {
     )
 
     const amount = (group as any).contributionAmount
-    await sendTextMessage(phone, `✅ Joined *${(group as any).name}*!\n\n⏳ Payment of ${amount.toLocaleString()} XAF in progress...\nAccept the USSD prompt.`)
+    const joinMsg = (group as any).whatsappInviteLink
+      ? `✅ Joined *${(group as any).name}*!\n\n⏳ Payment of ${amount.toLocaleString()} XAF in progress...\nAccept the USSD prompt.\n\n🔗 Join the WhatsApp group: ${(group as any).whatsappInviteLink}`
+      : `✅ Joined *${(group as any).name}*!\n\n⏳ Payment of ${amount.toLocaleString()} XAF in progress...\nAccept the USSD prompt.`
+    await sendTextMessage(phone, joinMsg)
 
     const result = await pawapayService.initiateDeposit(
       depositId,
@@ -222,6 +232,13 @@ export class SplitChatService {
       { phoneNumber: { $in: memberPhones } },
       { $unset: { momotrustContext: 1, momotrustContextUpdatedAt: 1 } },
     )
+
+    if ((group as any).whatsappGroupId) {
+      sendGroupMessage(
+        (group as any).whatsappGroupId,
+        `🎉 *${(group as any).name}* pot complete! ${potPayout.toLocaleString()} XAF sent to the organizer. Thank you everyone!`,
+      ).catch(() => {})
+    }
 
     logger.info(`[SplitChat] Pot ${(group as any).shortCode} completed`)
   }

@@ -29,6 +29,8 @@ const GroupSchema = new mongoose.Schema(
       default: GroupStatus.SETUP,
     },
     pawapayPayoutId: { type: String, sparse: true },
+    whatsappGroupId: { type: String },
+    whatsappInviteLink: { type: String },
   },
   { timestamps: true },
 )
