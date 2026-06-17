@@ -193,6 +193,11 @@ export class KoboKallService {
       recipientOperator: (transfer as any).recipientOperator,
     }).catch(() => {})
 
+    await User.findOneAndUpdate(
+      { phoneNumber: (transfer as any).senderPhone },
+      { $unset: { momotrustContext: 1, momotrustContextUpdatedAt: 1 } },
+    )
+
     logger.info(`[KoboKall] Transfer ${(transfer as any).transferId} completed`)
   }
 

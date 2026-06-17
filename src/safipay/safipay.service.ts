@@ -123,6 +123,11 @@ export class SafiPayService {
     sendMoMoReceipt((invoice as any).merchantPhone, invoiceReceiptData).catch(() => {})
     sendMoMoReceipt((invoice as any).clientPhone, invoiceReceiptData).catch(() => {})
 
+    await User.findOneAndUpdate(
+      { phoneNumber: (invoice as any).merchantPhone },
+      { $unset: { momotrustContext: 1, momotrustContextUpdatedAt: 1 } },
+    )
+
     logger.info(`[SafiPay] Invoice ${(invoice as any).shortCode} paid`)
   }
 

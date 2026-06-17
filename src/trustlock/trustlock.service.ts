@@ -270,6 +270,11 @@ export class TrustLockService {
       category: (deal as any).category,
     }).catch(() => {})
 
+    await User.findOneAndUpdate(
+      { phoneNumber: (deal as any).buyerPhone },
+      { $unset: { momotrustContext: 1, momotrustContextUpdatedAt: 1 } },
+    )
+
     logger.info(`[TrustLock] Deal completed: ${(deal as any).shortCode}`)
   }
 
@@ -470,6 +475,11 @@ export class TrustLockService {
       amount: (deal as any).amount,
       title: (deal as any).title,
     }).catch(() => {})
+
+    await User.findOneAndUpdate(
+      { phoneNumber: (deal as any).buyerPhone },
+      { $unset: { momotrustContext: 1, momotrustContextUpdatedAt: 1 } },
+    )
 
     logger.info(`[TrustLock] Refund completed for deal ${(deal as any).shortCode}`)
   }

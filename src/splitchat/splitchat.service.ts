@@ -217,6 +217,12 @@ export class SplitChatService {
       ],
     }).catch(() => {})
 
+    const memberPhones = members.map((m: any) => m.phone)
+    await User.updateMany(
+      { phoneNumber: { $in: memberPhones } },
+      { $unset: { momotrustContext: 1, momotrustContextUpdatedAt: 1 } },
+    )
+
     logger.info(`[SplitChat] Pot ${(group as any).shortCode} completed`)
   }
 

@@ -221,6 +221,11 @@ export class PayDayService {
       title: payroll.name,
       extraLines,
     }).catch(() => {})
+
+    await User.findOneAndUpdate(
+      { phoneNumber: payroll.employerPhone },
+      { $unset: { momotrustContext: 1, momotrustContextUpdatedAt: 1 } },
+    )
   }
 
   async handleMessage(
