@@ -3,7 +3,7 @@ import { Invoice } from './invoice.schema'
 import { generateShortCode } from '../common/short-code'
 import { pawapayService } from '../pawapay/pawapay.service'
 import { GeminiService } from '../services/gemini.service'
-import { sendTextMessage } from '../whatsapp/whatsapp.service'
+import { sendTextMessage, sendCtaUrlButton } from '../whatsapp/whatsapp.service'
 import { sendMoMoReceipt } from '../services/receipt-generator.service'
 import { User } from '../models/User'
 import type { CreateInvoiceDto } from '../types'
@@ -64,10 +64,12 @@ export class SafiPayService {
       `📅 Due: ${new Date(data.dueDate).toLocaleDateString('en-US')}\n` +
       `🔑 Ref: ${shortCode}`
 
-    const clientMessage = paymentPageUrl
-      ? `${invoiceBody}\n\n💳 Pay here: ${paymentPageUrl}`
-      : invoiceBody
-    await sendTextMessage(data.clientPhone, clientMessage)
+    const shortUrl = `https://api.sendsasa.com/r/${shortCode}`
+    if (paymentPageUrl) {
+      await sendCtaUrlButton(data.clientPhone, invoiceBody, 'Pay Now', shortUrl)
+    } else {
+      await sendTextMessage(data.clientPhone, invoiceBody)
+    }
 
     await sendTextMessage(
       merchantPhone,

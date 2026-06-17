@@ -77,8 +77,8 @@
       "data": {
         "name": { "type": "string", "__example__": "Wedding gift" },
         "mode": { "type": "string", "__example__": "ORGANIZER" },
-        "amount_per_person": { "type": "number", "__example__": 5000 },
-        "target_participants": { "type": "number", "__example__": 10 }
+        "amount_per_person": { "type": "string", "__example__": "5000" },
+        "target_participants": { "type": "string", "__example__": "10" }
       },
       "layout": {
         "type": "SingleColumnLayout",

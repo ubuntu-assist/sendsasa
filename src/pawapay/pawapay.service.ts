@@ -190,7 +190,7 @@ export class PawapayService {
     logger.info(`[pawaPay] Payment page response: ${JSON.stringify(data)}`)
     return {
       depositId,
-      pageUrl: data.redirectUrl as string,
+      pageUrl: (data.redirectUrl ?? data.pageUrl ?? data.url) as string,
     }
   }
 

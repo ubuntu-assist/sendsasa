@@ -108,9 +108,9 @@
       "terminal": true,
       "data": {
         "name": { "type": "string", "__example__": "Family Njangi" },
-        "contribution_amount": { "type": "number", "__example__": 5000 },
-        "cycle_days": { "type": "number", "__example__": 30 },
-        "total_cycles": { "type": "number", "__example__": 6 },
+        "contribution_amount": { "type": "string", "__example__": "5000" },
+        "cycle_days": { "type": "string", "__example__": "30" },
+        "total_cycles": { "type": "string", "__example__": "6" },
         "payout_order": { "type": "string", "__example__": "sequential" }
       },
       "layout": {
