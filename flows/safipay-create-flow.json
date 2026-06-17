@@ -10,19 +10,19 @@
     {
       "id": "INVOICE_DETAILS",
       "title": "Create an Invoice",
-      "data": {},
+      "data": {
+        "error_recipient_type": { "type": "string", "__example__": "" },
+        "error_client_phone": { "type": "string", "__example__": "" },
+        "error_description": { "type": "string", "__example__": "" },
+        "error_total": { "type": "string", "__example__": "" },
+        "error_due_date": { "type": "string", "__example__": "" }
+      },
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
             "type": "TextHeading",
             "text": "New Invoice"
-          },
-          {
-            "type": "Image",
-            "src": "https://res.cloudinary.com/YOUR_CLOUD/image/upload/v1/momotrust/safipay.png",
-            "scale-type": "contain",
-            "aspect-ratio": 1.91
           },
           {
             "type": "TextBody",
@@ -33,18 +33,20 @@
             "label": "Client",
             "name": "recipient_type",
             "required": true,
+            "error-message": "${data.error_recipient_type}",
             "data-source": [
               { "id": "Phone Number", "title": "Phone Number" },
-              { "id": "Saved Contact", "title": "Saved Contact" }
+              { "id": "Saved Contact", "title": "Saved Contacts" }
             ]
           },
           {
             "type": "TextInput",
             "label": "Client's Phone",
             "name": "client_phone",
-            "required": true,
+            "required": false,
             "input-type": "phone",
-            "visible": "`${form.recipient_type} == 'Phone Number'`"
+            "visible": "`${form.recipient_type} == 'Phone Number'`",
+            "error-message": "${data.error_client_phone}"
           },
           {
             "type": "TextInput",
@@ -58,20 +60,23 @@
             "label": "Description / service",
             "name": "description",
             "required": true,
-            "helper-text": "e.g. Samsung S21 phone repair"
+            "helper-text": "e.g. Samsung S21 phone repair",
+            "error-message": "${data.error_description}"
           },
           {
             "type": "TextInput",
             "label": "Total Amount (XAF)",
             "name": "total",
             "required": true,
-            "input-type": "number"
+            "input-type": "number",
+            "error-message": "${data.error_total}"
           },
           {
             "type": "DatePicker",
             "label": "Due Date",
             "name": "due_date",
-            "required": true
+            "required": true,
+            "error-message": "${data.error_due_date}"
           },
           {
             "type": "Footer",
@@ -108,7 +113,7 @@
               "title": { "type": "string" }
             }
           },
-          "__example__": [{ "id": "+237612345678", "title": "John (+237612345678)" }]
+          "__example__": [{ "id": "237612345678", "title": "John (237612345678)" }]
         }
       },
       "layout": {
@@ -160,10 +165,17 @@
             "type": "TextHeading",
             "text": "Invoice Summary"
           },
-          {
-            "type": "TextBody",
-            "text": "${data.description}\nClient: ${data.client_phone}\n${data.total} XAF\nDue: ${data.due_date}\n\nThe client will receive a MoMo payment link."
-          },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextSubheading", "text": "Description" },
+          { "type": "TextBody", "text": "${data.description}" },
+          { "type": "TextSubheading", "text": "Client" },
+          { "type": "TextBody", "text": "${data.client_phone}" },
+          { "type": "TextSubheading", "text": "Amount" },
+          { "type": "TextBody", "text": "`${data.total} ' XAF'`" },
+          { "type": "TextSubheading", "text": "Due Date" },
+          { "type": "TextBody", "text": "${data.due_date}" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextBody", "text": "The client will receive a MoMo payment link." },
           {
             "type": "Footer",
             "label": "Send Invoice",

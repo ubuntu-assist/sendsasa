@@ -118,10 +118,14 @@
             "type": "TextHeading",
             "text": "Transfer Summary"
           },
-          {
-            "type": "TextBody",
-            "text": "Recipient: ${data.recipient_phone}\nYou send: ${data.send_amount} XAF\nThey receive: ${data.net_amount} XAF"
-          },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextSubheading", "text": "Recipient" },
+          { "type": "TextBody", "text": "${data.recipient_phone}" },
+          { "type": "TextSubheading", "text": "You Send" },
+          { "type": "TextBody", "text": "`${data.send_amount} ' XAF'`" },
+          { "type": "TextSubheading", "text": "They Receive" },
+          { "type": "TextBody", "text": "`${data.net_amount} ' XAF'`" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
           {
             "type": "Footer",
             "label": "Confirm",

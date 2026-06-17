@@ -87,10 +87,15 @@
             "type": "TextHeading",
             "text": "Pot Summary"
           },
-          {
-            "type": "TextBody",
-            "text": "${data.name}\n${data.amount_per_person} XAF x ${data.target_participants} people\n\nShare the code with participants after creation."
-          },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextSubheading", "text": "Pot Name" },
+          { "type": "TextBody", "text": "${data.name}" },
+          { "type": "TextSubheading", "text": "Amount per Person" },
+          { "type": "TextBody", "text": "`${data.amount_per_person} ' XAF'`" },
+          { "type": "TextSubheading", "text": "Participants" },
+          { "type": "TextBody", "text": "${data.target_participants}" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextBody", "text": "Share the code with participants after creation." },
           {
             "type": "Footer",
             "label": "Start Collection",

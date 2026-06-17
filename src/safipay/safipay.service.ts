@@ -1,26 +1,13 @@
 import { Injectable } from '@nestjs/common'
-import axios from 'axios'
 import { Invoice } from './invoice.schema'
 import { generateShortCode } from '../common/short-code'
 import { pawapayService } from '../pawapay/pawapay.service'
 import { GeminiService } from '../services/gemini.service'
-import { sendTextMessage, WhatsAppService } from '../whatsapp/whatsapp.service'
+import { sendTextMessage } from '../whatsapp/whatsapp.service'
 import { sendMoMoReceipt } from '../services/receipt-generator.service'
 import { User } from '../models/User'
 import type { CreateInvoiceDto } from '../types'
 import logger from '../utils/logger'
-
-async function shortenUrl(url: string): Promise<string> {
-  try {
-    const { data } = await axios.get(
-      `https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`,
-      { timeout: 5000 },
-    )
-    return typeof data === 'string' && data.startsWith('http') ? data : url
-  } catch {
-    return url
-  }
-}
 
 @Injectable()
 export class SafiPayService {
@@ -40,7 +27,7 @@ export class SafiPayService {
         data.description,
         `https://api.sendsasa.com/safipay/paid/${shortCode}`,
       )
-      paymentPageUrl = await shortenUrl(page.pageUrl)
+      paymentPageUrl = page.pageUrl
       pawapayDepositId = page.depositId
     } catch (err: any) {
       logger.error(
@@ -77,28 +64,10 @@ export class SafiPayService {
       `📅 Due: ${new Date(data.dueDate).toLocaleDateString('en-US')}\n` +
       `🔑 Ref: ${shortCode}`
 
-    if (paymentPageUrl) {
-      await WhatsAppService.sendMessage({
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
-        to: data.clientPhone,
-        type: 'interactive',
-        interactive: {
-          type: 'cta_url',
-          body: { text: invoiceBody },
-          action: {
-            name: 'cta_url',
-            parameters: {
-              display_text: '💳 Pay Invoice',
-              url: paymentPageUrl,
-            },
-          },
-          footer: { text: 'Powered by SendSasa · SafiPay' },
-        },
-      })
-    } else {
-      await sendTextMessage(data.clientPhone, invoiceBody)
-    }
+    const clientMessage = paymentPageUrl
+      ? `${invoiceBody}\n\n💳 Pay here: ${paymentPageUrl}`
+      : invoiceBody
+    await sendTextMessage(data.clientPhone, clientMessage)
 
     await sendTextMessage(
       merchantPhone,

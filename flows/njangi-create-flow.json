@@ -120,10 +120,17 @@
             "type": "TextHeading",
             "text": "Njangi Summary"
           },
-          {
-            "type": "TextBody",
-            "text": "${data.name}\nContribution: ${data.contribution_amount} XAF / ${data.cycle_days} days\n${data.total_cycles} cycles\n\nShare the code with your members after creation."
-          },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextSubheading", "text": "Group Name" },
+          { "type": "TextBody", "text": "${data.name}" },
+          { "type": "TextSubheading", "text": "Contribution" },
+          { "type": "TextBody", "text": "`${data.contribution_amount} ' XAF'`" },
+          { "type": "TextSubheading", "text": "Cycle Duration" },
+          { "type": "TextBody", "text": "`${data.cycle_days} ' days'`" },
+          { "type": "TextSubheading", "text": "Total Cycles" },
+          { "type": "TextBody", "text": "${data.total_cycles}" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextBody", "text": "Share the code with your members after creation." },
           {
             "type": "Footer",
             "label": "Create Njangi",

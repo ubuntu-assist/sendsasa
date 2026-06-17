@@ -219,8 +219,12 @@
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
-          { "type": "TextHeading", "text": "${data.payroll_name}" },
+          { "type": "TextHeading", "text": "Payroll Summary" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextSubheading", "text": "Payroll" },
+          { "type": "TextBody", "text": "${data.payroll_name}" },
           { "type": "TextBody", "text": "${data.summary}" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
           {
             "type": "Footer",
             "label": "Create Payroll",

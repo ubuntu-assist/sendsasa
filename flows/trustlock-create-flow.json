@@ -170,10 +170,15 @@
             "type": "TextHeading",
             "text": "Deal Summary"
           },
-          {
-            "type": "TextBody",
-            "text": "${data.title}\n${data.amount} XAF\nSeller: ${data.seller_phone}\n\nOnce paid, funds will be held until you confirm delivery."
-          },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextSubheading", "text": "Deal" },
+          { "type": "TextBody", "text": "${data.title}" },
+          { "type": "TextSubheading", "text": "Amount" },
+          { "type": "TextBody", "text": "`${data.amount} ' XAF'`" },
+          { "type": "TextSubheading", "text": "Seller" },
+          { "type": "TextBody", "text": "${data.seller_phone}" },
+          { "type": "TextCaption", "text": "· · · · · · · · · ·" },
+          { "type": "TextBody", "text": "Once paid, funds will be held until you confirm delivery." },
           {
             "type": "Footer",
             "label": "Create Deal",
