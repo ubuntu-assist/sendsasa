@@ -8,6 +8,7 @@ import {
   sendTextMessage,
   sendPaymentRequestButtons,
   sendDocumentByMediaId,
+  sendSupportContact,
 } from '../whatsapp/whatsapp.service'
 import {
   sendWelcomeMessage,
@@ -357,6 +358,9 @@ export async function handleInteraction(
         break
       case 'statement':
         await FlowLauncherService.launchStatementFlow(user)
+        break
+      case 'contact_support':
+        await sendSupportContact(phoneNumber)
         break
       case 'kobokall':
         await KoboKallFlowService.sendKoboKallFlow(whatsappId)

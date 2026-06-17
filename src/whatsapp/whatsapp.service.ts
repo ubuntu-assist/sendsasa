@@ -252,3 +252,26 @@ export async function sendCtaUrlButton(
 
   await WhatsAppService.sendMessage(payload)
 }
+
+export async function sendSupportContact(to: string): Promise<void> {
+  await WhatsAppService.sendMessage({
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'contacts',
+    contacts: [
+      {
+        name: {
+          formatted_name: 'SendSasa Support',
+          first_name: 'SendSasa',
+          last_name: 'Support',
+        },
+        org: { company: 'SendSasa' },
+        phones: [
+          { phone: '+237676535501', type: 'WhatsApp', wa_id: '237676535501' },
+        ],
+        urls: [{ url: 'https://sendsasa.com', type: 'Company' }],
+      },
+    ],
+  })
+}

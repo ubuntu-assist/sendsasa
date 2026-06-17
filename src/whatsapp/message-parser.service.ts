@@ -31,6 +31,7 @@ export function parseButtonInteraction(buttonId: string): ButtonInteraction {
   if (buttonId === 'my_contacts') return { action: 'my_contacts' }
   if (buttonId === 'buy_crypto') return { action: 'buy_crypto' }
   if (buttonId === 'statement') return { action: 'statement' }
+  if (buttonId === 'contact_support') return { action: 'contact_support' }
 
   // Section navigation (two-level main menu)
   if (buttonId === 'section_money')     return { action: 'section_money' }

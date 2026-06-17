@@ -52,6 +52,11 @@ export async function sendMainMenu(
                 title: '🏦 MoMo Trust',
                 description: 'Escrow, savings, payroll & more',
               },
+              {
+                id: 'contact_support',
+                title: '🆘 Contact Support',
+                description: 'Get help from our team',
+              },
             ],
           },
         ],
