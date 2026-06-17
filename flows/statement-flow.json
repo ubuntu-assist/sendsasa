@@ -1,0 +1,48 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "STATEMENT_DATES": []
+  },
+  "screens": [
+    {
+      "id": "STATEMENT_DATES",
+      "title": "Transaction Statement",
+      "terminal": true,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Request Statement" },
+          {
+            "type": "TextBody",
+            "text": "Select a date range and we'll send you a PDF of all your transactions."
+          },
+          {
+            "type": "DatePicker",
+            "label": "From Date",
+            "name": "from_date",
+            "required": true
+          },
+          {
+            "type": "DatePicker",
+            "label": "To Date",
+            "name": "to_date",
+            "required": true
+          },
+          {
+            "type": "Footer",
+            "label": "Generate PDF",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "from_date": "${form.from_date}",
+                "to_date": "${form.to_date}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

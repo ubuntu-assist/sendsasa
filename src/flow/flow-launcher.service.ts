@@ -500,6 +500,34 @@ export class FlowLauncherService {
     }
   }
 
+  static async launchStatementFlow(user: IUser): Promise<void> {
+    const flowToken = FlowDataExchangeService.generateFlowToken(user.whatsappId)
+    await WhatsAppService.sendMessage({
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: user.whatsappId,
+      type: 'interactive',
+      interactive: {
+        type: 'flow',
+        header: { type: 'text', text: '📄 Transaction Statement' },
+        body: { text: 'Select a date range to receive a PDF of all your transactions.' },
+        footer: { text: 'Powered by SendSasa' },
+        action: {
+          name: 'flow',
+          parameters: {
+            flow_message_version: '3',
+            flow_token: flowToken,
+            flow_id: config.FLOW_ID_STATEMENT,
+            flow_cta: 'Select Dates',
+            mode: 'published',
+            flow_action: 'navigate',
+            flow_action_payload: { screen: 'STATEMENT_DATES' },
+          },
+        },
+      },
+    })
+  }
+
   launchSendMoneyFlow(user: IUser) {
     return FlowLauncherService.launchSendMoneyFlow(user)
   }
@@ -523,5 +551,8 @@ export class FlowLauncherService {
   }
   launchImportWalletFlow(whatsappId: string) {
     return FlowLauncherService.launchImportWalletFlow(whatsappId)
+  }
+  launchStatementFlow(user: IUser) {
+    return FlowLauncherService.launchStatementFlow(user)
   }
 }

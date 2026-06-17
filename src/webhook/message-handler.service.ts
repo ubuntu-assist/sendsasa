@@ -39,6 +39,7 @@ import { getAdminXRPLAddress, getAdminEVMAddress } from '../config/admin-wallet'
 import { parseButtonInteraction } from '../whatsapp/message-parser.service'
 import { usernameService } from '../services/username.service'
 import { generateAndUploadReceipt } from '../services/receipt-generator.service'
+import { generateAndSendStatement } from '../services/statement-generator.service'
 import config from '../utils/config'
 import { handleMomotrustMessage, tryJoinGroup } from './momotrust-router'
 import { trustlockService } from '../trustlock/trustlock.service'
@@ -354,6 +355,9 @@ export async function handleInteraction(
       case 'safipay':
         await SafiPayFlowService.launchSafiPayCreateFlow(user)
         break
+      case 'statement':
+        await FlowLauncherService.launchStatementFlow(user)
+        break
       case 'kobokall':
         await KoboKallFlowService.sendKoboKallFlow(whatsappId)
         break
@@ -603,6 +607,11 @@ export async function handleFlowResponse(
         recipientPhone: responseJson.recipient_phone,
         amount: Number(responseJson.send_amount),
       })
+    } else if (
+      !hasPinSetupData && !hasImportData &&
+      responseJson.from_date !== undefined && responseJson.to_date !== undefined
+    ) {
+      await generateAndSendStatement(phoneNumber, new Date(responseJson.from_date), new Date(responseJson.to_date))
     } else {
       console.log('⚠️ Unknown flow response format:', responseJson)
       await sendTextMessage(phoneNumber, '✅ Done!')

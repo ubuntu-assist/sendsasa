@@ -472,6 +472,11 @@ export async function sendAccountSection(to: string): Promise<void> {
                 title: 'Requests',
                 description: 'Pending payment requests',
               },
+              {
+                id: 'statement',
+                title: '📄 Statement',
+                description: 'PDF of your transactions',
+              },
             ],
           },
         ],
