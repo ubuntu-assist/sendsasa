@@ -30,6 +30,7 @@ export function parseButtonInteraction(buttonId: string): ButtonInteraction {
   if (buttonId === 'import_wallet') return { action: 'import_wallet' }
   if (buttonId === 'my_contacts') return { action: 'my_contacts' }
   if (buttonId === 'buy_crypto') return { action: 'buy_crypto' }
+  if (buttonId === 'statement') return { action: 'statement' }
 
   // Section navigation (two-level main menu)
   if (buttonId === 'section_money')     return { action: 'section_money' }
