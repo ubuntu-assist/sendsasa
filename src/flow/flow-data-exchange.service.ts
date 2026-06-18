@@ -2787,9 +2787,9 @@ export class FlowDataExchangeService {
       screen: 'GROUP_CONFIRM',
       data: {
         name,
-        contribution_amount: Number(contribution_amount),
-        cycle_days: Number(cycle_days),
-        total_cycles: Number(total_cycles),
+        contribution_amount: String(contribution_amount),
+        cycle_days: String(cycle_days),
+        total_cycles: String(total_cycles),
         payout_order,
       },
     }
@@ -2807,8 +2807,8 @@ export class FlowDataExchangeService {
       data: {
         name,
         mode: mode ?? 'ORGANIZER',
-        amount_per_person: Number(amount_per_person),
-        target_participants: Number(target_participants),
+        amount_per_person: String(amount_per_person),
+        target_participants: String(target_participants),
       },
     }
   }
