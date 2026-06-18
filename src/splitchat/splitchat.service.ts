@@ -56,7 +56,16 @@ export class SplitChatService {
     createWhatsAppGroup(data.name).then(async (waGroupId) => {
       if (!waGroupId) return
       const inviteLink = await getGroupInviteLink(waGroupId)
+      if (!inviteLink) return
       await Group.findByIdAndUpdate((group as any)._id, { whatsappGroupId: waGroupId, whatsappInviteLink: inviteLink })
+      const members = await GroupMember.find({ groupId: (group as any)._id })
+      const phones = new Set(members.map((m: any) => m.phone))
+      phones.add(organizerPhone)
+      await Promise.all(
+        [...phones].map((phone) =>
+          sendTextMessage(phone, `🔗 Join the *${data.name}* WhatsApp group: ${inviteLink}`),
+        ),
+      )
     }).catch(() => {})
 
     logger.info(`[SplitChat] Pot created: ${shortCode} by ${organizerPhone}`)

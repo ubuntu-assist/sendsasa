@@ -96,10 +96,20 @@ export class NjangiService {
       .then(async (waGroupId) => {
         if (!waGroupId) return
         const inviteLink = await getGroupInviteLink(waGroupId)
+        if (!inviteLink) return
         await Group.findByIdAndUpdate((group as any)._id, {
           whatsappGroupId: waGroupId,
           whatsappInviteLink: inviteLink,
         })
+        const members = await GroupMember.find({ groupId: (group as any)._id })
+        await Promise.all(
+          members.map((m: any) =>
+            sendTextMessage(
+              m.phone,
+              `🔗 Join the *${data.name}* WhatsApp group: ${inviteLink}`,
+            ),
+          ),
+        )
       })
       .catch(() => {})
 
