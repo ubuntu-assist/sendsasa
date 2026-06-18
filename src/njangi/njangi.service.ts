@@ -5,11 +5,6 @@ import { generateShortCode } from '../common/short-code'
 import { calculateFee } from '../common/fee'
 import { pawapayService } from '../pawapay/pawapay.service'
 import { sendTextMessage } from '../whatsapp/whatsapp.service'
-import {
-  createWhatsAppGroup,
-  getGroupInviteLink,
-  sendGroupMessage,
-} from '../whatsapp/whatsapp-group.service'
 import { sendMoMoReceipt } from '../services/receipt-generator.service'
 import { User } from '../models/User'
 import type { CreateGroupDto } from '../types'
@@ -92,27 +87,6 @@ export class NjangiService {
       },
     })
 
-    createWhatsAppGroup(data.name)
-      .then(async (waGroupId) => {
-        if (!waGroupId) return
-        const inviteLink = await getGroupInviteLink(waGroupId)
-        if (!inviteLink) return
-        await Group.findByIdAndUpdate((group as any)._id, {
-          whatsappGroupId: waGroupId,
-          whatsappInviteLink: inviteLink,
-        })
-        const members = await GroupMember.find({ groupId: (group as any)._id })
-        await Promise.all(
-          members.map((m: any) =>
-            sendTextMessage(
-              m.phone,
-              `🔗 Join the *${data.name}* WhatsApp group: ${inviteLink}`,
-            ),
-          ),
-        )
-      })
-      .catch(() => {})
-
     logger.info(`[Njangi] Group created: ${shortCode} by ${adminPhone}`)
     return group
   }
@@ -175,13 +149,6 @@ export class NjangiService {
       `👤 *${phone}* joined *${(group as any).name}*. Total: ${count + 1} member(s).`,
     )
 
-    if ((group as any).whatsappInviteLink) {
-      await sendTextMessage(
-        phone,
-        `🔗 Join the *${(group as any).name}* WhatsApp group: ${(group as any).whatsappInviteLink}`,
-      )
-    }
-
     logger.info(`[Njangi] ${phone} joined group ${shortCode}`)
   }
 
@@ -222,13 +189,6 @@ export class NjangiService {
           `👤 Recipient: ****${(group as any).currentRecipientPhone.slice(-4)}\n\n` +
           `Send *PAY* to contribute.`,
       )
-    }
-
-    if ((group as any).whatsappGroupId) {
-      sendGroupMessage(
-        (group as any).whatsappGroupId,
-        `🔔 Cycle ${(group as any).currentCycle} started!\n\nContribution: ${amount.toLocaleString()} XAF\nRecipient: ****${(group as any).currentRecipientPhone.slice(-4)}\n\nReply PAY to contribute.`,
-      ).catch(() => {})
     }
 
     logger.info(
@@ -306,19 +266,6 @@ export class NjangiService {
     })
     const allPaid = allMembers.every((m: any) => m.hasPaidCurrentCycle)
     if (allPaid) await this.onAllContributed(String((group as any)._id))
-
-    if ((group as any).whatsappGroupId) {
-      const allMembers2 = await GroupMember.find({
-        groupId: (member as any).groupId,
-      })
-      const paidNow = allMembers2.filter(
-        (m: any) => m.hasPaidCurrentCycle,
-      ).length
-      sendGroupMessage(
-        (group as any).whatsappGroupId,
-        `✅ ****${(member as any).phone.slice(-4)} contributed ${(group as any).contributionAmount.toLocaleString()} XAF (${paidNow}/${allMembers2.length} paid)`,
-      ).catch(() => {})
-    }
 
     logger.info(
       `[Njangi] Member ${(member as any).phone} contributed to group ${(group as any).shortCode}`,
@@ -440,15 +387,6 @@ export class NjangiService {
       { phoneNumber: { $in: memberPhones } },
       { $unset: { momotrustContext: 1, momotrustContextUpdatedAt: 1 } },
     )
-
-    if ((group as any).whatsappGroupId) {
-      const announcement = isLastCycle
-        ? `🎉 Njangi completed! All ${(group as any).totalCycles} cycles done. Thank you everyone!`
-        : `✅ Cycle ${(group as any).currentCycle} payout done! ****${recipient.slice(-4)} received ${(group as any).contributionAmount * members.length - calculateFee((group as any).contributionAmount * members.length)} XAF.`
-      sendGroupMessage((group as any).whatsappGroupId, announcement).catch(
-        () => {},
-      )
-    }
 
     logger.info(
       `[Njangi] Payout completed for group ${(group as any).shortCode} cycle ${(group as any).currentCycle}`,
