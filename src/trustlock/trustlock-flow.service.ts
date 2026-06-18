@@ -37,6 +37,9 @@ export class TrustLockFlowService {
   }
 
   static async launchDisputeFlow(user: IUser, dealId: string): Promise<void> {
+    const { Deal } = await import('./deal.schema')
+    const deal = await Deal.findById(dealId)
+    if (!deal) return
     const flowToken = FlowDataExchangeService.generateFlowToken(user.whatsappId)
     await WhatsAppService.sendMessage({
       messaging_product: 'whatsapp',
@@ -61,7 +64,7 @@ export class TrustLockFlowService {
             flow_action: 'navigate',
             flow_action_payload: {
               screen: 'DISPUTE_REASON',
-              data: { deal_id: dealId },
+              data: { deal_short_code: (deal as any).shortCode },
             },
           },
         },
