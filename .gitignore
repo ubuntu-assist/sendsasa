@@ -6,6 +6,13 @@ yarn.lock
 # Build output
 dist/
 build/
+sendsasa-web/.svelte-kit/
+sendsasa-web/build/
+
+# Smart contract build artifacts
+contracts/target/
+contracts/lisk/artifacts/
+contracts/lisk/cache/
 
 # Environment variables
 .env
