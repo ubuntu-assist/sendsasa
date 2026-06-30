@@ -1,5 +1,5 @@
-import mongoose, { Schema, Document } from 'mongoose'
-import { encryptSeed, decryptSeed } from '../utils/encryption'
+﻿import mongoose, { Schema, Document } from 'mongoose'
+import { encryptSeed, decryptSeed } from '@common/utils/encryption'
 
 export type CredentialProvider = 'coinbase'
 

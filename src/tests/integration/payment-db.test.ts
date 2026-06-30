@@ -1,9 +1,9 @@
-import { describe, it, before, after, beforeEach } from 'node:test'
+﻿import { describe, it, before, after, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import request from 'supertest'
 import type { Application } from 'express'
 import { createApp } from '../../app.test-shim.js'
-import { OnRampTransaction } from '../../models/OnRampTransaction.js'
+import { OnRampTransaction } from '@models/OnRampTransaction.js'
 import { startTestDB, stopTestDB, clearCollections } from '../helpers/db.js'
 
 let app: Application

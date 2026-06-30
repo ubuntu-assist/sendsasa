@@ -1,0 +1,567 @@
+/* Banner Area Style
+============================================*/
+.banner-content {
+    h1 {
+        font-size: 80px;
+        font-weight: 700;
+        line-height: 112.5%;
+        text-transform: capitalize; 
+        margin-bottom: 15px;
+    }
+    p {
+        font-size: 18px;
+    }
+    .banner-btn {
+        margin-top: 40px;
+
+        .play {
+            span {
+                font-size: 18px;
+                font-weight: 600;
+            }
+        }
+    }
+    &.style-two {
+        max-width: 843px;
+        p {
+            max-width: 806px
+        }
+        .top-title {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 100px;
+            color: $white;
+        }
+        .play-btn {
+            i {
+                width: 56px;
+                height: 56px;
+                line-height: 56px;
+                text-align: center;
+                display: inline-block;
+                background-color: $warning;
+                color: $secondary;
+                font-size: 30px;
+                border-radius: 100px;
+            }
+            span {
+                font-size: 18px;
+            }
+        }
+        .clients {
+            margin-top: 80px;
+            img {
+                margin: 0 -5px;
+
+                &:last-child {
+                    margin-right: 0;
+                }
+                &:first-child {
+                    margin-left: 0;
+                }
+            }
+        }
+        h1 {
+            .under-line {
+                background-image: url(../images/under-line2.svg);
+            }
+        }
+    }
+    &.mw-1240 {
+        max-width: 1240px;
+    }
+}
+.transfer {
+    color: $secondary;
+    font-size: 120px;
+    font-weight: 700;
+    line-height: 108.333%;
+    text-transform: uppercase;
+    opacity: 0.023;
+    position: absolute;
+    top: 165px;
+    left: 0;
+    right: 0;
+    text-align: center;
+}
+.banner-area {
+    padding-top: 245px;
+}
+.shape1 {
+    position: absolute;
+    top: -40px;
+    left: 160px;
+    animation: rotation 10s infinite linear;
+}
+.shape2 {
+    position: absolute;
+    top: -20px;
+    right: 150px;
+    animation: rotation 8s infinite linear;
+}
+.shape3 {
+    position: absolute;
+    bottom: 0;
+    right: 90px;
+    animation: rotation 15s infinite linear;
+}
+.transfer-money-form {
+    padding: 50px;
+    border-radius: 30px;
+    border-bottom: 5px solid $warning;
+
+    .title {
+        font-size: 18;
+        color: $white;
+        font-weight: 500;
+        display: block;
+        margin-bottom: 20px;
+    }
+    .input-bg {
+        background-color: #408080;
+        border-color: #408080;
+        border-radius: 10px;
+    }
+    .form-control {
+        height: 60px;
+        border-radius: 10px;
+        background-color: #408080;
+        border-color: #408080;
+        color: $white;
+        border-radius: 10px;
+        font-size: 20px;
+
+        &::placeholder {
+            color: $white;
+            font-size: 20px;
+        }
+    }
+    .dropdown {
+        border-left: 1px solid rgba(255, 255, 255, 0.3);
+
+        .btn-secondary {
+            padding: 0 20px;
+            width: 135px;
+            height: 60px;
+            position: relative;
+            z-index: 1;
+
+            &::before {
+                content: "";
+                background-image: url(../images/down.svg);
+                background-position: center center;
+                background-repeat: no-repeat;
+                background-size: contain;
+                width: 12px;
+                height: 12px;
+                position: absolute;
+                top: 50%;
+                right: 20px;
+                transform: translateY(-50%);
+            }
+
+            &.dropdown-toggle::after {
+                display: none;
+            }
+        }
+        img {
+            width: 25px;
+            height: 25px;
+        }
+    }
+    .dropdown-menu {
+        background-color: #408080;
+        border-color: #408080;
+        width: 300px;
+        padding-top: 20px;
+        max-height: 300px;
+        overflow-y: scroll;
+        
+        .dropdown-item {
+            padding: 10px 20px;
+            &:hover {
+                background-color: $dark-div;
+            }
+        }
+        .px-20 {
+            padding: 0 20px;
+        }
+        .search-input {
+            height: 40px !important;
+            border-color: rgba(255, 255, 255, 0.2);
+            margin-bottom: 10px;
+
+            &::placeholder {
+                font-size: 15px;
+            }
+        }
+    }
+    .info-list {
+        margin: 25px 0;
+        li {
+            margin-bottom: 20px;
+            position: relative;
+
+            &::before {
+                content: "";
+                position: absolute;
+                top: 23px;
+                left: 10px;
+                width: 1px;
+                height: 100%;
+                line-height: 20px;
+                text-align: center;
+                display: inline-block;
+                color: $secondary;
+                background-color: $white;
+                border-radius: 100px;
+            }
+            &:last-child {
+                margin-bottom: 0;
+
+                &::before {
+                    display: none;
+                }
+            }
+            i {
+                width: 20px;
+                height: 20px;
+                line-height: 20px;
+                text-align: center;
+                display: inline-block;
+                color: $secondary;
+                background-color: $white;
+                border-radius: 100px;
+                font-size: 18px;
+            }
+        }
+    }
+    .default-btn {
+        box-shadow: none;
+    }
+    .notification {
+        margin-top: 20px;
+        margin-bottom: 25px;
+        display: block;
+    }
+    .border-btn {
+        background-color: transparent;
+        border-color: $primary;
+        color: $white;
+
+        &:hover {
+            background-color: $primary;
+            color: $secondary;
+        }
+    }
+}
+.shape6 {
+    padding-right: 200px;
+    padding-bottom: 120px;
+}
+.shape7 {
+    top: -150px;
+    right: -60px;
+}
+.banner-content-three {
+    margin-top: 90px;
+    .default-btn {
+        margin-top: 30px;
+        margin-bottom: 110px;
+    }
+    p {
+        font-size: 18px;
+        max-width: 409px;
+    }
+    .clients img {
+        margin: 0 -5px;
+    }
+}
+.page-banner-area {
+    padding-top: 306px;
+    padding-bottom: 160px;
+}
+.page-banner-content {
+    .breadcrumbs {
+        gap: 30px;
+        line-height: 1;
+
+        li {
+            position: relative;
+            font-size: 18px;
+
+            &::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                right: -15px;
+                width: 1%;
+                height: 100%;
+                background-color: $body-color;
+                transform: rotate(15deg);
+            }
+            a {
+                text-decoration: none;
+            }
+            span {
+                font-weight: 600;
+                color: $secondary;
+            }
+            &:last-child {
+                &::before {
+                    display: none;
+                }
+            }
+        }
+    }
+    h2 {
+        font-size: 46px;
+        line-height: 56px;
+        margin-bottom: 15px;
+    }
+}
+
+/* Max width 767px */
+@media only screen and (max-width: 767px) {
+    .banner-content {
+        h1 {
+            font-size: 35px;
+        }
+        p {
+            font-size: 15px;    
+        }
+        .banner-btn {
+            margin-top: 25px;
+            gap: 15px;
+        }
+    }
+    .banner-area {
+        padding-top: 40px;
+
+        &.style-two {
+            padding-top: 60px;
+        }
+    }
+    .banner-content {
+        &.style-two {
+            .clients {
+                margin-top: 30px;
+            }
+        }
+    }
+    .transfer-money-form {
+        padding: 25px;
+        border-radius: 20px;
+
+        .fs-18 {
+            font-size: 15px;
+        }
+    }
+    .banner-content-three {
+        margin-top: 30px;
+        p {
+            max-width: 100%;
+            font-size: 16px;
+        }
+        .default-btn {
+            margin-bottom: 30px;
+            margin-top: 30px;
+        }
+    }
+    .page-banner-area {
+        padding-top: 206px;
+        padding-bottom: 100px;
+    }
+    .page-banner-content {
+        h2 {
+            font-size: 35px;
+            margin-bottom: 5px;
+        }
+        .breadcrumbs {
+            li {
+                font-size: 16px;
+            }
+        }
+    }
+}
+
+/* Min width 768px to Max width 992px */
+@media only screen and (min-width: 768px) and (max-width: 991px) {
+
+    .banner-area {
+        padding-top: 200px;
+    }
+    .banner-content {
+        h1 {
+            font-size: 50px;
+        }
+        p {
+            font-size: 16px;    
+        }
+        .banner-btn {
+            margin-top: 25px;
+            gap: 15px;
+        }
+        &.style-two {
+            .clients {
+                margin-top: 30px;
+            }
+        }
+    }
+    .banner-content-three {
+        margin-top: 50px;
+        p {
+            max-width: 100%;
+        }
+        .default-btn {
+            margin-bottom: 50px;
+        }
+    }
+    .page-banner-area {
+        padding-top: 256px;
+        padding-bottom: 150px;
+    }
+    .page-banner-content {
+        h2 {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+        .breadcrumbs {
+            li {
+                font-size: 17px;
+            }
+        }
+    }
+}
+
+/* Min width 992px to Max width 1199px */
+@media only screen and (min-width: 992px) and (max-width: 1199px)  {
+    .banner-content {
+        h1 {
+            font-size: 60px;
+        }
+    }
+    .banner-area {
+        padding-top: 200px;
+    }
+    .transfer {
+        font-size: 90px;
+    }
+    .transfer-money-form {
+        padding: 50px 25px;
+        border-radius: 20px;
+
+        .fs-18 {
+            font-size: 15px;
+        }
+    }
+    .banner-content-three {
+        margin-top: 50px;
+        p {
+            max-width: 100%;
+        }
+    }
+}
+
+/* Min width 1200px to Max width 1399px */
+@media only screen and (min-width: 1200px) and (max-width: 1399px) {
+    .banner-content {
+        h1 {
+            font-size: 50px;
+        }
+        p {
+            font-size: 16px;
+        }
+        .banner-btn {
+            margin-top: 30px;
+        }
+    }
+    .transfer-money-form {
+        padding: 50px 25px;
+        border-radius: 20px;
+
+        .fs-18 {
+            font-size: 16px;
+        }
+    }
+    .banner-content-three {
+        .default-btn {
+            margin-bottom: 30px;
+        }
+    }
+}
+
+/* Min width 1400px to Max width 1799px */
+@media only screen and (min-width: 1400px) and (max-width: 1799px) {
+    .banner-content {
+        margin-left: 0;
+        h1 {
+            font-size: 60px;
+        }
+    }
+}
+
+@media (min-width: 1500px) {
+    .banner-content {
+        margin-left: -60px;
+    }
+}
+
+/* RTL Area Style
+============================================*/
+.rtl {
+   
+    @media (min-width: 1399px) {
+
+        .banner-content {
+            margin-left:0;
+            margin-right: -60px;
+        }
+
+    }
+    .transfer-money-form .dropdown {
+        border-right: 1px solid rgba(255, 255, 255, 0.3);
+        border-left: none;
+    }
+    
+}
+
+/* Dark Mode Area Style
+============================================ */
+[for-dark-light-data-mode=for-dark] {
+    .banner-area {
+        background-color: $dark-card-bg;
+        background-image: unset !important;
+    }
+    .banner-content {
+        .banner-btn {
+            .play {
+                filter: brightness(100);
+            }
+        }
+    }
+    .transfer-money-form .input-bg {
+        background-color: $dark-card-bg;
+    }
+    .page-banner-area {
+        background-image: unset !important;
+        background-color: $dark-card-bg;
+        border-bottom: 1px solid $dark-border-color;
+    }
+    .page-banner-content {
+            .breadcrumbs {
+                li {
+                    a {
+                        color: $dark-paragraph-color;
+
+                        &:hover {
+                            color: $primary;
+                        }
+                    }
+                    span {
+                        color: $white;
+                    }
+                }
+            }
+    }
+}

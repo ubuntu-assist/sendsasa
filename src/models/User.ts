@@ -1,5 +1,5 @@
-import mongoose, { Schema } from 'mongoose'
-import { IUser } from '../types'
+﻿import mongoose, { Schema } from 'mongoose'
+import { IUser } from '@app/types'
 
 const BeneficiarySchema = new Schema(
   {
@@ -127,6 +127,18 @@ const UserSchema = new Schema<IUser>({
     index: true,
     trim: true,
   },
+  stellar_public_key: {
+    type: String,
+    required: false,
+    sparse: true,
+    trim: true,
+  },
+  lisk_address: {
+    type: String,
+    required: false,
+    sparse: true,
+    trim: true,
+  },
   wallet_created_at: {
     type: Date,
     required: true,
@@ -137,6 +149,10 @@ const UserSchema = new Schema<IUser>({
   },
   momotrustContext: { type: String },
   momotrustContextUpdatedAt: { type: Date },
+  operatingRegion: {
+    type: String,
+    enum: ['cameroon', 'europe', 'north_america', 'other'],
+  },
 })
 
 

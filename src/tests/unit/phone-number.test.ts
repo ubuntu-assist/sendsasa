@@ -1,10 +1,10 @@
-import { describe, it } from 'node:test'
+﻿import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   normalizeToE164,
   isE164,
   maskPhone,
-} from '../../services/phone-number.service.js'
+} from '@shared/phone-number.service.js'
 
 describe('normalizeToE164', () => {
   it('passes through already-valid E.164 numbers unchanged', () => {

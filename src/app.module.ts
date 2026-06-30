@@ -1,35 +1,38 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
-import configuration from './config/configuration'
+import configuration from '@config/configuration'
 import { SharedModule } from './shared/shared.module'
-import { ChainsModule } from './chains/chains.module'
-import { WhatsAppModule } from './whatsapp/whatsapp.module'
-import { DatabaseModule } from './database/database.module'
-import { XrplModule } from './xrpl/xrpl.module'
-import { HealthController } from './health/health.controller'
-import { WebhookModule } from './webhook/webhook.module'
-import { FlowModule } from './flow/flow.module'
-import { JwksModule } from './jwks/jwks.module'
-import { CoinbaseModule } from './coinbase/coinbase.module'
-import { PaymentModule } from './payment/payment.module'
-import { OnramperModule } from './onramper/onramper.module'
-import { CronModule } from './cron/cron.module'
-import { TrustLockModule } from './trustlock/trustlock.module'
-import { NjangiModule } from './njangi/njangi.module'
-import { SplitChatModule } from './splitchat/splitchat.module'
-import { PayDayModule } from './payday/payday.module'
-import { SafiPayModule } from './safipay/safipay.module'
-import { PawapayModule } from './pawapay/pawapay.module'
-import { KoboKallModule } from './kobokall/kobokall.module'
+import { ChainsModule } from '@blockchain/chains/chains.module'
+import { StellarModule } from '@blockchain/stellar/stellar.module'
+import { LiskModule } from '@blockchain/lisk/lisk.module'
+import { DatabaseModule } from '@core/database/database.module'
+import { HealthController } from '@core/health/health.controller'
+import { JwksModule } from '@core/jwks/jwks.module'
+import { CronModule } from '@core/cron/cron.module'
+import { WhatsAppModule } from '@messaging/whatsapp/whatsapp.module'
+import { WebhookModule } from '@messaging/webhook/webhook.module'
+import { FlowModule } from '@messaging/flow/flow.module'
+import { CoinbaseModule } from '@onramp/coinbase/coinbase.module'
+import { OnramperModule } from '@onramp/onramper/onramper.module'
+import { PaymentModule } from '@payments/payment/payment.module'
+import { PawapayModule } from '@payments/pawapay/pawapay.module'
+import { TrustLockModule } from '@features/trustlock/trustlock.module'
+import { NjangiModule } from '@features/njangi/njangi.module'
+import { SplitChatModule } from '@features/splitchat/splitchat.module'
+import { PayDayModule } from '@features/payday/payday.module'
+import { SafiPayModule } from '@features/safipay/safipay.module'
+import { KoboKallModule } from '@features/kobokall/kobokall.module'
+import { CryptoExchangeModule } from '@features/crypto-exchange/crypto-exchange.module'
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     SharedModule,
     ChainsModule,
-    WhatsAppModule,
+    StellarModule,
+    LiskModule,
     DatabaseModule,
-    XrplModule,
+    WhatsAppModule,
     WebhookModule,
     FlowModule,
     JwksModule,
@@ -44,6 +47,7 @@ import { KoboKallModule } from './kobokall/kobokall.module'
     SafiPayModule,
     PawapayModule,
     KoboKallModule,
+    CryptoExchangeModule,
   ],
   controllers: [HealthController],
 })

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Admin wallet — managed entirely by Web3Auth.
  *
  * Uses a special internal verifier ID (not a phone number) so the admin
@@ -22,10 +22,10 @@ import {
   web3authSolana,
   initWeb3Auth,
 } from './web3auth'
-import { jwtAuthService } from '../services/jwt-auth.service'
-import { keypairFromSeed } from '../chains/solana.service'
-import config from '../utils/config'
-import logger from '../utils/logger'
+import { jwtAuthService } from '@shared/jwt-auth.service'
+import { keypairFromSeed } from '@blockchain/chains/solana.service'
+import config from '@common/utils/config'
+import logger from '@common/utils/logger'
 
 const VERIFIER = config.WEB3AUTH_VERIFIER!
 

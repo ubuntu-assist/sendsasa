@@ -1,5 +1,5 @@
-import mongoose, { Schema, Document } from 'mongoose'
-import type { MobileMoneyProvider } from '../services/mobile-money.service'
+﻿import mongoose, { Schema, Document } from 'mongoose'
+import type { MobileMoneyProvider } from '@shared/mobile-money.service'
 
 export type OnRampStatus =
   | 'pending'            // session created, awaiting card payment

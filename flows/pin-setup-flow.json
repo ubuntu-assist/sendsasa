@@ -198,6 +198,18 @@
                 "helper-text": "Your answer to question 3"
               },
               {
+                "type": "Dropdown",
+                "name": "operating_region",
+                "label": "Where are you located?",
+                "required": true,
+                "data-source": [
+                  { "id": "cameroon", "title": "Cameroon 🇨🇲" },
+                  { "id": "europe", "title": "Europe 🇪🇺" },
+                  { "id": "north_america", "title": "North America 🌎" },
+                  { "id": "other", "title": "Other 🌍" }
+                ]
+              },
+              {
                 "type": "Footer",
                 "label": "Complete Setup",
                 "on-click-action": {
@@ -210,7 +222,8 @@
                     "question_2": "${form.question_2}",
                     "answer_2": "${form.answer_2}",
                     "question_3": "${form.question_3}",
-                    "answer_3": "${form.answer_3}"
+                    "answer_3": "${form.answer_3}",
+                    "operating_region": "${form.operating_region}"
                   }
                 }
               }

@@ -1,0 +1,144 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "SWAP_ASSETS": ["SWAP_AMOUNT"],
+    "SWAP_AMOUNT": ["SWAP_CONFIRM"],
+    "SWAP_CONFIRM": []
+  },
+  "screens": [
+    {
+      "id": "SWAP_ASSETS",
+      "title": "Swap Crypto",
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Dropdown",
+            "name": "from_asset",
+            "label": "From",
+            "required": true,
+            "data-source": [
+              { "id": "XRP", "title": "XRP (XRPL)" },
+              { "id": "RLUSD", "title": "RLUSD (XRPL)" },
+              { "id": "SOL", "title": "SOL (Solana)" },
+              { "id": "USDC_SOL", "title": "USDC (Solana)" },
+              { "id": "USDT_SOL", "title": "USDT (Solana)" },
+              { "id": "BNB", "title": "BNB (BSC)" },
+              { "id": "USDT_BSC", "title": "USDT (BSC)" },
+              { "id": "USDC_BSC", "title": "USDC (BSC)" }
+            ]
+          },
+          {
+            "type": "Dropdown",
+            "name": "to_asset",
+            "label": "To",
+            "required": true,
+            "data-source": [
+              { "id": "XRP", "title": "XRP (XRPL)" },
+              { "id": "RLUSD", "title": "RLUSD (XRPL)" },
+              { "id": "SOL", "title": "SOL (Solana)" },
+              { "id": "USDC_SOL", "title": "USDC (Solana)" },
+              { "id": "USDT_SOL", "title": "USDT (Solana)" },
+              { "id": "BNB", "title": "BNB (BSC)" },
+              { "id": "USDT_BSC", "title": "USDT (BSC)" },
+              { "id": "USDC_BSC", "title": "USDC (BSC)" }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Get Quote",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "screen": "SWAP_ASSETS",
+                "from_asset": "${form.from_asset}",
+                "to_asset": "${form.to_asset}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "SWAP_AMOUNT",
+      "title": "Enter Amount",
+      "data": {
+        "from_asset": { "type": "string", "__example__": "XRP" },
+        "to_asset": { "type": "string", "__example__": "RLUSD" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextInput",
+            "name": "from_amount",
+            "label": "Amount to swap",
+            "input-type": "number",
+            "required": true,
+            "helper-text": "Enter the amount of ${data.from_asset} you want to swap"
+          },
+          {
+            "type": "Footer",
+            "label": "Get Quote",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "screen": "SWAP_AMOUNT",
+                "from_asset": "${data.from_asset}",
+                "to_asset": "${data.to_asset}",
+                "from_amount": "${form.from_amount}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "SWAP_CONFIRM",
+      "title": "Confirm Swap",
+      "data": {
+        "from_asset": { "type": "string", "__example__": "XRP" },
+        "to_asset": { "type": "string", "__example__": "RLUSD" },
+        "from_amount": { "type": "string", "__example__": "50" },
+        "estimated_output": { "type": "string", "__example__": "95.2" },
+        "price_impact": { "type": "string", "__example__": "< 1%" },
+        "route_label": { "type": "string", "__example__": "XRPL DEX" },
+        "order_id": { "type": "string", "__example__": "6650abc" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "📊 *Swap Summary*\n\nFrom: ${data.from_amount} ${data.from_asset}\nTo: ~${data.estimated_output} ${data.to_asset}\n\nRoute: ${data.route_label}\nPrice Impact: ${data.price_impact}"
+          },
+          {
+            "type": "TextInput",
+            "name": "pin",
+            "label": "Transaction PIN",
+            "input-type": "password",
+            "required": true,
+            "helper-text": "Enter your 4-digit PIN to confirm"
+          },
+          {
+            "type": "Footer",
+            "label": "Confirm Swap",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "swap_from_asset": "${data.from_asset}",
+                "swap_to_asset": "${data.to_asset}",
+                "swap_from_amount": "${data.from_amount}",
+                "swap_estimated_output": "${data.estimated_output}",
+                "swap_order_id": "${data.order_id}",
+                "swap_pin": "${form.pin}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

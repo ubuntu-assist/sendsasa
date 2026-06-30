@@ -1,6 +1,6 @@
-import { describe, it } from 'node:test'
+﻿import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizePEMKey } from '../../utils/normalize-key.js'
+import { normalizePEMKey } from '@common/utils/normalize-key.js'
 
 const HEADER = '-----BEGIN RSA PRIVATE KEY-----'
 const FOOTER = '-----END RSA PRIVATE KEY-----'

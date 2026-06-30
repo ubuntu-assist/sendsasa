@@ -1,0 +1,299 @@
+﻿import { Injectable } from '@nestjs/common'
+import { ethers } from 'ethers'
+import { Wallet as XrplWallet } from 'xrpl'
+import { Keypair as StellarKeypair } from '@stellar/stellar-sdk'
+import {
+  web3auth,
+  web3authXrpl,
+  web3authSolana,
+  initWeb3Auth,
+} from '@config/web3auth'
+import { jwtAuthService } from '@shared/jwt-auth.service'
+import { keypairFromSeed } from './solana.service'
+import { normalizeToE164, maskPhone } from '@shared/phone-number.service'
+import { User } from '@models/index'
+import config from '@common/utils/config'
+import logger from '@common/utils/logger'
+
+const VERIFIER = config.WEB3AUTH_VERIFIER || 'sendsasa-whatsapp'
+const MAX_RETRIES = 3
+
+// Flip to true after the pawaPay hackathon to re-enable XRPL wallet derivation
+const XRPL_ENABLED = false
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+export interface WalletAddresses {
+  evmAddress: string
+  xrplAddress: string
+  solanaAddress: string
+  stellarPublicKey: string
+  liskAddress: string
+}
+
+@Injectable()
+export class WalletService {
+  /**
+   * Return cached wallet addresses for a phone number, deriving them from
+   * Web3Auth and caching in the User document if not yet stored.
+   *
+   * EVM key: derived via CommonPrivateKeyProvider (raw secp256k1 key).
+   * XRPL key: derived via XrplPrivateKeyProvider (secp256k1 XRPL wallet).
+   * Both are fetched in parallel on a cache miss.
+   */
+  async getOrCreateWallets(phoneNumber: string): Promise<WalletAddresses> {
+    const e164Phone = normalizeToE164(phoneNumber)
+
+    // Check DB cache first — avoids Web3Auth round-trips on every call
+    const user = await User.findOne({ phoneNumber: e164Phone }).select(
+      'evm_address xrpl_address solana_address stellar_public_key lisk_address',
+    )
+
+    if (user?.evm_address && user?.solana_address && user?.stellar_public_key && (!XRPL_ENABLED || user?.xrpl_address)) {
+      logger.info(
+        `Wallet cache hit for ${maskPhone(e164Phone)}: EVM=${user.evm_address.slice(0, 8)}...`,
+      )
+      return {
+        evmAddress: user.evm_address,
+        xrplAddress: user.xrpl_address ?? '',
+        solanaAddress: user.solana_address,
+        stellarPublicKey: user.stellar_public_key ?? '',
+        liskAddress: user.lisk_address ?? user.evm_address,
+      }
+    }
+
+    // Derive EVM and Solana in parallel; XRPL derivation gated by XRPL_ENABLED
+    const [secp256k1Key, solanaSeed] = await Promise.all([
+      this.getPrivateKey(e164Phone),
+      this.getSolanaPrivateKey(e164Phone),
+    ])
+
+    const evmWallet = this.deriveEVMWallet(secp256k1Key)
+    const evmAddress = evmWallet.address
+    const xrplAddress = XRPL_ENABLED ? (await this.getXRPLWallet(e164Phone)).classicAddress : ''
+    const solanaAddress = keypairFromSeed(solanaSeed).publicKey.toBase58()
+
+    // Stellar: derive Ed25519 keypair from the Solana seed (same Ed25519 key material)
+    const stellarKeypair = this.deriveStellarKeypair(solanaSeed)
+    const stellarPublicKey = stellarKeypair.publicKey()
+
+    // Lisk uses the same secp256k1 key as EVM — same address, zero extra Web3Auth calls
+    const liskAddress = evmAddress
+
+    // Persist addresses if user exists (no-op if user not yet registered)
+    if (user) {
+      await User.updateOne(
+        { phoneNumber: e164Phone },
+        {
+          $set: {
+            evm_address: evmAddress,
+            xrpl_address: xrplAddress,
+            solana_address: solanaAddress,
+            stellar_public_key: stellarPublicKey,
+            lisk_address: liskAddress,
+            web3auth_verifier_id: e164Phone,
+            wallet_created_at: new Date(),
+          },
+        },
+      )
+      logger.info(`Wallet addresses cached for ${maskPhone(e164Phone)}`)
+    }
+
+    return { evmAddress, xrplAddress, solanaAddress, stellarPublicKey, liskAddress }
+  }
+
+  /**
+   * Retrieve the raw secp256k1 private key from Web3Auth via CommonPrivateKeyProvider.
+   * Used for EVM transaction signing (BSC, Base, Ethereum).
+   *
+   * Returns a 64-char hex string with NO "0x" prefix.
+   * Discard from memory immediately after use.
+   */
+  async getPrivateKey(phoneNumber: string): Promise<string> {
+    const e164Phone = normalizeToE164(phoneNumber)
+    await initWeb3Auth()
+
+    let lastError: Error = new Error('Unknown error')
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const idToken = jwtAuthService.generateToken(e164Phone)
+
+        const provider = await web3auth.connect({
+          verifier: VERIFIER,
+          verifierId: e164Phone,
+          idToken,
+        })
+
+        if (!provider) throw new Error('Web3Auth returned a null provider')
+
+        // CommonPrivateKeyProvider exposes the raw secp256k1 key via 'private_key'
+        const rawKey = (await provider.request({
+          method: 'private_key',
+        })) as string
+
+        if (!rawKey) throw new Error('Web3Auth returned an empty private key')
+
+        const hex = rawKey.startsWith('0x') ? rawKey.slice(2) : rawKey
+        await web3auth.logout().catch(() => {
+          /* non-critical */
+        })
+        return hex.padStart(64, '0')
+      } catch (error: any) {
+        lastError = error instanceof Error ? error : new Error(String(error))
+        await web3auth.logout().catch(() => {
+          /* non-critical */
+        })
+        logger.error(
+          `Web3Auth (EVM) connect attempt ${attempt}/${MAX_RETRIES} failed` +
+            ` for ${maskPhone(e164Phone)}: ${lastError.message}`,
+        )
+        if (attempt < MAX_RETRIES) await sleep(Math.pow(2, attempt - 1) * 1000)
+      }
+    }
+
+    throw new Error(
+      `Failed to retrieve EVM private key after ${MAX_RETRIES} attempts: ${lastError.message}`,
+    )
+  }
+
+  /**
+   * Retrieve the XRPL wallet from Web3Auth via XrplPrivateKeyProvider.
+   * Uses Web3Auth's official secp256k1 XRPL key derivation:
+   *   secp256k1 seed → ripple-keypairs entropy → secp256k1 XRPL keypair
+   *
+   * The returned Wallet's classicAddress is the canonical XRPL address for this user.
+   */
+  async getXRPLWallet(phoneNumber: string): Promise<XrplWallet> {
+    const e164Phone = normalizeToE164(phoneNumber)
+    await initWeb3Auth()
+
+    let lastError: Error = new Error('Unknown error')
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const idToken = jwtAuthService.generateToken(e164Phone)
+
+        const provider = await web3authXrpl.connect({
+          verifier: VERIFIER,
+          verifierId: e164Phone,
+          idToken,
+        })
+
+        if (!provider) throw new Error('web3authXrpl returned a null provider')
+
+        // XrplPrivateKeyProvider exposes the native XRPL keypair via 'xrpl_getKeyPair'
+        const keypair = (await provider.request({
+          method: 'xrpl_getKeyPair',
+        })) as { privateKey: string; publicKey: string }
+
+        if (!keypair?.privateKey || !keypair?.publicKey) {
+          throw new Error('web3authXrpl returned an empty keypair')
+        }
+
+        await web3authXrpl.logout().catch(() => {
+          /* non-critical */
+        })
+        return new XrplWallet(keypair.publicKey, keypair.privateKey)
+      } catch (error: any) {
+        lastError = error instanceof Error ? error : new Error(String(error))
+        await web3authXrpl.logout().catch(() => {
+          /* non-critical */
+        })
+        logger.error(
+          `Web3Auth (XRPL) connect attempt ${attempt}/${MAX_RETRIES} failed` +
+            ` for ${maskPhone(e164Phone)}: ${lastError.message}`,
+        )
+        if (attempt < MAX_RETRIES) await sleep(Math.pow(2, attempt - 1) * 1000)
+      }
+    }
+
+    throw new Error(
+      `Failed to retrieve XRPL wallet after ${MAX_RETRIES} attempts: ${lastError.message}`,
+    )
+  }
+
+  /**
+   * Retrieve the Ed25519 seed from Web3Auth via SolanaPrivateKeyProvider.
+   * Returns a 64-char hex string (32 bytes). Pass to keypairFromSeed() in
+   * solana.service to get a Keypair. Discard from memory after use.
+   */
+  async getSolanaPrivateKey(phoneNumber: string): Promise<string> {
+    const e164Phone = normalizeToE164(phoneNumber)
+    await initWeb3Auth()
+
+    let lastError: Error = new Error('Unknown error')
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const idToken = jwtAuthService.generateToken(e164Phone)
+
+        const provider = await web3authSolana.connect({
+          verifier: VERIFIER,
+          verifierId: e164Phone,
+          idToken,
+        })
+
+        if (!provider)
+          throw new Error('web3authSolana returned a null provider')
+
+        const rawKey = (await provider.request({
+          method: 'solanaPrivateKey',
+        })) as string
+
+        if (!rawKey)
+          throw new Error('web3authSolana returned an empty private key')
+
+        const hex = rawKey.startsWith('0x') ? rawKey.slice(2) : rawKey
+        await web3authSolana.logout().catch(() => {
+          /* non-critical */
+        })
+        return hex.padStart(64, '0')
+      } catch (error: any) {
+        lastError = error instanceof Error ? error : new Error(String(error))
+        await web3authSolana.logout().catch(() => {
+          /* non-critical */
+        })
+        logger.error(
+          `Web3Auth (Solana) connect attempt ${attempt}/${MAX_RETRIES} failed` +
+            ` for ${maskPhone(e164Phone)}: ${lastError.message}`,
+        )
+        if (attempt < MAX_RETRIES) await sleep(Math.pow(2, attempt - 1) * 1000)
+      }
+    }
+
+    throw new Error(
+      `Failed to retrieve Solana private key after ${MAX_RETRIES} attempts: ${lastError.message}`,
+    )
+  }
+
+  /**
+   * Derive a Stellar Ed25519 keypair from the raw Solana seed hex.
+   * Both Solana and Stellar use Ed25519 — the same 32-byte seed from Web3Auth's
+   * Solana provider produces a deterministic Stellar address via
+   * Keypair.fromRawEd25519Seed(). This means Stellar is the 4th chain with
+   * zero additional Web3Auth calls.
+   */
+  deriveStellarKeypair(solanaSeedHex: string): StellarKeypair {
+    const hex = solanaSeedHex.startsWith('0x')
+      ? solanaSeedHex.slice(2)
+      : solanaSeedHex
+    const seed = Buffer.from(hex.padStart(64, '0'), 'hex').subarray(0, 32)
+    return StellarKeypair.fromRawEd25519Seed(seed)
+  }
+
+  /**
+   * Derive an ethers.Wallet (EVM) from the secp256k1 private key.
+   * Works for BSC, Base, and Ethereum — all share the same address.
+   */
+  deriveEVMWallet(secp256k1Key: string): ethers.Wallet {
+    const key = secp256k1Key.startsWith('0x')
+      ? secp256k1Key
+      : '0x' + secp256k1Key
+    return new ethers.Wallet(key)
+  }
+}
+
+export const walletService = new WalletService()

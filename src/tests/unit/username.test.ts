@@ -1,7 +1,7 @@
-import { describe, it } from 'node:test'
+﻿import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { ValidationError } from '../../middleware/error-handler.js'
-import { usernameService } from '../../services/username.service.js'
+import { ValidationError } from '@common/middleware/error-handler.js'
+import { usernameService } from '@shared/username.service.js'
 
 // validateUsername is pure — it only throws, never queries the DB.
 // isUsername is a simple predicate — no DB either.

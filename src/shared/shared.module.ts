@@ -1,12 +1,13 @@
 import { Global, Module } from '@nestjs/common'
-import { PhoneNumberService } from '../services/phone-number.service'
-import { JwtAuthService } from '../services/jwt-auth.service'
-import { FxRateService, fxRateService } from '../services/fx-rate.service'
-import { RatesService } from '../services/rates.service'
-import { MobileMoneyService } from '../services/mobile-money.service'
-import { UsernameService } from '../services/username.service'
-import { ReceiptGeneratorService } from '../services/receipt-generator.service'
-import { GeminiService } from '../services/gemini.service'
+import { PhoneNumberService } from '@shared/phone-number.service'
+import { JwtAuthService } from '@shared/jwt-auth.service'
+import { FxRateService, fxRateService } from '@shared/fx-rate.service'
+import { RatesService } from '@shared/rates.service'
+import { MobileMoneyService } from '@shared/mobile-money.service'
+import { UsernameService } from '@shared/username.service'
+import { ReceiptGeneratorService } from '@shared/receipt-generator.service'
+import { GeminiService } from '@shared/gemini.service'
+import { PaymentRailService } from '@shared/payment-rail.service'
 
 const SHARED_SERVICES = [
   PhoneNumberService,
@@ -17,6 +18,7 @@ const SHARED_SERVICES = [
   UsernameService,
   ReceiptGeneratorService,
   GeminiService,
+  PaymentRailService,
 ]
 
 @Global()

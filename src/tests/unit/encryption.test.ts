@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test'
+﻿import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 
 // Must be set before requiring the encryption module.
@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 process.env.ENCRYPTION_KEY ??= 'test-encryption-key-for-unit-tests!!'
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { encryptSeed, decryptSeed }: typeof import('../../utils/encryption') =
+const { encryptSeed, decryptSeed }: typeof import('@common/utils/encryption') =
   require('../../utils/encryption')
 
 describe('encryptSeed / decryptSeed', () => {

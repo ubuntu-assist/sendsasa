@@ -1,5 +1,5 @@
-import mongoose, { Schema } from 'mongoose'
-import { IPaymentRequest } from '../types'
+﻿import mongoose, { Schema } from 'mongoose'
+import { IPaymentRequest } from '@app/types'
 
 const PaymentRequestSchema = new Schema<IPaymentRequest>({
   requestId: {

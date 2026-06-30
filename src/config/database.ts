@@ -1,5 +1,5 @@
-import mongoose from 'mongoose'
-import config from '../utils/config'
+﻿import mongoose from 'mongoose'
+import config from '@common/utils/config'
 
 const MONGODB_URI = config.MONGODB_URI!
 const MAX_POOL_SIZE = Number.parseInt(config.DB_MAX_POOL_SIZE || '10')

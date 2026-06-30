@@ -1,5 +1,5 @@
-import { Client } from 'xrpl'
-import config from '../utils/config'
+﻿import { Client } from 'xrpl'
+import config from '@common/utils/config'
 
 const TESTNET_URL = 'wss://s.altnet.rippletest.net:51233'
 const MAINNET_URL = 'wss://xrplcluster.com/'

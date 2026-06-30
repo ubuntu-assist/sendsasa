@@ -1,0 +1,145 @@
+/* Details Area Style
+============================================*/
+.details-content {
+    h1, h2, h3, h4, h5, h6 {
+        margin-top: 40px;
+        margin-bottom: 20px;
+
+        &:first-child {
+            margin-top: 0;
+        }
+    }
+    h1 {
+        font-size: 40px;
+    }
+    h2 {
+        font-size: 35px;
+    }
+    h3 {
+        font-size: 30px;
+    }
+    h4 {
+        font-size: 25px;
+    }
+    h5 {
+        font-size: 20px;
+    }
+    h6 {
+        font-size: 18px;
+    }
+    ul, ol {
+        li {
+            margin-bottom: 15px;
+
+            &:last-child {
+                margin-bottom: 0;
+            }
+        }
+    }
+    blockquote {
+        margin-bottom: 30px;
+        background-color: #104042;
+        padding: 50px;
+        font-weight: 500;
+        color: $white;
+        text-align: center;
+        border-radius: 20px;
+
+        p {
+            max-width: 840px;
+            margin: auto;
+        }
+    }
+    img {
+        border-radius: 30px;
+    }
+}
+
+/* Max width 767px */
+@media only screen and (max-width: 767px) {
+
+    .details-content {
+        h3 {
+            margin-top: 20px;
+            margin-bottom: 0;
+        }
+        h1 {
+            font-size: 30px;
+        }
+        h2 {
+            font-size: 25px;
+        }
+        h3 {
+            font-size: 20px;
+        }
+        h4 {
+            font-size: 18px;
+        }
+        h5 {
+            font-size: 17px;
+        }
+        h6 {
+            font-size: 16px;
+        }
+        .video-btn {
+            width: 60px !important;
+            height: 60px !important;
+            
+            i {
+                font-size: 25px !important;
+            }
+        }
+    }
+
+}
+
+/* Min width 768px to Max width 992px */
+@media only screen and (min-width: 768px) and (max-width: 991px) {
+    .details-content {
+        h3 {
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+        h1 {
+            font-size: 30px;
+        }
+        h2 {
+            font-size: 25px;
+        }
+        h3 {
+            font-size: 20px;
+        }
+        h4 {
+            font-size: 18px;
+        }
+        h5 {
+            font-size: 17px;
+        }
+        h6 {
+            font-size: 16px;
+        }
+    }
+}
+
+@media (min-width: 1399px) {
+    .details-content {
+        .pl-150 {
+            padding-left: 150px;
+        }
+    }
+}
+
+/* RTL Area Style
+============================================*/
+.rtl {
+   
+    @media (min-width: 1399px) {
+        .details-content {
+            .pl-150 {
+                padding-left: 0;
+                padding-right: 150px;
+            }
+        }
+    }
+    
+}

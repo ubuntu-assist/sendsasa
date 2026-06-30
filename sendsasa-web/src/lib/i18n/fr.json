@@ -1,0 +1,277 @@
+{
+  "nav": {
+    "home": "Accueil",
+    "features": "Fonctionnalités",
+    "get_in_touch": "Nous Contacter",
+    "lang_en": "English",
+    "lang_fr": "Français"
+  },
+  "footer": {
+    "tagline": "Une banque dans WhatsApp.",
+    "description": "Envoyez de l'argent chez vous en 60 secondes — vers n'importe quel portefeuille mobile money en Afrique. Sans application, sans compte bancaire.",
+    "privacy": "Confidentialité",
+    "terms": "Conditions",
+    "copyright": "© 2025 SendSasa",
+    "linkedin_desc": "Suivez notre contenu sur LinkedIn",
+    "twitter_desc": "Suivez-nous sur X",
+    "join": "Rejoindre"
+  },
+  "home": {
+    "meta_title": "SendSasa — Envoyez de l'argent chez vous en 60 secondes via WhatsApp",
+    "meta_desc": "SendSasa permet à chacun d'envoyer de l'argent, de sécuriser des transactions, de gérer la paie et les tontines via WhatsApp. Sans application ni compte bancaire.",
+    "hero": {
+      "badge": "BANQUE VIA WHATSAPP",
+      "headline": "Envoyez de l'argent chez vous plus vite qu'un",
+      "headline_highlight": "\"Je t'aime\"",
+      "body": "Pas d'application à télécharger. Pas de compte bancaire requis. Ouvrez simplement WhatsApp, tapez un numéro, et votre argent arrive en 60 secondes — vers n'importe quel portefeuille mobile money en Afrique.",
+      "cta_primary": "Commencer Gratuitement",
+      "cta_secondary": "Essayer sur WhatsApp",
+      "stat_transfer": "Délai de transfert",
+      "stat_fee": "Frais fixes, sans frais cachés",
+      "stat_users": "Utilisateurs WhatsApp en Afrique"
+    },
+    "partners": {
+      "label": "SOUTENU PAR DES PARTENAIRES ET INFRASTRUCTURES DE PREMIER PLAN"
+    },
+    "features": {
+      "badge": "nos fonctionnalités",
+      "title": "Tout ce dont vous avez besoin pour",
+      "title_highlight": "Gérer l'Argent",
+      "title_suffix": "depuis WhatsApp",
+      "all_features": "Toutes les fonctionnalités",
+      "send_money": {
+        "title": "Envoi d'Argent",
+        "desc": "Envoyez de l'argent vers n'importe quel numéro mobile money en Afrique en moins de 60 secondes. MTN, Orange, M-Pesa et plus — depuis un simple message WhatsApp."
+      },
+      "payday": {
+        "title": "PayDay",
+        "desc": "Payez toute votre équipe en un seul message WhatsApp. Dites \"paye Jean 15 000, Marie 20 000\" et notre IA envoie tous les paiements d'un coup — jusqu'à 100 personnes."
+      },
+      "safipay": {
+        "title": "SafiPay",
+        "desc": "Créez une facture professionnelle dans WhatsApp et partagez un lien de paiement avec votre client. Soyez payé sur votre mobile money le jour même. Sans logiciel."
+      }
+    },
+    "about": {
+      "badge": "à propos de sendsasa",
+      "title": "Une Vraie Banque",
+      "title_highlight": "Dans",
+      "title_suffix": "WhatsApp Pour Toute l'Afrique",
+      "learn_more": "En Savoir Plus",
+      "tab_send": "Envoi d'Argent",
+      "tab_escrow": "Séquestre TrustLock",
+      "tab_payroll": "Paie PayDay",
+      "tab_invoice": "Facturation SafiPay",
+      "send": {
+        "title": "L'Argent Arrive Avant la Fin de Votre Message WhatsApp",
+        "body": "Saisissez un numéro de téléphone, entrez le montant, confirmez avec votre code PIN. L'argent arrive dans le portefeuille mobile money du destinataire en moins de 60 secondes. Sans application, sans file d'attente, sans compte bancaire.",
+        "check1": "Compatible avec MTN, Orange, M-Pesa et plus",
+        "check2": "Seulement 1% de frais, rien de caché",
+        "check3": "Envoyez vers plus de 10 pays africains"
+      },
+      "escrow": {
+        "title": "Achetez et Vendez en Ligne Sans Risque d'Arnaque",
+        "body": "TrustLock conserve votre paiement en toute sécurité jusqu'à ce que vous confirmiez avoir reçu ce pour quoi vous avez payé. Le vendeur est payé. L'acheteur est protégé. Fini les disputes sur qui envoie en premier.",
+        "check1": "Paiement bloqué jusqu'à la confirmation de livraison",
+        "check2": "Remboursement automatique si la transaction échoue",
+        "check3": "Résolution des litiges par intelligence artificielle"
+      },
+      "payroll": {
+        "title": "Payez Toute Votre Équipe en Un Seul Message WhatsApp",
+        "body": "Dites simplement à SendSasa qui payer et combien. \"Paye Jean 15 000, Marie 20 000, Paul 12 000.\" Notre IA vous comprend et envoie les trois paiements simultanément.",
+        "check1": "Payez jusqu'à 100 personnes à la fois",
+        "check2": "Saisie en langage naturel, sans tableur",
+        "check3": "Chaque destinataire reçoit une confirmation"
+      },
+      "invoice": {
+        "title": "Envoyez des Factures Professionnelles et Soyez Payé Immédiatement",
+        "body": "Créez une facture dans WhatsApp, envoyez un lien de paiement à votre client, et soyez payé sur votre mobile money en quelques secondes. Sans logiciel de comptabilité.",
+        "check1": "Facture professionnelle avec vos coordonnées",
+        "check2": "Rappels de paiement automatiques",
+        "check3": "L'argent arrive sur votre MoMo le jour même"
+      }
+    },
+    "how_it_works": {
+      "badge": "Comment Ça Marche",
+      "title": "Trois Étapes",
+      "title_highlight": "Simples",
+      "title_suffix": "et Votre Argent Est Parti",
+      "body": "Pas d'application à installer, pas de compte à ouvrir à la banque. Juste WhatsApp. Le même que vous utilisez déjà chaque jour.",
+      "step1": {
+        "label": "ÉTAPE 01",
+        "title": "Ouvrez WhatsApp",
+        "body": "Envoyez un message à SendSasa sur WhatsApp. Pas de téléchargement, pas de formulaire d'inscription. Votre numéro de téléphone est votre identité."
+      },
+      "step2": {
+        "label": "ÉTAPE 02",
+        "title": "Définissez Votre PIN",
+        "body": "Choisissez un code PIN à 4 chiffres pour sécuriser votre compte. Prend 30 secondes et protège votre argent."
+      },
+      "step3": {
+        "label": "ÉTAPE 03",
+        "title": "Envoyez de l'Argent",
+        "body": "Entrez le numéro du destinataire et le montant. Confirmez avec votre PIN. C'est fait. L'argent arrive en moins de 60 secondes."
+      },
+      "try_now": "Essayer Maintenant"
+    },
+    "why": {
+      "badge": "POURQUOI SENDSASA",
+      "title": "Sans Compte Bancaire, Sans",
+      "title_highlight": "Problème",
+      "title_suffix": ". Juste WhatsApp et le Mobile Money.",
+      "body": "Les banques prennent 3 jours et prélèvent 10%. Nous prenons 60 secondes et prélevons 1%. Voilà toute l'histoire.",
+      "instant": {
+        "title": "Transferts Instantanés",
+        "body": "Votre argent se déplace en moins de 60 secondes, 24 heures sur 24, 7 jours sur 7, même les jours fériés."
+      },
+      "fee": {
+        "title": "1% de Frais Fixes",
+        "body": "Ne payez que 1% sur chaque transaction. Pas d'abonnement mensuel. Pas de frais d'inscription. Pas de solde minimum requis."
+      }
+    },
+    "coverage": {
+      "badge": "où nous envoyons",
+      "title": "Les Pays vers lesquels nos",
+      "title_highlight": "Clients",
+      "title_suffix": "Envoient et Reçoivent de l'Argent",
+      "cameroon": {
+        "name": "Cameroun (XAF)",
+        "desc": "Envoyez vers MTN MoMo et Orange Money au Cameroun. Arrive en moins de 60 secondes, quel que soit le montant."
+      },
+      "nigeria": {
+        "name": "Nigeria (NGN)",
+        "desc": "Envoyez vers n'importe quel portefeuille mobile money ou compte bancaire au Nigeria instantanément à 1% fixe."
+      },
+      "kenya": {
+        "name": "Kenya (KES)",
+        "desc": "Transferts M-Pesa depuis n'importe quel pays africain ou depuis l'Europe. Rapide, pas cher et fiable."
+      },
+      "usa": {
+        "name": "États-Unis (USD)",
+        "desc": "Envoyez depuis les États-Unis vers des portefeuilles mobile money en Afrique. Rapide, abordable, sans compte bancaire."
+      },
+      "france": {
+        "name": "France (EUR)",
+        "desc": "Envoyez depuis la France vers votre famille au Cameroun, au Sénégal, en Côte d'Ivoire et plus — en moins de 60 secondes."
+      },
+      "canada": {
+        "name": "Canada (CAD)",
+        "desc": "Envoyez depuis le Canada vers des portefeuilles mobile money en Afrique à seulement 1% fixe — sans surprises."
+      },
+      "ghana": {
+        "name": "Ghana (GHS)",
+        "desc": "Envoyez vers MTN MoMo, Vodafone Cash et AirtelTigo Money au Ghana. Taux en temps réel, livraison instantanée."
+      },
+      "ivory_coast": {
+        "name": "Côte d'Ivoire (XOF)",
+        "desc": "MTN MoMo et Orange Money en Côte d'Ivoire. Rechargez instantanément depuis n'importe quel pays."
+      }
+    },
+    "pricing": {
+      "badge": "Notre Tarification Simple",
+      "title": "Nous Prélevons",
+      "title_highlight": "1%",
+      "title_suffix": ". C'est Tout. Pas de Frais Mensuel. Pas de Surprise.",
+      "body": "Les banques prélèvent 10% et vous font attendre 3 jours. Nous prélevons 1% et livrons en 60 secondes. Frais minimum 100 XAF, maximum 2 000 XAF par transfert.",
+      "compare": "Tout Comparer",
+      "table": {
+        "sending": "Envoi de 50 000 XAF avec",
+        "recipient_gets": "Le Destinataire Reçoit",
+        "recipient_after": "(total après frais)",
+        "sendsasa_amount": "49 500 XAF",
+        "sendsasa_save": "Économisez jusqu'à 4 500 XAF",
+        "wu_amount": "45 000 XAF",
+        "wu_loss": "-5 000 XAF en frais",
+        "transfer_fee": "Frais de Transfert",
+        "sendsasa_fee": "500 XAF (1%)",
+        "sendsasa_no_sub": "Sans abonnement",
+        "wu_fee": "5 000 XAF (10%)",
+        "transfer_time": "Délai de Transfert",
+        "sendsasa_time": "Moins de 60 secondes",
+        "sendsasa_247": "24h/24, même les week-ends",
+        "wu_time": "1 à 3 jours ouvrables",
+        "app_required": "Application Requise",
+        "sendsasa_app": "Non — juste WhatsApp",
+        "wu_app": "Oui, plus un compte bancaire"
+      }
+    },
+    "cta": {
+      "badge": "commencez maintenant",
+      "title": "Pas d'Application à Télécharger. Juste",
+      "title_highlight": "WhatsApp",
+      "title_suffix": "Déjà sur Votre Téléphone.",
+      "body": "SendSasa fonctionne entièrement dans WhatsApp. Vous avez déjà tout ce qu'il vous faut. Envoyez-nous un message et nous vous guiderons lors de l'installation en moins de 2 minutes.",
+      "check1": "Fonctionne sur tout téléphone avec WhatsApp",
+      "check2": "Aucun compte bancaire requis",
+      "check3": "L'installation prend moins de 2 minutes",
+      "check4": "Les transferts arrivent en moins de 60 secondes",
+      "btn": "Démarrer sur WhatsApp"
+    },
+    "pitch": {
+      "badge": "Aquarium Incubator · Cohort 8 · XRPL Commons",
+      "title": "Regardez Notre",
+      "title_highlight": "Pitch",
+      "body": "Découvrez comment SendSasa supprime les barrières pour la diaspora africaine — présenté au XRPL Commons Demo Day."
+    },
+    "faq": {
+      "badge": "faq",
+      "title": "Questions Fréquentes",
+      "title_highlight": "Répondues",
+      "title_suffix": "Sur SendSasa",
+      "more": "Plus de FAQ",
+      "q1": "Dois-je télécharger une application ?",
+      "a1": "Non. SendSasa fonctionne entièrement dans WhatsApp. Vous avez déjà WhatsApp sur votre téléphone — c'est tout ce dont vous avez besoin. Envoyez simplement un message à notre numéro et suivez les instructions pour configurer votre compte en moins de 2 minutes.",
+      "q2": "Combien coûte l'envoi d'argent ?",
+      "a2": "Nous prélevons un forfait de 1% sur chaque transfert. Les frais minimum sont de 100 XAF et le maximum est de 2 000 XAF. Il n'y a pas de frais d'abonnement mensuel, pas de frais de compte et pas de frais cachés. Ce que vous voyez est ce que vous payez.",
+      "q3": "Quels réseaux mobile money prenez-vous en charge ?",
+      "a3": "Nous prenons en charge MTN MoMo, Orange Money, M-Pesa, Wave, Airtel Money et plus au Cameroun, Nigeria, Kenya, Ghana, Sénégal, Côte d'Ivoire, Tanzanie et RD Congo. Nous ajoutons de nouveaux pays chaque mois.",
+      "q4": "Combien de temps dure un transfert ?",
+      "a4": "Moins de 60 secondes pour les transferts mobile money dans le même pays ou vers les corridors pris en charge. Le destinataire reçoit une notification dès que l'argent arrive. Nous traitons les transferts 24 heures sur 24, 7 jours sur 7.",
+      "q5": "Mon argent est-il en sécurité ?",
+      "a5": "Oui. Chaque transaction est protégée par un PIN que vous définissez vous-même. Nous ne stockons jamais votre PIN — il est chiffré dès le moment où vous le saisissez. Notre fonctionnalité TrustLock ajoute une couche supplémentaire pour les achats et ventes : votre argent ne bouge que lorsque vous le dites.",
+      "q6": "Ai-je besoin d'un compte bancaire pour utiliser SendSasa ?",
+      "a6": "Non. Vous n'avez besoin que d'un portefeuille mobile money et d'un compte WhatsApp. La plupart des personnes en Afrique ont déjà les deux. Si vous avez un numéro de téléphone enregistré chez MTN, Orange ou un autre fournisseur de mobile money, vous êtes prêt à commencer."
+    }
+  },
+  "features_page": {
+    "meta_title": "Fonctionnalités — SendSasa",
+    "meta_desc": "Six fonctionnalités financières — Envoi d'Argent, TrustLock, NjangiBot, SplitChat, PayDay, SafiPay — tout depuis WhatsApp.",
+    "page_title": "Nos Fonctionnalités",
+    "badge": "ce que nous offrons",
+    "title": "Six Façons de Gérer",
+    "title_highlight": "l'Argent",
+    "title_suffix": "Depuis WhatsApp",
+    "features": {
+      "send_money": {
+        "title": "Envoi d'Argent",
+        "subtitle": "Transfert en 60 secondes",
+        "description": "Envoyez de l'argent vers n'importe quel portefeuille mobile money en Afrique. Compatible avec MTN, Orange, M-Pesa, Wave et plus. Arrive en moins de 60 secondes, 24h/24."
+      },
+      "trustlock": {
+        "title": "TrustLock",
+        "subtitle": "Séquestre pour transactions en ligne",
+        "description": "Bloquez votre paiement en toute sécurité jusqu'à ce que vous receviez ce pour quoi vous avez payé. Fini les arnaques, fini les disputes sur qui envoie en premier. L'argent ne bouge que lorsque les deux parties sont d'accord."
+      },
+      "njangibot": {
+        "title": "NjangiBot",
+        "subtitle": "Cercles d'épargne rotatifs",
+        "description": "Gérez votre tontine / njangi numériquement. Les membres contribuent à chaque tour et la cagnotte entière revient à une personne. Complètement automatisé, sans avoir à courir après l'argent."
+      },
+      "splitchat": {
+        "title": "SplitChat",
+        "subtitle": "Collectes de groupe",
+        "description": "Vous collectez de l'argent pour un anniversaire, un voyage ou une dépense partagée ? SplitChat suit qui a payé et qui ne l'a pas encore fait, et libère l'argent une fois votre objectif atteint."
+      },
+      "payday": {
+        "title": "PayDay",
+        "subtitle": "Paie en masse",
+        "description": "Payez toute votre équipe en un seul message WhatsApp. Dites \"paye Jean 15000, Marie 20000\" et notre IA fait le reste. Jusqu'à 100 destinataires en une seule fois."
+      },
+      "safipay": {
+        "title": "SafiPay",
+        "subtitle": "Facturation professionnelle",
+        "description": "Créez une facture professionnelle dans WhatsApp et partagez un lien de paiement avec votre client. Soyez payé sur votre mobile money le jour même. Sans logiciel de comptabilité."
+      }
+    }
+  }
+}

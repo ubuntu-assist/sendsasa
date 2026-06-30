@@ -11,8 +11,8 @@ import {
   webhookLimiter,
   transactionLimiter,
   publicLimiter,
-} from './middleware/rate-limiter'
-import { requestLogger } from './middleware/error-handler'
+} from './common/middleware/rate-limiter'
+import { requestLogger } from './common/middleware/error-handler'
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {

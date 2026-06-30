@@ -1,4 +1,4 @@
-import config from '../utils/config'
+﻿import config from '@common/utils/config'
 
 export interface EVMChainConfig {
   rpcUrl: string
@@ -18,7 +18,7 @@ export interface SolanaConfig {
   chainId: string
 }
 
-export type EVMChain = 'bsc' | 'base' | 'ethereum'
+export type EVMChain = 'bsc' | 'base' | 'ethereum' | 'lisk'
 
 export const evmChains: Record<EVMChain, EVMChainConfig> = {
   bsc: {
@@ -41,6 +41,13 @@ export const evmChains: Record<EVMChain, EVMChainConfig> = {
     name: 'Ethereum',
     nativeCurrency: 'ETH',
     blockExplorerUrl: 'https://etherscan.io',
+  },
+  lisk: {
+    rpcUrl: config.LISK_RPC_URL || 'https://rpc.api.lisk.com',
+    chainId: 1135,
+    name: 'Lisk',
+    nativeCurrency: 'ETH',
+    blockExplorerUrl: 'https://blockscout.lisk.com',
   },
 }
 
@@ -83,5 +90,13 @@ export const tokenAddresses: Record<EVMChain, Record<string, string>> = {
   ethereum: {
     USDT: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
     USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+  },
+  lisk: {
+    // LSK ERC-20 on Lisk L2
+    LSK: '0xac485391EB2d7D88253a7F1eF18C37f4242D1A24',
+    // USDC on Lisk (Circle CCTP) — set via env after mainnet deployment
+    USDC: config.LISK_USDC_ADDRESS || '',
+    // USDT on Lisk (Stargate) — set via env after mainnet deployment
+    USDT: config.LISK_USDT_ADDRESS || '',
   },
 }

@@ -1,0 +1,22 @@
+{
+  "name": "sendsasa-lisk-contracts",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:trustlock:testnet": "hardhat run scripts/deploy-trustlock.ts --network liskSepolia",
+    "deploy:payday:testnet": "hardhat run scripts/deploy-payday-batch.ts --network liskSepolia",
+    "deploy:trustlock:mainnet": "hardhat run scripts/deploy-trustlock.ts --network lisk",
+    "deploy:payday:mainnet": "hardhat run scripts/deploy-payday-batch.ts --network lisk",
+    "verify:testnet": "hardhat verify --network liskSepolia"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@openzeppelin/contracts": "^5.0.0",
+    "hardhat": "^2.22.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.3.0",
+    "dotenv": "^16.0.0"
+  }
+}

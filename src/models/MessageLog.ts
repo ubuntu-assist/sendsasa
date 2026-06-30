@@ -1,5 +1,5 @@
-import mongoose, { Schema } from 'mongoose'
-import { IMessageLog } from '../types'
+﻿import mongoose, { Schema } from 'mongoose'
+import { IMessageLog } from '@app/types'
 
 const MessageLogSchema = new Schema<IMessageLog>({
   whatsappId: {

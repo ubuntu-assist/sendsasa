@@ -1,9 +1,9 @@
-import { describe, it, before } from 'node:test'
+﻿import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import request from 'supertest'
 import type { Application } from 'express'
 import { createApp } from '../../app.test-shim.js'
-import config from '../../utils/config.js'
+import config from '@common/utils/config.js'
 
 // Patch the singleton config object so the webhook handler sees a known token.
 // The handler reads config.VERIFY_TOKEN at call time (not at import time), so

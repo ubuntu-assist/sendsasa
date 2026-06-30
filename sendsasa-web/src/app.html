@@ -1,0 +1,71 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <link rel="icon" type="image/png" href="/assets/images/favicon.ico" />
+    <link rel="stylesheet" href="/assets/css/swiper-bundle.min.css" />
+    <link rel="stylesheet" href="/assets/css/scrollCue.css" />
+    <link rel="stylesheet" href="/assets/css/tabler-icons.min.css" />
+    <link rel="stylesheet" href="/assets/css/britti-sans-trial.css" />
+    <link rel="stylesheet" href="/assets/css/style.css" />
+    <style>
+      /* Sticky navbar must outrank the fixed-top wrapper (z-index 1030) */
+      .navbar.sticky {
+        z-index: 1031 !important;
+      }
+
+      /* Active/hover underline: sit right below the text, not at the bottom of the 38px padding */
+      .navbar .navbar-nav .nav-item .nav-link::before {
+        bottom: 36px !important;
+      }
+
+      /* Dark-blue sections: force white text so it's readable on #0B47CC */
+      .bg-dark-div .fun-fact-single-item h2,
+      .bg-dark-div .fun-fact-single-item .h2,
+      .bg-dark-div .fun-fact-single-item p {
+        color: #fff;
+      }
+      .bg-dark-div .fun-fact-single-item,
+      .bg-dark-div .fun-fact-single-item:last-child {
+        border-color: rgba(255, 255, 255, 0.25);
+      }
+
+      :root {
+        /* Gold (#FFBB00) replaces lime-green as the primary accent:
+				   buttons, CTA highlights, underline decorations */
+        --bs-primary: #ffbb00;
+        --bs-primary-rgb: 255, 187, 0;
+
+        /* Royal blue (#0B47CC) replaces dark teal as the dark surface:
+				   top header bar, dark section backgrounds */
+        --bs-dark-div: #0b47cc;
+        --bs-dark-div-rgb: 11, 71, 204;
+
+        /* Slightly deeper blue for the second dark surface level */
+        --bs-dark-div2: #0a3ab5;
+        --bs-dark-div2-rgb: 10, 58, 181;
+
+        /* Very light blue tint replaces the lime-tinted card background */
+        --bs-gray2: #eef3ff;
+        --bs-gray2-rgb: 238, 243, 255;
+
+        /* Gold also replaces orange for star ratings / secondary highlights */
+        --bs-warning2: #ffbb00;
+        --bs-warning2-rgb: 255, 187, 0;
+      }
+    </style>
+    %sveltekit.head%
+  </head>
+  <body data-sveltekit-preload-data="hover">
+    <div style="display: contents">%sveltekit.body%</div>
+    <script src="/assets/js/bootstrap.bundle.min.js"></script>
+    <script src="/assets/js/swiper-bundle.min.js"></script>
+    <script src="/assets/js/scrollCue.min.js"></script>
+    <script src="/assets/js/fslightbox.js"></script>
+    <script src="/assets/js/ukiyo.min.js"></script>
+  </body>
+</html>

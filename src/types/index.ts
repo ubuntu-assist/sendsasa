@@ -207,10 +207,13 @@ export interface IUser extends Document {
   evm_address: string              // Cached 0x... (same for BSC/Base/ETH)
   xrpl_address: string             // Cached r...
   solana_address: string           // Cached base58 Solana public key
+  stellar_public_key?: string      // Cached Stellar G... public key (Ed25519)
+  lisk_address?: string            // Cached 0x... on Lisk L2 (same as evm_address)
   wallet_created_at: Date
   beneficiaries: IBeneficiary[]
   momotrustContext?: string
   momotrustContextUpdatedAt?: Date
+  operatingRegion?: 'cameroon' | 'europe' | 'north_america' | 'other'
 }
 
 export interface IBeneficiary {
@@ -332,6 +335,7 @@ export interface CreateGroupDto {
   cycleDurationDays: number
   totalCycles: number
   payoutOrder?: 'sequential' | 'random' | 'admin_choice'
+  allowDiaspora?: boolean
 }
 
 export interface CreatePotDto {
@@ -361,8 +365,10 @@ export interface CreatePayrollDto {
 export interface CreateInvoiceDto {
   clientPhone: string
   clientName?: string
+  clientEmail?: string
   description: string
   total: number
+  currency?: 'EUR' | 'USD' | 'XAF'
   dueDate: Date
 }
 

@@ -1,0 +1,316 @@
+/* About Us Area Style
+============================================*/
+.about-tabs {
+    .nav-item {
+        margin-bottom: 30px;
+
+        &:last-child {
+            margin-bottom: 0;
+        }
+        .nav-link {
+            color: $secondary;
+            font-size: 24px;
+            font-weight: 700;
+            width: 100%;
+            border-radius: 20px;
+            background: #E5FFDF;
+            border: none;
+            padding: 25px 30px;
+            transition: $transition;
+
+            i {
+                width: 50px;
+                height: 50px;
+                line-height: 50px;
+                text-align: center;
+                display: inline-block;
+                background-color: $white;
+                border-radius: 100px;
+                transition: $transition;
+            }
+            &.active {
+                box-shadow: 3px 3px 0px 0 $primary;
+                background-color: $dark-div;
+                color: $white;
+
+                i {
+                    background-color: $primary;
+                    color: $secondary;
+                    transition: $transition;
+                }
+            }
+        }
+    }
+}
+.about-content {
+    background-color: #EFF6FF;
+    padding: 59px 30px;
+    border-radius: 30px;
+
+    h3 {
+        font-size: 24px;
+        font-weight: 700;
+        line-height: 141.667%; 
+        margin-bottom: 20px;
+    }
+    p {
+        max-width: 536px;
+    }
+
+    ul {
+        margin-top: 45px;
+
+        li {
+            margin-bottom: 20px;
+
+            &:last-child {
+                margin-bottom: 0;
+            }
+            span {
+                background-color: $white;
+                font-size: 18px;
+                color: $secondary;
+                padding: 18px 20px;
+                border-radius: 10px;
+
+                i {
+                    color: $warning;
+                    font-size: 24px;
+                }
+            }
+        }
+    }
+}
+.about-img-wrap {
+    img {
+        border-radius: 30px;
+    }
+}
+.for-about-shape {
+    margin: 140px;
+}
+.about-img {
+    img {
+        border-radius: 30px;
+    }
+}
+.about-single-info {
+    background-color: #F7FFD9;
+    padding: 33px 40px;
+    border-radius: 30px;
+    margin-bottom: 30px;
+
+    &:last-child {
+        margin-bottom: 0;
+    }
+    .icon {
+        width: 80px;
+        height: 80px;
+        line-height: 80px;
+        text-align: center;
+        display: inline-block;
+        background-color: $dark-div;
+        border-radius: 100px;
+    }
+    h3 {
+        font-size: 24px;
+        margin-bottom: 15px;
+    }
+}
+.about-us-img-three {
+    img {
+        border-radius: 30px;
+    }
+    .experience {
+        max-width: 320px;
+        background-color: $white;
+        box-shadow: $box-shadow;
+        padding: 40px 30px;
+        border-radius: 20px;
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        margin: 40px;
+
+        h2 {
+            font-size: 60px;
+        }
+        i {
+            color: $primary;
+            font-size: 22px;
+            background-color: $secondary;
+            border-radius: 100px;
+            line-height: 1;
+        }
+    }
+}
+.about-content-two {
+    ul {
+        margin: 32px 0;
+        border-top: 1px dashed rgba(18, 18, 18, 0.28);
+        border-bottom: 1px dashed rgba(18, 18, 18, 0.28);
+        padding: 32px 0;
+
+        li {
+            margin-bottom: 20px;
+
+            &:last-child {
+                margin-bottom: 0;
+            }
+        }
+    }
+    .transfer-single-item {
+        margin-bottom: 40px;
+
+        h3 {
+            font-size: 24px;
+        }
+    }
+}
+
+/* Max width 767px */
+@media only screen and (max-width: 767px) {
+    .about-tabs {
+        .nav-item {
+            margin-bottom: 20px;
+
+            .nav-link {
+                font-size: 18px;
+                padding: 15px 20px;
+            }
+        }
+    }
+    .about-content {
+        padding: 25px;
+        border-radius: 10px;
+
+
+        h3 {
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+        ul {
+            margin-top: 25px;
+
+            li {
+                span {
+                    padding: 15px;
+                    font-size: 14px;
+                }
+            }
+        }
+    }
+    .about-single-info {
+        padding: 25px;
+        border-radius: 15px;
+        
+        h3 {
+            font-size: 20px;
+        }
+    }
+    .about-us-img-three {
+        .experience {
+            margin: 20px;
+        }
+    }
+    .about-content-two {
+        .transfer-single-item {
+            margin-bottom: 20px;
+            h3 {
+                font-size: 21px;
+            }
+        }
+    }
+    .about-us-img-three {
+        .experience {
+            h2 {
+                font-size: 40px;
+            }
+        }
+    }
+}
+
+/* Min width 992px to Max width 1199px */
+@media only screen and (min-width: 992px) and (max-width: 1199px)  {
+    .about-single-info {
+        padding: 25px;
+        border-radius: 15px;
+        
+        h3 {
+            font-size: 20px;
+        }
+    }
+}
+
+/* Min width 1200px to Max width 1399px */
+@media only screen and (min-width: 1200px) and (max-width: 1399px) {
+    .about-tabs {
+        .nav-item {
+            .nav-link {
+                font-size: 18px;
+                padding: 15px 20px;
+            }
+        }
+    }
+    .about-content {
+        padding: 40px 30px;
+    }
+}
+
+@media (min-width: 1399px) {
+    .about-content2 {
+        margin-left: 75px;
+    }
+    .about-content-two {
+        margin-left: 75px;
+    }
+    .about-content-two {
+        ul {
+            border-color: $dark-border-color;
+        }
+    }
+}
+
+/* RTL Area Style
+============================================*/
+.rtl {
+   
+    @media (min-width: 1399px) {
+
+        .about-content2 {
+            margin-left: 0;
+            margin-right: 75px;
+        }
+        .about-content-two {
+            margin-left: 0;
+            margin-right: 75px;
+        }
+
+    }
+    
+}
+
+/* Dark Mode Area Style
+============================================ */
+[for-dark-light-data-mode=for-dark] {
+    .about-content {
+        background-color: $dark-card-bg;
+
+        ul {
+            li {
+                span {
+                    background-color: $dark-body-bg;
+                    color: $white;
+                }
+            }
+        }
+    }
+    .about-single-info {
+        background-color: $dark-card-bg;
+    }
+    .about-us-img-three {
+        .experience {
+            background-color: $dark-card-bg;
+        }
+    }
+}

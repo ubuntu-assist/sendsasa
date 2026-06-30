@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test'
+﻿import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   parseButtonInteraction,
@@ -6,7 +6,7 @@ import {
   isPhoneNumber,
   isUsername,
   validateAmount,
-} from '../../whatsapp/message-parser.service.js'
+} from '@messaging/whatsapp/message-parser.service.js'
 
 describe('parseButtonInteraction', () => {
   it('returns correct action for known simple IDs', () => {

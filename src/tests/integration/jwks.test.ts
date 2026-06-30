@@ -1,10 +1,10 @@
-import { describe, it, before } from 'node:test'
+﻿import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import request from 'supertest'
 import type { Application } from 'express'
 import { createApp } from '../../app.test-shim.js'
-import config from '../../utils/config.js'
+import config from '@common/utils/config.js'
 
 // Generate a real RSA-2048 key pair — self-contained, no .env key required.
 // The route calls crypto.createPublicKey(pem) at request time, so setting

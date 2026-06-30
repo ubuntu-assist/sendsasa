@@ -1,11 +1,11 @@
-import { Web3Auth, SDK_MODE } from '@web3auth/single-factor-auth'
+﻿import { Web3Auth, SDK_MODE } from '@web3auth/single-factor-auth'
 import { CHAIN_NAMESPACES, WEB3AUTH_NETWORK, type WEB3AUTH_NETWORK_TYPE } from '@web3auth/base'
 import { CommonPrivateKeyProvider } from '@web3auth/base-provider'
 import { XrplPrivateKeyProvider } from '@web3auth/xrpl-provider'
 import { SolanaPrivateKeyProvider } from '@web3auth/solana-provider'
 import { solanaConfig } from './chains'
-import config from '../utils/config'
-import logger from '../utils/logger'
+import config from '@common/utils/config'
+import logger from '@common/utils/logger'
 
 function resolveNetwork(networkStr: string | undefined): WEB3AUTH_NETWORK_TYPE {
   if (networkStr === 'sapphire_mainnet') return WEB3AUTH_NETWORK.SAPPHIRE_MAINNET

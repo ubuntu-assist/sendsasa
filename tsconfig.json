@@ -14,7 +14,21 @@
     "skipLibCheck": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "strictPropertyInitialization": false
+    "strictPropertyInitialization": false,
+    "paths": {
+      "@common/*":     ["./src/common/*"],
+      "@config/*":     ["./src/config/*"],
+      "@core/*":       ["./src/core/*"],
+      "@shared/*":     ["./src/shared/services/*"],
+      "@models/*":     ["./src/models/*"],
+      "@blockchain/*": ["./src/blockchain/*"],
+      "@messaging/*":  ["./src/messaging/*"],
+      "@onramp/*":     ["./src/onramp/*"],
+      "@payments/*":   ["./src/payments/*"],
+      "@features/*":   ["./src/features/*"],
+      "@app/types":    ["./src/types/index.ts"],
+      "@models/index": ["./src/models/index.ts"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "build", "dist", "scripts", "tests"]

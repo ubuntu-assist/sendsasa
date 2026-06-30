@@ -1,5 +1,5 @@
-import mongoose, { Schema } from 'mongoose'
-import { ITransaction } from '../types'
+﻿import mongoose, { Schema } from 'mongoose'
+import { ITransaction } from '@app/types'
 
 const TransactionSchema = new Schema<ITransaction>({
   txHash: {
