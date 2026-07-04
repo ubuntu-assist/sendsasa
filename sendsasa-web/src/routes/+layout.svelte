@@ -1,9 +1,17 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
+  import { applyUserLocale } from '$lib/i18n'
   import Preloader from '$lib/components/Preloader.svelte'
   import Navbar from '$lib/components/Navbar.svelte'
   import Footer from '$lib/components/Footer.svelte'
   import BackToTop from '$lib/components/BackToTop.svelte'
   import Scripts from '$lib/components/Scripts.svelte'
+
+  // Apply user's preferred locale after hydration so it doesn't conflict
+  // with the prerendered 'en' HTML (prevents Svelte hydration mismatch).
+  onMount(() => {
+    applyUserLocale()
+  })
 </script>
 
 <svelte:head>

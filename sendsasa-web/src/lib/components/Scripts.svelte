@@ -108,31 +108,30 @@
 
 		const w = window as any;
 
+		// ── Preloader — dismiss on the very next paint ─────────────────────
+		// Must happen before any await so that a failed dynamic import never
+		// leaves the overlay permanently blocking all content.
+		requestAnimationFrame(() => {
+			const preloader = document.getElementById('preloader');
+			if (preloader) preloader.style.display = 'none';
+		});
+
 		// ── scrollCue ──────────────────────────────────────────────────────
 		if (w.scrollCue) {
 			w.scrollCue.init({ duration: 900, ease: 'ease' });
 			requestAnimationFrame(() => requestAnimationFrame(() => w.scrollCue.update()));
 		}
 
-		// ── GSAP + ScrollTrigger ───────────────────────────────────────────
-		const { gsap } = await import('gsap');
-		const { ScrollTrigger } = await import('gsap/ScrollTrigger');
-		gsap.registerPlugin(ScrollTrigger);
-		gsapRef = gsap;
-		w._ScrollTrigger = ScrollTrigger;
-
-		// ── GSAP reveal images ─────────────────────────────────────────────
-		initReveal();
-
-		// ── Lenis smooth scroll ────────────────────────────────────────────
-		const { default: Lenis } = await import('lenis');
-		const lenis = new Lenis({ duration: 0.75, smoothWheel: true, smoothTouch: false });
-		const raf = (time: number) => {
-			lenis.raf(time);
-			if (ukiyoRef) ukiyoRef.animate();
-			requestAnimationFrame(raf);
-		};
-		requestAnimationFrame(raf);
+		// Emergency reveal: if scrollCue never activates an element (e.g. it
+		// fails to track elements replaced during Svelte hydration), force them
+		// visible after 3 s so the hero section is never permanently hidden.
+		setTimeout(() => {
+			document.querySelectorAll<HTMLElement>('[data-cue], [data-cues]').forEach((el) => {
+				if (parseFloat(getComputedStyle(el).opacity) < 0.1) {
+					el.classList.add('scrollcue-force-visible');
+				}
+			});
+		}, 3000);
 
 		// ── Header sticky ──────────────────────────────────────────────────
 		const navbar = document.getElementById('navbar');
@@ -151,44 +150,66 @@
 			});
 		}
 
-		// ── Preloader ──────────────────────────────────────────────────────
-		const preloader = document.getElementById('preloader');
-		if (preloader) preloader.style.display = 'none';
-
 		// ── Swiper carousels ───────────────────────────────────────────────
 		initSwipers();
 
 		// ── Ukiyo parallax ─────────────────────────────────────────────────
 		initUkiyo();
 
-		// ── Hero text animation ────────────────────────────────────────────
-		const container = document.getElementById('text');
-		if (container) {
-			const texts = ['Send Money', 'in 60 seconds', 'via WhatsApp', 'No bank needed'];
-			let idx = 0;
-			function showLine(i: number) {
-				container!.innerHTML = '';
-				const spans = texts[i].split('').map((ch) => {
-					const s = document.createElement('span');
-					s.textContent = ch;
-					s.style.display = 'inline-block';
-					container!.appendChild(s);
-					return s;
-				});
-				gsap.fromTo(
-					spans,
-					{ opacity: 0, y: 20, filter: 'blur(10px)' },
-					{
-						opacity: 1, y: 0, filter: 'blur(0px)', stagger: 0.05, duration: 0.6, ease: 'power2.out',
-						onComplete: () =>
-							gsap.to(spans, {
-								opacity: 0, y: -20, filter: 'blur(10px)', stagger: 0.05, delay: 1, duration: 0.5, ease: 'power2.in',
-								onComplete: () => { idx = (idx + 1) % texts.length; showLine(idx); }
-							})
-					}
-				);
+		// ── Async animation libraries ──────────────────────────────────────
+		// Isolated in try/catch: a chunk-load failure (e.g. stale hash after a
+		// redeploy) must not prevent the page from being usable.
+		try {
+			const { gsap } = await import('gsap');
+			const { ScrollTrigger } = await import('gsap/ScrollTrigger');
+			gsap.registerPlugin(ScrollTrigger);
+			gsapRef = gsap;
+			w._ScrollTrigger = ScrollTrigger;
+
+			// ── GSAP reveal images ─────────────────────────────────────────────
+			initReveal();
+
+			// ── Lenis smooth scroll ────────────────────────────────────────────
+			const { default: Lenis } = await import('lenis');
+			const lenis = new Lenis({ duration: 0.75, smoothWheel: true, smoothTouch: false });
+			const raf = (time: number) => {
+				lenis.raf(time);
+				if (ukiyoRef) ukiyoRef.animate();
+				requestAnimationFrame(raf);
+			};
+			requestAnimationFrame(raf);
+
+			// ── Hero text animation ────────────────────────────────────────────
+			const container = document.getElementById('text');
+			if (container) {
+				const texts = ['Send Money', 'in 60 seconds', 'via WhatsApp', 'No bank needed'];
+				let idx = 0;
+				const showLine = (i: number) => {
+					container!.innerHTML = '';
+					const spans = texts[i].split('').map((ch) => {
+						const s = document.createElement('span');
+						s.textContent = ch;
+						s.style.display = 'inline-block';
+						container!.appendChild(s);
+						return s;
+					});
+					gsap.fromTo(
+						spans,
+						{ opacity: 0, y: 20, filter: 'blur(10px)' },
+						{
+							opacity: 1, y: 0, filter: 'blur(0px)', stagger: 0.05, duration: 0.6, ease: 'power2.out',
+							onComplete: () =>
+								gsap.to(spans, {
+									opacity: 0, y: -20, filter: 'blur(10px)', stagger: 0.05, delay: 1, duration: 0.5, ease: 'power2.in',
+									onComplete: () => { idx = (idx + 1) % texts.length; showLine(idx); }
+								})
+						}
+					);
+				};
+				showLine(idx);
 			}
-			showLine(idx);
+		} catch (err) {
+			console.warn('[SendSasa] Animation libraries failed to load:', err);
 		}
 
 		// ── Counter animation ──────────────────────────────────────────────

@@ -1,0 +1,227 @@
+/* Team Area Style
+============================================*/
+.team-single-item {
+    transition: $transition;
+
+    .team-img {
+        img {
+            border-radius: 20px;
+        }
+        ul {
+            padding: 25px !important;
+            transition: $transition;
+            opacity: 0;
+
+            li {
+                margin-bottom: 10px;
+
+                &:last-child {
+                    margin-bottom: 0;
+                }
+                a {
+                    width: 40px;
+                    height: 40px;
+                    line-height: 42px;
+                    text-align: center;
+                    border-radius: 50px;
+                    background-color: $white;
+                    display: inline-block;
+                    font-size: 18px;
+
+                    &:hover {
+                        background-color: $primary;
+                        color: $secondary;
+                    }
+                }
+            }
+        }
+    }
+    .team-content {
+        text-align: center;
+        margin-top: 30px;
+
+        h3 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+    }
+    &:hover {
+        transform: translateY(-5px);
+        .team-img {
+            ul {
+                opacity: 1;
+            }
+        }
+    }
+}
+.team-img {
+    img {
+        border-radius: 30px;
+    }
+}
+.team-details-content {
+    h2 {
+        font-size: 36px;
+        margin-bottom: 10px;
+    }
+    .defamation {
+        font-size: 16px;
+        display: block;
+        margin-bottom: 35px;
+        display: inline-block;
+    }
+    h3 {
+        font-size: 24px;
+        margin-bottom: 10px;
+        margin-top: 30px;
+    }
+    .link {
+        text-decoration: none;
+    }
+    ul {
+        li {
+            margin-bottom: 10px;
+
+            &:last-child {
+                margin-bottom: 0;
+            }
+            .icon {
+                width: 40px;
+                height: 40px;
+                line-height: 40px;
+                text-align: center;
+                display: inline-block;
+                background-color: #EAF7F3;
+                border-radius: 100px;
+                color: $secondary;
+
+                &:hover {
+                    background-color: $primary;
+                    color: $secondary;
+                }
+            }
+        }
+    }
+}
+.team-career-content {
+    h3 {
+        font-size: 24px;
+        padding-bottom: 15px;
+        margin-bottom: 25px;
+        border-bottom: 1px solid rgba(16, 64, 66, 0.18);
+        position: relative;
+
+        &::before {
+            content: "";
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 200px;
+            height: 1px;
+            background-color: $secondary;
+        }
+    }
+    .progress {
+        background-color: rgba(18, 18, 18, 0.1);
+    }
+}
+
+.team-comment-form {
+    border-radius: 20px;
+    background-color: #EFF6FF;
+    padding: 40px;
+
+    h3 {
+        margin-bottom: 10px;
+        font-size: 24px;
+    }
+    p {
+        margin-bottom: 30px;
+    }
+}
+
+/* Max width 767px */
+@media only screen and (max-width: 767px) {
+    .team-single-item {
+        .team-content {
+            margin-top: 25px;
+
+            h3 {
+                font-size: 20px;
+                margin-bottom: 0;
+            }
+        }
+    }
+    .team-details-content {
+        h2 {
+            font-size: 25px;
+        }
+        .defamation {
+            font-size: 14px;
+            margin-bottom: 25px;
+        }
+        h3 {
+            font-size: 20px;
+        }
+    }
+}
+
+/* Min width 768px to Max width 992px */
+@media only screen and (min-width: 768px) and (max-width: 991px) {
+    .team-single-item {
+        .team-content {
+            margin-top: 25px;
+
+            h3 {
+                font-size: 22px;
+                margin-bottom: 0;
+            }
+        }
+    }
+}
+
+/* Min width 992px to Max width 1199px */
+@media only screen and (min-width: 992px) and (max-width: 1199px)  {
+    .team-single-item {
+        .team-content {
+            margin-top: 25px;
+
+            h3 {
+                font-size: 20px;
+                margin-bottom: 0;
+            }
+            span {
+                font-size: 14px;
+            }
+        }
+    }
+}
+
+@media (min-width: 1399px) {
+    .mw-666 {
+        max-width: 666px;
+    }
+}
+
+/* RTL Area Style
+============================================*/
+.rtl {
+    .team-career-content {
+        h3 {
+            &::before {
+                left: auto;
+                right: 0;
+            }
+        }
+    }
+}
+
+/* Dark Mode Area Style
+============================================ */
+[for-dark-light-data-mode=for-dark] {
+
+    .team-comment-form {
+        background-color: $dark-card-bg;
+    }
+
+}

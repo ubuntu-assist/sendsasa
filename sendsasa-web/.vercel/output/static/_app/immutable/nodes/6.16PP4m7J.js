@@ -1,0 +1,1 @@
+import{s as e,o as n}from"../chunks/CVOtvWD7.js";import{S as s,i as r}from"../chunks/HSM2O79_.js";import{g as a}from"../chunks/V1ggX03R.js";function i(t){return n(()=>a("/pricing",{replaceState:!0})),[]}class u extends s{constructor(o){super(),r(this,o,i,null,e,{})}}export{u as component};

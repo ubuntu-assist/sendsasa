@@ -34,6 +34,21 @@
         border-color: rgba(255, 255, 255, 0.25);
       }
 
+      /* Preloader failsafe: CSS auto-hide after 8 s if JS never runs */
+      #preloader {
+        animation: preloader-timeout 0.4s 8s forwards;
+      }
+      @keyframes preloader-timeout {
+        to { opacity: 0; visibility: hidden; pointer-events: none; }
+      }
+
+      /* scrollCue failsafe: applied by JS timeout to elements still invisible after 3 s */
+      .scrollcue-force-visible {
+        opacity: 1 !important;
+        transform: none !important;
+        visibility: visible !important;
+      }
+
       :root {
         /* Gold (#FFBB00) replaces lime-green as the primary accent:
 				   buttons, CTA highlights, underline decorations */

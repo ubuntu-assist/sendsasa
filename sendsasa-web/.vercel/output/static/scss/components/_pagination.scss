@@ -1,0 +1,87 @@
+/*
+Page-navigation Area Style
+======================================================*/
+.pagination-area {
+	gap: 10px;
+
+	.page-numbers {
+		width: 50px;
+		height: 50px;
+		text-align: center;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+        font-size: 16px;
+		font-weight: 800;
+		color: $secondary;
+		text-decoration: none;
+		transition: $transition;
+		border-radius: 50px;
+		background-color: #EAF7F3;
+
+		i {
+			font-size: 25px;
+			font-weight: normal;
+			color: $secondary;
+			transition: $transition;
+			position: relative;
+			top: .5px;
+		}
+		&:hover {
+			color: $secondary;
+			background-color: $primary;
+			i {
+				color: $secondary;
+			}
+		}
+		&.next {
+			&:hover {
+				background-color: $primary;
+				color: $secondary;
+			}
+		}
+		&:hover {
+			color: $secondary;
+			background-color: $primary;
+		}
+		&.current {
+			background-color: $primary;
+			color: $secondary;
+		}
+	}
+	
+}
+
+/* Max width 767px */
+@media only screen and (max-width : 767px) {
+
+	.pagination-area {
+		.page-numbers {
+			width: 35px;
+			height: 35px;
+			line-height: 35px !important;
+			font-size: 15px;
+			font-weight: 600;
+		}
+	}
+
+}
+
+/* Dark Mode Area Style
+============================================ */
+[for-dark-light-data-mode=for-dark] {
+
+    .pagination-area {
+		.page-numbers {
+			background-color: $dark-card-bg;
+			color: $white;
+			i {	
+				color: $white;
+			}
+			&.current {
+				background-color: $primary;
+			}
+		}
+	}
+
+}

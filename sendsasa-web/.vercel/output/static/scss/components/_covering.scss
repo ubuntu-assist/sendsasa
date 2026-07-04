@@ -1,0 +1,77 @@
+/* Covering Area Style
+============================================*/
+.covering-single-item {
+    border-radius: 30px;
+    background: #EFF6FF;
+    padding: 40px 30px;
+    transition: $transition;
+
+    img {
+        border-radius: 100px;
+    }
+    h3 {
+        font-size: 24px;
+    }
+    .read-more {
+        margin-top: 25px;
+    }
+    &:hover {
+        transform: translateY(-5px);
+    }
+}
+
+/* Max width 767px */
+@media only screen and (max-width: 767px) {
+
+    .covering-single-item {
+        padding: 25px;
+        border-radius: 10px;
+
+        h3 {
+            font-size: 20px;
+        }
+    }
+
+}
+
+/* Min width 768px to Max width 992px */
+@media only screen and (min-width: 768px) and (max-width: 991px) {
+    .covering-single-item {
+        padding: 25px;
+        border-radius: 10px;
+
+        h3 {
+            font-size: 22px;
+        }
+    }
+}
+
+/* Min width 992px to Max width 1199px */
+@media only screen and (min-width: 992px) and (max-width: 1199px)  {
+    .covering-single-item {
+        padding: 25px;
+        border-radius: 10px;
+
+        h3 {
+            font-size: 20px;
+        }
+    }
+}
+
+/* Dark Mode Area Style
+============================================ */
+[for-dark-light-data-mode=for-dark] {
+
+    .covering-single-item {
+        background-color: $dark-card-bg;
+
+        &.bg-white {
+            background-color: $dark-body-bg !important;
+        }
+    }
+    .covering-area-two {
+        background-image: unset !important;
+        background-color: $dark-card-bg;
+    }
+
+}

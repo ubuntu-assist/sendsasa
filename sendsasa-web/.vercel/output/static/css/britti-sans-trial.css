@@ -1,0 +1,72 @@
+@font-face {
+    font-family: 'Britti Sans Trial';
+    src: url('../fonts/webfont/BrittiSansTrial-LightItalic.woff2') format('woff2'),
+        url('../fonts/webfont/BrittiSansTrial-LightItalic.woff') format('woff');
+    font-weight: 300;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Britti Sans Trial';
+    src: url('../fonts/webfont/BrittiSansTrial-BoldItalic.woff2') format('woff2'),
+        url('../fonts/webfont/BrittiSansTrial-BoldItalic.woff') format('woff');
+    font-weight: bold;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Britti Sans Trial';
+    src: url('../fonts/webfont/BrittiSansTrial-Bold.woff2') format('woff2'),
+        url('../fonts/webfont/BrittiSansTrial-Bold.woff') format('woff');
+    font-weight: bold;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Britti Sans Trial';
+    src: url('../fonts/webfont/BrittiSansTrial-Light.woff2') format('woff2'),
+        url('../fonts/webfont/BrittiSansTrial-Light.woff') format('woff');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Britti Sans Trial';
+    src: url('../fonts/webfont/BrittiSansTrial-SemiboldItalic.woff2') format('woff2'),
+        url('../fonts/webfont/BrittiSansTrial-SemiboldItalic.woff') format('woff');
+    font-weight: 600;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Britti Sans Trial';
+    src: url('../fonts/webfont/BrittiSansTrial-RegularItalic.woff2') format('woff2'),
+        url('../fonts/webfont/BrittiSansTrial-RegularItalic.woff') format('woff');
+    font-weight: normal;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Britti Sans Trial';
+    src: url('../fonts/webfont/BrittiSansTrial-Regular.woff2') format('woff2'),
+        url('../fonts/webfont/BrittiSansTrial-Regular.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Britti Sans Trial';
+    src: url('../fonts/webfont/BrittiSansTrial-Semibold.woff2') format('woff2'),
+        url('../fonts/webfont/BrittiSansTrial-Semibold.woff') format('woff');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+
