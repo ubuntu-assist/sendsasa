@@ -1,3 +1,7 @@
+<script context="module" lang="ts">
+  export const prerender = false;
+</script>
+
 <script lang="ts">
   import { page } from '$app/stores'
   import PageBanner from '$lib/components/PageBanner.svelte'
@@ -261,8 +265,8 @@
     },
   }
 
-  $: slug = $page.params.slug
-  $: feature = featureMap[slug]
+  $: slug = $page.params.slug ?? ''
+  $: feature = slug ? featureMap[slug] : undefined
 </script>
 
 <svelte:head>
