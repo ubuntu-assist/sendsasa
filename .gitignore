@@ -8,6 +8,7 @@ dist/
 build/
 sendsasa-web/.svelte-kit/
 sendsasa-web/build/
+sendsasa-web/.vercel/output/
 
 # Smart contract build artifacts
 contracts/target/

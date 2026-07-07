@@ -10,6 +10,8 @@ export const site = {
   social: {
     twitter: 'https://www.x.com/sendsasallc',
     linkedin: 'https://linkedin.com/company/sendsasa',
+    facebook: 'https://facebook.com/sendsasa',
+    tiktok: 'https://www.tiktok.com/@sendsasallc',
   },
   copyright: '© SendSasa. All Rights Reserved.',
 }
