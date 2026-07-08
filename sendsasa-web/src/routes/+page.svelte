@@ -70,6 +70,8 @@
     return Math.round(n).toLocaleString('fr-FR')
   }
 
+  let videoLoaded = false
+
   onMount(() => {
     const el = document.getElementById('pricingOffcanvas')
     el?.addEventListener('shown.bs.offcanvas', () => {
@@ -124,6 +126,8 @@
             <img
               src="/assets/images/banner-img.png"
               alt="SendSasa app on WhatsApp"
+              fetchpriority="high"
+              loading="eager"
               style="max-width:100%;height:auto;display:block;margin:0 auto;"
             />
           </div>
@@ -1379,14 +1383,36 @@
     <div data-cues="slideInUp" data-duration="900">
       <div class="mx-auto rounded overflow-hidden" style="max-width: 800px;">
         <div style="position: relative; padding-bottom: 56.25%; height: 0;">
-          <iframe
-            src="https://www.youtube.com/embed/ErQ4Vm7jK08?si=Wme42brW-RwlrHS0"
-            title="SendSasa Pitch — XRPL Commons Demo Day"
-            frameborder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowfullscreen
-            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
-          ></iframe>
+          {#if videoLoaded}
+            <iframe
+              src="https://www.youtube.com/embed/ErQ4Vm7jK08?si=Wme42brW-RwlrHS0&autoplay=1"
+              title="SendSasa Pitch — XRPL Commons Demo Day"
+              frameborder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowfullscreen
+              style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
+            ></iframe>
+          {:else}
+            <button
+              on:click={() => (videoLoaded = true)}
+              aria-label="Play SendSasa pitch video"
+              style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;padding:0;cursor:pointer;background:#000;"
+            >
+              <img
+                src="https://i.ytimg.com/vi/ErQ4Vm7jK08/maxresdefault.jpg"
+                alt="SendSasa Pitch — XRPL Commons Demo Day"
+                loading="lazy"
+                width="800"
+                height="450"
+                style="width:100%;height:100%;object-fit:cover;display:block;"
+              />
+              <span aria-hidden="true" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:68px;height:48px;background:#ff0000;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                <svg viewBox="0 0 24 24" fill="white" width="28" height="28">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+              </span>
+            </button>
+          {/if}
         </div>
       </div>
     </div>

@@ -7,6 +7,13 @@
       content="width=device-width, initial-scale=1, shrink-to-fit=no"
     />
     <link rel="icon" type="image/png" href="/assets/images/favicon.ico" />
+    <!-- Preconnect to external font/image domains to eliminate cold-connection latency -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Inter loaded directly here instead of via CSS @import to remove 2 extra sequential round-trips -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" />
+    <!-- Preload LCP background image so the browser discovers it before CSS is parsed -->
+    <link rel="preload" as="image" href="/assets/images/banner-bg.jpeg" fetchpriority="high" />
     <link rel="stylesheet" href="/assets/css/swiper-bundle.min.css" />
     <link rel="stylesheet" href="/assets/css/scrollCue.css" />
     <link rel="stylesheet" href="/assets/css/tabler-icons.min.css" />
