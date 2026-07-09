@@ -125,6 +125,8 @@
               alt="SendSasa app on WhatsApp"
               fetchpriority="high"
               loading="eager"
+              width="528"
+              height="620"
               style="max-width:100%;height:auto;display:block;margin:0 auto;"
             />
           </div>
@@ -197,19 +199,19 @@
         <div class="swiper partner-slide text-center text-lg-end">
           <div class="swiper-wrapper align-items-center">
             <div class="swiper-slide">
-              <img src="/assets/images/xrpl-commons.svg" alt="XRPL Commons" />
+              <img src="/assets/images/xrpl-commons.svg" alt="XRPL Commons" height="40" style="height:40px;width:auto;" />
             </div>
             <div class="swiper-slide">
-              <img src="/assets/images/pawapay.svg" alt="PawaPay" />
+              <img src="/assets/images/pawapay.svg" alt="PawaPay" height="40" style="height:40px;width:auto;" />
             </div>
             <div class="swiper-slide">
-              <img src="/assets/images/onafriq-logo.webp" alt="Onafriq" />
+              <img src="/assets/images/onafriq-logo.webp" alt="Onafriq" height="40" style="height:40px;width:auto;" />
             </div>
             <div class="swiper-slide">
-              <img src="/assets/images/ayahq.png" alt="AyahQ" />
+              <img src="/assets/images/ayahq.png" alt="AyahQ" width="137" height="40" style="height:40px;width:auto;" />
             </div>
             <div class="swiper-slide">
-              <img src="/assets/images/circle.png" alt="Circle" />
+              <img src="/assets/images/circle.png" alt="Circle" width="157" height="40" style="height:40px;width:auto;" />
             </div>
           </div>
         </div>
@@ -256,6 +258,8 @@
                   <img
                     src="/assets/images/feature-icon1.png"
                     alt="send money"
+                    width="35"
+                    height="35"
                   />
                 </div>
               </div>
@@ -272,6 +276,8 @@
             <img
               src="/assets/images/feature1.png"
               alt="send money feature"
+              width="347"
+              height="325"
               style="max-height:380px;width:auto;max-width:100%;object-fit:contain;"
             />
           </div>
@@ -288,7 +294,7 @@
             <div class="d-flex align-items-center gap-25 mb-4">
               <div class="flex-shrink-0">
                 <div class="icon">
-                  <img src="/assets/images/feature-icon2.png" alt="payday" />
+                  <img src="/assets/images/feature-icon2.png" alt="payday" width="35" height="35" />
                 </div>
               </div>
               <div class="flex-grow-1">
@@ -304,6 +310,8 @@
             <img
               src="/assets/images/feature2.png"
               alt="payday feature"
+              width="277"
+              height="380"
               style="max-height:380px;width:auto;max-width:100%;object-fit:contain;"
             />
           </div>
@@ -315,7 +323,7 @@
             <div class="d-flex align-items-center gap-25 mb-4">
               <div class="flex-shrink-0">
                 <div class="icon">
-                  <img src="/assets/images/feature-icon3.png" alt="safipay" />
+                  <img src="/assets/images/feature-icon3.png" alt="safipay" width="35" height="35" />
                 </div>
               </div>
               <div class="flex-grow-1">
@@ -331,6 +339,8 @@
             <img
               src="/assets/images/feature3.png"
               alt="safipay feature"
+              width="356"
+              height="380"
               style="max-height:380px;width:auto;max-width:100%;object-fit:contain;"
             />
           </div>
@@ -445,8 +455,11 @@
                 <div class="about-img-wrap h-100">
                   <img
                     src="/assets/images/about-img.jpeg"
-                    class="object-fit-cover h-100 ukiyo"
+                    class="ukiyo"
                     alt="sending money"
+                    width="1155"
+                    height="1470"
+                    style="width:100%;height:100%;object-fit:cover;border-radius:30px;"
                   />
                 </div>
               </div>
@@ -521,8 +534,10 @@
                 <div class="about-img-wrap h-100">
                   <img
                     src="/assets/images/about-img.jpeg"
-                    class="object-fit-cover h-100"
                     alt="trustlock escrow"
+                    width="1155"
+                    height="1470"
+                    style="width:100%;height:100%;object-fit:cover;border-radius:30px;"
                   />
                 </div>
               </div>
@@ -540,8 +555,10 @@
                 <div class="about-img-wrap h-100">
                   <img
                     src="/assets/images/about-img.jpeg"
-                    class="object-fit-cover h-100"
                     alt="payday payroll"
+                    width="1155"
+                    height="1470"
+                    style="width:100%;height:100%;object-fit:cover;border-radius:30px;"
                   />
                 </div>
               </div>
@@ -611,8 +628,10 @@
                 <div class="about-img-wrap h-100">
                   <img
                     src="/assets/images/about-img.jpeg"
-                    class="object-fit-cover h-100"
                     alt="safipay invoicing"
+                    width="1155"
+                    height="1470"
+                    style="width:100%;height:100%;object-fit:cover;border-radius:30px;"
                   />
                 </div>
               </div>
@@ -653,7 +672,7 @@
         <div class="working-process-single-item">
           <div class="icon">
             <div class="d-flex justify-content-between align-items-center">
-              <img src="/assets/images/process1.png" alt="step 1" />
+              <img src="/assets/images/process1.png" alt="step 1" width="68" height="68" />
               <span class="step">{$_('home.how_it_works.step1.label')}</span>
             </div>
           </div>
@@ -665,7 +684,7 @@
         <div class="working-process-single-item">
           <div class="icon">
             <div class="d-flex justify-content-between align-items-center">
-              <img src="/assets/images/process2.png" alt="step 2" />
+              <img src="/assets/images/process2.png" alt="step 2" width="68" height="68" />
               <span class="step">{$_('home.how_it_works.step2.label')}</span>
             </div>
           </div>
@@ -677,7 +696,7 @@
         <div class="working-process-single-item">
           <div class="icon">
             <div class="d-flex justify-content-between align-items-center">
-              <img src="/assets/images/process3.png" alt="step 3" />
+              <img src="/assets/images/process3.png" alt="step 3" width="68" height="68" />
               <span class="step">{$_('home.how_it_works.step3.label')}</span>
             </div>
           </div>
@@ -741,6 +760,8 @@
                 <img
                   src="/assets/images/why-choose1.png"
                   alt="instant transfers"
+                  width="32"
+                  height="32"
                 />
               </div>
             </div>
@@ -752,7 +773,7 @@
           <div class="d-flex why-choose-single-item">
             <div class="flex-shrink-0">
               <div class="icon">
-                <img src="/assets/images/why-choose2.png" alt="1% fee" />
+                <img src="/assets/images/why-choose2.png" alt="1% fee" width="30" height="30" />
               </div>
             </div>
             <div class="flex-grow-1">
@@ -769,6 +790,9 @@
               src="/assets/images/no-app-needed.jpg"
               class="img"
               alt="sendsasa on mobile"
+              width="600"
+              height="400"
+              style="max-width:100%;height:auto;"
             />
           </div>
         </div>
@@ -805,6 +829,8 @@
               <img
                 src="/assets/images/flags/cameroon.png"
                 alt="Cameroon"
+                width="56"
+                height="56"
                 style="width:56px;height:56px;object-fit:cover;border-radius:50%;"
               />
             </div>
@@ -822,6 +848,8 @@
               <img
                 src="/assets/images/flags/nigeria.png"
                 alt="Nigeria"
+                width="56"
+                height="56"
                 style="width:56px;height:56px;object-fit:cover;border-radius:50%;"
               />
             </div>
@@ -839,6 +867,8 @@
               <img
                 src="/assets/images/flags/kenya.png"
                 alt="Kenya"
+                width="56"
+                height="56"
                 style="width:56px;height:56px;object-fit:cover;border-radius:50%;"
               />
             </div>
@@ -856,6 +886,8 @@
               <img
                 src="/assets/images/flags/united-states.png"
                 alt="United States"
+                width="56"
+                height="56"
                 style="width:56px;height:56px;object-fit:cover;border-radius:50%;"
               />
             </div>
@@ -873,7 +905,9 @@
               <img
                 src="/assets/images/france.png"
                 alt="France"
-                style="width:56px;height:56px;object-fit:cover;border-radius:50%;"
+                width="50"
+                height="50"
+                style="width:50px;height:50px;object-fit:cover;border-radius:50%;"
               />
             </div>
             <div class="flex-grow-1">
@@ -890,6 +924,8 @@
               <img
                 src="/assets/images/flags/canada.png"
                 alt="Canada"
+                width="56"
+                height="56"
                 style="width:56px;height:56px;object-fit:cover;border-radius:50%;"
               />
             </div>
@@ -907,6 +943,8 @@
               <img
                 src="/assets/images/flags/ghana.png"
                 alt="Ghana"
+                width="56"
+                height="56"
                 style="width:56px;height:56px;object-fit:cover;border-radius:50%;"
               />
             </div>
@@ -924,6 +962,8 @@
               <img
                 src="/assets/images/flags/ivory-coast.png"
                 alt="Ivory Coast"
+                width="56"
+                height="56"
                 style="width:56px;height:56px;object-fit:cover;border-radius:50%;"
               />
             </div>
@@ -1399,8 +1439,8 @@
                 src="https://i.ytimg.com/vi/ErQ4Vm7jK08/maxresdefault.jpg"
                 alt="SendSasa Pitch — XRPL Commons Demo Day"
                 loading="lazy"
-                width="800"
-                height="450"
+                width="1280"
+                height="720"
                 style="width:100%;height:100%;object-fit:cover;display:block;"
               />
               <span aria-hidden="true" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:68px;height:48px;background:#ff0000;border-radius:12px;display:flex;align-items:center;justify-content:center;">
