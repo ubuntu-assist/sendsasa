@@ -28,7 +28,9 @@
   <Navbar />
 </div>
 
-<slot />
+<main>
+  <slot />
+</main>
 
 <Footer />
 <BackToTop />

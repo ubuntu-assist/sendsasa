@@ -90,6 +90,10 @@
         /* Gold also replaces orange for star ratings / secondary highlights */
         --bs-warning2: #ffbb00;
         --bs-warning2-rgb: 255, 187, 0;
+
+        /* Override Bootstrap's default rgba(85,85,85,0.75) which gives ~4.0:1 on white.
+           Fully opaque #555 gives 6.7:1, passing WCAG AA for all text sizes. */
+        --bs-secondary-color: #555555;
       }
     </style>
     %sveltekit.head%

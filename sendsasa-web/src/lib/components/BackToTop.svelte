@@ -1,3 +1,3 @@
-<button type="button" id="backtotop">
-	<i class="ti ti-arrow-narrow-up"></i>
+<button type="button" id="backtotop" aria-label="Back to top">
+	<i class="ti ti-arrow-narrow-up" aria-hidden="true"></i>
 </button>

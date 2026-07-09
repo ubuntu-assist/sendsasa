@@ -42,7 +42,7 @@
                 >{$_('footer.terms')}</a
               >
             </div>
-            <span class="small" style="color:rgba(255,255,255,.6);"
+            <span class="small" style="color:rgba(255,255,255,.85);"
               >{$_('footer.copyright')}</span
             >
           </div>

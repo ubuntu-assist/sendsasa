@@ -18,11 +18,11 @@
 			<div class="col-lg-4">
 				<div class="d-flex link-social-wrap align-items-center justify-content-center justify-content-lg-end">
 					<div class="social-link d-flex align-items-center">
-						<a href={site.social.twitter} target="_blank" rel="noopener noreferrer">
-							<i class="ti ti-brand-x"></i>
+						<a href={site.social.twitter} target="_blank" rel="noopener noreferrer" aria-label="SendSasa on X (Twitter)">
+							<i class="ti ti-brand-x" aria-hidden="true"></i>
 						</a>
-						<a href={site.social.linkedin} target="_blank" rel="noopener noreferrer">
-							<i class="ti ti-brand-linkedin"></i>
+						<a href={site.social.linkedin} target="_blank" rel="noopener noreferrer" aria-label="SendSasa on LinkedIn">
+							<i class="ti ti-brand-linkedin" aria-hidden="true"></i>
 						</a>
 					</div>
 					<div class="dropdown language">
