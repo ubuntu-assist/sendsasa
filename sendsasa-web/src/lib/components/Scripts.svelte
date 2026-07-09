@@ -122,12 +122,36 @@
 			requestAnimationFrame(() => requestAnimationFrame(() => w.scrollCue.update()));
 		}
 
-		// Emergency reveal: if scrollCue never activates an element (e.g. it
-		// fails to track elements replaced during Svelte hydration), force them
-		// visible after 3 s so the hero section is never permanently hidden.
+		// ── Emergency reveal ──────────────────────────────────────────────────
+		// Two separate passes because the hiding mechanism differs:
+		//   [data-cue]  → scrollCue sets opacity:0; safe to force any time.
+		//   .reveal     → GSAP sets transform:translateX(-100%) the moment
+		//                 initReveal() runs; forcing too early would collide
+		//                 with a ScrollTrigger that's still about to fire.
+
+		// Pass 1 — scrollCue elements: run immediately + on every scroll.
+		const forceRevealScrollCue = () => {
+			document.querySelectorAll<HTMLElement>('[data-cue]').forEach((el) => {
+				const { top } = el.getBoundingClientRect();
+				if (top < window.innerHeight + 300) {
+					el.classList.add('scrollcue-force-visible');
+				}
+			});
+		};
+		forceRevealScrollCue();
+		[400, 1200, 3000].forEach((ms) => setTimeout(forceRevealScrollCue, ms));
+		window.addEventListener('scroll', forceRevealScrollCue, { passive: true });
+
+		// Pass 2 — GSAP .reveal elements: only after 3 s so legitimate
+		// ScrollTrigger animations have had time to fire first.
 		setTimeout(() => {
-			document.querySelectorAll<HTMLElement>('[data-cue], [data-cues]').forEach((el) => {
-				if (parseFloat(getComputedStyle(el).opacity) < 0.1) {
+			document.querySelectorAll<HTMLElement>('.reveal').forEach((el) => {
+				const { top } = el.getBoundingClientRect();
+				// Only force elements that are visible in the layout but still
+				// have a GSAP transform applied (i.e. ScrollTrigger never fired).
+				const tx = getComputedStyle(el).transform;
+				const stuck = tx !== 'none' && tx !== '' && tx !== 'matrix(1, 0, 0, 1, 0, 0)';
+				if (top < window.innerHeight + 300 && stuck) {
 					el.classList.add('scrollcue-force-visible');
 				}
 			});
