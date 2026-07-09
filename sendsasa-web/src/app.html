@@ -10,8 +10,10 @@
     <!-- Preconnect to external font/image domains to eliminate cold-connection latency -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Inter loaded directly here instead of via CSS @import to remove 2 extra sequential round-trips -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" />
+    <!-- Inter: preload as style so it downloads early but does NOT block rendering.
+         onload swaps it to a real stylesheet once downloaded. -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" /></noscript>
     <!-- Preload LCP background image so the browser discovers it before CSS is parsed -->
     <link rel="preload" as="image" href="/assets/images/banner-bg.jpeg" fetchpriority="high" />
     <link rel="stylesheet" href="/assets/css/swiper-bundle.min.css" />

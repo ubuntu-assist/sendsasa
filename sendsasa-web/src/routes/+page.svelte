@@ -93,9 +93,6 @@
   <div class="container mw-1690 position-relative z-1">
     <div
       class="row align-items-center g-4"
-      data-cues="slideInUp"
-      data-group="images"
-      data-duration="900"
     >
       <div class="col-xl-2 col-sm-6 order-3 order-xl-1">
         <div class="fun-fact-single-item">
