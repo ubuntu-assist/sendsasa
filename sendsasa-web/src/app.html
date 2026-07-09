@@ -59,16 +59,7 @@
         transition: none !important;
       }
 
-      /* GSAP .reveal failsafe: if ScrollTrigger never fires, snap to visible
-         after 5 s. The JS pass at 3 s catches most; this catches the rest. */
-      .reveal {
-        animation: gsap-reveal-fallback 0s 5s both;
-      }
-      @keyframes gsap-reveal-fallback {
-        to { opacity: 1; transform: none; visibility: visible; }
-      }
-
-      :root {
+:root {
         /* Gold (#FFBB00) replaces lime-green as the primary accent:
 				   buttons, CTA highlights, underline decorations */
         --bs-primary: #ffbb00;

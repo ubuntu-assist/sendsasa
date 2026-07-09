@@ -123,17 +123,16 @@
 		}
 
 		// ── Emergency reveal ──────────────────────────────────────────────────
-		// Two separate passes because the hiding mechanism differs:
-		//   [data-cue]  → scrollCue sets opacity:0; safe to force any time.
-		//   .reveal     → GSAP sets transform:translateX(-100%) the moment
-		//                 initReveal() runs; forcing too early would collide
-		//                 with a ScrollTrigger that's still about to fire.
-
-		// Pass 1 — scrollCue elements: run immediately + on every scroll.
+		// scrollCue hides two kinds of elements:
+		//   [data-cue="..."]  — the element itself gets opacity:0
+		//   [data-cues="..."] — its DIRECT CHILDREN get opacity:0 via CSS
+		// Both must be targeted. We also check opacity < 0.1 before forcing
+		// so we never snap an element that is mid-animation.
 		const forceRevealScrollCue = () => {
-			document.querySelectorAll<HTMLElement>('[data-cue]').forEach((el) => {
+			document.querySelectorAll<HTMLElement>('[data-cue], [data-cues] > *').forEach((el) => {
 				const { top } = el.getBoundingClientRect();
-				if (top < window.innerHeight + 300) {
+				if (top > window.innerHeight + 300) return;
+				if (parseFloat(getComputedStyle(el).opacity) < 0.1) {
 					el.classList.add('scrollcue-force-visible');
 				}
 			});
@@ -141,21 +140,6 @@
 		forceRevealScrollCue();
 		[400, 1200, 3000].forEach((ms) => setTimeout(forceRevealScrollCue, ms));
 		window.addEventListener('scroll', forceRevealScrollCue, { passive: true });
-
-		// Pass 2 — GSAP .reveal elements: only after 3 s so legitimate
-		// ScrollTrigger animations have had time to fire first.
-		setTimeout(() => {
-			document.querySelectorAll<HTMLElement>('.reveal').forEach((el) => {
-				const { top } = el.getBoundingClientRect();
-				// Only force elements that are visible in the layout but still
-				// have a GSAP transform applied (i.e. ScrollTrigger never fired).
-				const tx = getComputedStyle(el).transform;
-				const stuck = tx !== 'none' && tx !== '' && tx !== 'matrix(1, 0, 0, 1, 0, 0)';
-				if (top < window.innerHeight + 300 && stuck) {
-					el.classList.add('scrollcue-force-visible');
-				}
-			});
-		}, 3000);
 
 		// ── Header sticky ──────────────────────────────────────────────────
 		const navbar = document.getElementById('navbar');
@@ -192,6 +176,21 @@
 
 			// ── GSAP reveal images ─────────────────────────────────────────────
 			initReveal();
+
+			// Rescue .reveal elements whose ScrollTrigger never fired.
+			// Must run AFTER initReveal() so GSAP has already set the initial
+			// transform:translateX(-100%) — the stuck check is only valid then.
+			const forceRevealGSAP = () => {
+				document.querySelectorAll<HTMLElement>('.reveal').forEach((el) => {
+					const { top } = el.getBoundingClientRect();
+					if (top > window.innerHeight + 300) return;
+					const tx = getComputedStyle(el).transform;
+					const stuck = tx !== 'none' && tx !== '' && tx !== 'matrix(1, 0, 0, 1, 0, 0)';
+					if (stuck) el.classList.add('scrollcue-force-visible');
+				});
+			};
+			[300, 1000, 2500].forEach((ms) => setTimeout(forceRevealGSAP, ms));
+			window.addEventListener('scroll', forceRevealGSAP, { passive: true });
 
 			// ── Lenis smooth scroll ────────────────────────────────────────────
 			const { default: Lenis } = await import('lenis');
