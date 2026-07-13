@@ -1,0 +1,209 @@
+/* why Choose Area Style
+============================================*/
+.why-choose-single-item {
+    gap: 30px;
+    margin-top: 35px;
+
+    .icon {
+        width: 60px;
+        height: 60px;
+        line-height: 55px;
+        text-align: center;
+        display: inline-block;
+        border-radius: 100px;
+        background-color: $warning;
+    }
+    h3 {
+        font-size: 24px;
+        text-transform: capitalize;
+        margin-bottom: 15px;
+    }
+}
+.why-choose-content {
+    .why-choose-btn {
+        margin-top: 55px;
+
+        .read-more {
+            i {
+                font-size: 30px;
+            }
+        }
+    }
+}
+.why-choose-us-img {
+    .img {
+        border-radius: 30px;
+    }
+    .pay-card {
+       border-radius: 20px;
+       left: 0;
+       bottom: 0;
+    }
+}
+.why-choose-us-img2 {
+    img {
+        border-radius: 30px;
+    }
+}
+.why-choose-us-item-two {
+    margin-bottom: 33px;
+    padding-bottom: 33px;
+    border-bottom: 2px dashed rgba(16, 64, 66, 0.18);
+
+    i {
+        width: 50px;
+        height: 50px;
+        line-height: 50px;
+        text-align: center;
+        display: inline-block;
+        border-radius: 100px;
+        background-color: $warning;
+        font-size: 25px;
+        color: $secondary;
+    }
+    h3 {
+        font-size: 24px;
+        margin-bottom: 12px;
+    }
+    &:last-child {
+        padding-bottom: 0;
+        margin-bottom: 0;
+        border: none;
+    }
+}
+.choose-us-single-item-three {
+    gap: 35px;
+    padding-bottom: 35px;
+    margin-bottom: 35px;
+    border-bottom: 2px dashed rgba(16, 64, 66, 0.18);
+    h3 {
+        font-size: 24px;
+        margin-bottom: 18px;
+    }
+    &:last-child {
+        padding-bottom: 0;
+        margin-bottom: 0;
+        border: none;
+    }
+}
+
+/* Max width 767px */
+@media only screen and (max-width: 767px) {
+    .why-choose-single-item {
+        gap: 10px;
+
+        h3 {
+            font-size: 20px;
+        }
+    }
+    .why-choose-content {
+        .why-choose-btn {
+            margin-top: 30px;
+            gap: 15px;
+        }
+    }
+    .why-choose-us-item-two {
+        gap: 20px;
+        margin-bottom: 25px;
+        padding-bottom: 25px;
+
+        h3 {
+            font-size: 20px;
+        }
+    }
+    .choose-us-single-item-three {
+        gap: 20px;
+
+        h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+    }
+}
+
+/* Min width 768px to Max width 992px */
+@media only screen and (min-width: 768px) and (max-width: 991px) {
+    .why-choose-single-item {
+        h3 {
+            font-size: 22px;
+        }
+    }
+    .choose-us-single-item-three {
+        gap: 20px;
+
+        h3 {
+            font-size: 22px;
+            margin-bottom: 12px;
+        }
+    }
+}
+
+/* Min width 992px to Max width 1199px */
+@media only screen and (min-width: 992px) and (max-width: 1199px)  {
+    .choose-us-single-item-three {
+        gap: 20px;
+
+        h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+    }
+}
+
+/* Min width 1200px to Max width 1399px */
+@media only screen and (min-width: 1200px) and (max-width: 1399px) {
+
+}
+
+/* Min width 1400px to Max width 1799px */
+@media only screen and (min-width: 1400px) and (max-width: 1799px) {
+
+}
+
+@media only screen and (max-width: 1199px) {
+
+}
+
+@media (min-width: 1399px) {
+    .why-choose-us-img {
+        .pay-card {
+            bottom: 130px;
+            left: -130px;
+        }
+    }
+    .why-choose-content {
+        max-width: 602px;
+    }
+}
+
+/* RTL Area Style
+============================================*/
+.rtl {
+   
+    @media (min-width: 1399px) {
+        .why-choose-us-img .pay-card {
+            left: auto;
+            right: -130px;
+        }
+    }
+    
+}
+
+/* Dark Mode Area Style
+============================================ */
+[for-dark-light-data-mode=for-dark] {
+    .why-choose-us-area {
+        background-image: unset !important;
+        background-color: $dark-card-bg;
+    }
+    .why-choose-us-item-two {
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+    .choose-us-area {
+        background-image: unset !important;
+        background-color: $dark-card-bg !important;
+    }
+    .choose-us-single-item-three {
+        border-color: $dark-border-color;
+    }
+}

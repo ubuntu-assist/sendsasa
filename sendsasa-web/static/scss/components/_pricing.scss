@@ -1,0 +1,240 @@
+/* Blank Area Style
+============================================*/
+.pricing-content {
+    .default-btn {
+        margin-top: 40px;
+    }
+}
+.pricing-table {
+    .table > :not(caption) > * > * {
+        padding: 40px;
+        border-bottom: 1px dashed rgba(18, 18, 18, 0.22);
+    }
+    .table {
+        tbody {
+            tr {
+                &:last-child {
+                    td {
+                        border-bottom: none;
+                    }
+                }
+            }
+        }
+    }
+    &.style-two {
+        .table > :not(caption) > * > * {
+            border: none !important;
+            box-shadow: none;
+        }
+        .table {
+            width: 1630px;
+        }
+    }
+}
+.shape4 {
+    bottom: -150px;
+    right: 100px;
+    animation: rotation 4s infinite ease-in-out;
+}
+.countries-item {
+    background-color: #205D60;
+    padding: 15px;
+    border-radius: 100px;
+
+    img {
+        width: 50px;
+        height: 50px;
+        border-radius: 100px;
+    }
+}
+.pricing-single-item {
+    background-color: #EFF6FF;
+    padding: 50px 40px;
+    border-radius: 20px;
+
+    h3 {
+        font-size: 24px;
+        font-weight: 600;
+    }
+    h1 {
+        font-size: 40px;
+
+        sub {
+            font-size: 16px;
+            font-weight: normal;
+            color: $body-color;
+        }
+    }
+    h4 {
+        font-size: 18px;
+        font-weight: 500;
+        text-transform: uppercase;
+        margin-bottom: 18px;
+    }
+    .price-header {
+        border-bottom: 1px dashed rgba(18, 18, 18, 0.25);
+        padding-bottom: 40px;
+        margin-bottom: 40px;
+    }
+    ul {
+        margin-bottom: 40px;
+
+        li {
+            margin-bottom: 18px;
+
+            i {
+                font-size: 20px;
+            }
+            .ti-circle-check-filled {
+                color: #008000;
+            }
+            .ti-xbox-x-filled {
+                color: #FF0000;
+            }
+            &:last-child {
+                margin-bottom: 0;
+            }
+        }
+    }
+}
+
+/* Max width 767px */
+@media only screen and (max-width: 767px) {
+    .pricing-content {
+        .default-btn {
+            margin-top: 25px;
+        }
+    }
+    .pricing-table {
+        .table {
+            width: 700px;
+        }
+        .table > :not(caption) > * > * {
+            padding: 25px;
+        }
+        .fs-18 {
+            font-size: 15px !important;
+        }
+    }
+    .pricing-single-item {
+        padding: 25px;
+
+        h3 {
+            font-size: 18px;
+        }
+        h1 {
+            font-size: 25px;
+
+            sub {
+                font-size: 14px;
+            }
+        }
+        h4 {
+            font-size: 15px;
+        }
+        .price-header {
+            padding-bottom: 25px;
+            margin-bottom: 25px;
+        }
+        ul {
+            margin-bottom: 25px;
+            li {
+                margin-bottom: 15px;
+            }
+        }
+    }
+}
+
+/* Min width 768px to Max width 992px */
+@media only screen and (min-width: 768px) and (max-width: 991px) {
+    .pricing-content {
+        .default-btn {
+            margin-top: 30px;
+        }
+    }
+    .pricing-table {
+        .table {
+            width: 700px;
+        }
+        .table > :not(caption) > * > * {
+            padding: 25px;
+        }
+        .fs-18 {
+            font-size: 15px !important;
+        }
+    }
+
+    .pricing-single-item {
+        padding: 30px;
+
+        h3 {
+            font-size: 20px;
+        }
+        h1 {
+            font-size: 26px;
+
+            sub {
+                font-size: 15px;
+            }
+        }
+        h4 {
+            font-size: 16px;
+        }
+        .price-header {
+            padding-bottom: 25px;
+            margin-bottom: 25px;
+        }
+        ul {
+            margin-bottom: 27px;
+            li {
+                margin-bottom: 17px;
+            }
+        }
+    }
+}
+
+/* Min width 992px to Max width 1199px */
+@media only screen and (min-width: 992px) and (max-width: 1199px)  {
+    .pricing-table .table > :not(caption) > * > * {
+        padding: 25px;
+    }
+}
+
+/* Min width 1200px to Max width 1399px */
+@media only screen and (min-width: 1200px) and (max-width: 1399px) {
+    .pricing-table {
+        .table > :not(caption) > * > * {
+            padding: 25px;
+        }
+        .fs-18 {
+            font-size: 15px !important;
+        }
+    }
+}
+
+@media (min-width: 1399px) {
+
+    .pricing-content {
+        max-width: 640px;
+    }
+
+}
+
+/* Dark Mode Area Style
+============================================ */
+[for-dark-light-data-mode=for-dark] {
+    .pricing-single-item {
+        background-color: $dark-card-bg;
+        
+        .price-header {
+            border-color: $dark-border-color;
+
+            img {
+                filter: brightness(100);
+            }
+            sub {
+                color: $dark-paragraph-color;
+            }
+        }
+    }
+}
