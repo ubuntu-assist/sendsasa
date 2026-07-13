@@ -1,20 +1,34 @@
 ﻿import { Injectable } from '@nestjs/common'
-import { Group } from '@features/njangi/group.schema'
-import { GroupMember } from '@features/njangi/group-member.schema'
+import type { Group } from '@features/njangi/group.schema'
 import { generateShortCode } from '@common/helpers/short-code'
 import { calculateFee } from '@common/helpers/fee'
-import { pawapayService } from '@payments/pawapay/pawapay.service'
+import { PawapayService } from '@payments/pawapay/pawapay.service'
 import { sendTextMessage } from '@messaging/whatsapp/whatsapp.service'
-import { sendMoMoReceipt } from '@shared/receipt-generator.service'
-import { User } from '@models/User'
+import { appEmitter, EVENTS } from '@shared/app-emitter'
+import { GroupRepository } from '@domain/repositories/group.repository'
+import { GroupMemberRepository } from '@domain/repositories/group-member.repository'
+import { UserRepository } from '@domain/repositories/user.repository'
 import type { CreatePotDto } from '@app/types'
 import logger from '@common/utils/logger'
 
 @Injectable()
 export class SplitChatService {
-  async createPot(organizerPhone: string, data: CreatePotDto): Promise<typeof Group.prototype | null> {
-    const organizer = await User.findOne({ phoneNumber: organizerPhone }).select('operatingRegion')
-    if (organizer?.operatingRegion && organizer.operatingRegion !== 'cameroon') {
+  constructor(
+    private readonly pawapay: PawapayService,
+    private readonly groups: GroupRepository,
+    private readonly members: GroupMemberRepository,
+    private readonly users: UserRepository,
+  ) {}
+
+  async createPot(
+    organizerPhone: string,
+    data: CreatePotDto,
+  ): Promise<typeof Group.prototype | null> {
+    const organizer = await this.users.findByPhone(organizerPhone)
+    if (
+      organizer?.operatingRegion &&
+      organizer.operatingRegion !== 'cameroon'
+    ) {
       await sendTextMessage(
         organizerPhone,
         '🇨🇲 SplitChat is only available for Cameroon mobile money users.',
@@ -25,7 +39,7 @@ export class SplitChatService {
     const shortCode = generateShortCode()
     const fee = calculateFee(data.amountPerPerson)
 
-    const group = await Group.create({
+    const group = await this.groups.create({
       shortCode,
       type: 'SPLITCHAT',
       mode: data.mode ?? 'ORGANIZER',
@@ -41,24 +55,24 @@ export class SplitChatService {
     const groupId = String((group as any)._id)
 
     if (data.mode === 'SPLIT') {
-      await GroupMember.create({ groupId, phone: organizerPhone })
+      await this.members.create({ groupId, phone: organizerPhone })
     }
 
-    await User.findOneAndUpdate(
-      { phoneNumber: organizerPhone },
-      { momotrustContext: `SPLITCHAT:${groupId}`, momotrustContextUpdatedAt: new Date() },
-    )
+    await this.users.setContextByPhone(organizerPhone, { type: 'SPLITCHAT', groupId: String(groupId) })
 
-    const splitHint = data.mode === 'SPLIT' ? `\n\nType *pay* to add your own contribution.` : ''
+    const splitHint =
+      data.mode === 'SPLIT'
+        ? `\n\nType *pay* to add your own contribution.`
+        : ''
     await sendTextMessage(
       organizerPhone,
       `✅ *Group pot created!*\n\n` +
-      `🎉 ${data.name}\n` +
-      `💰 Contribution: ${data.amountPerPerson.toLocaleString()} XAF / person\n` +
-      `👥 Target participants: ${data.targetParticipants}\n` +
-      `🔑 Code: *${shortCode}*\n\n` +
-      `Share this code with your friends: *JOIN ${shortCode}*` +
-      splitHint,
+        `🎉 ${data.name}\n` +
+        `💰 Contribution: ${data.amountPerPerson.toLocaleString()} XAF / person\n` +
+        `👥 Target participants: ${data.targetParticipants}\n` +
+        `🔑 Code: *${shortCode}*\n\n` +
+        `Share this code with your friends: *JOIN ${shortCode}*` +
+        splitHint,
     )
 
     logger.info(`[SplitChat] Pot created: ${shortCode} by ${organizerPhone}`)
@@ -66,46 +80,62 @@ export class SplitChatService {
   }
 
   async joinPot(phone: string, shortCode: string): Promise<void> {
-    const joiner = await User.findOne({ phoneNumber: phone }).select('operatingRegion')
+    const joiner = await this.users.findByPhone(phone)
     if (joiner?.operatingRegion && joiner.operatingRegion !== 'cameroon') {
-      await sendTextMessage(phone, '🇨🇲 SplitChat is only available for Cameroon mobile money users.')
+      await sendTextMessage(
+        phone,
+        '🇨🇲 SplitChat is only available for Cameroon mobile money users.',
+      )
       return
     }
 
-    const group = await Group.findOne({ shortCode, type: 'SPLITCHAT' })
+    const group = await this.groups.findByShortCode(shortCode, 'SPLITCHAT')
     if (!group) {
       await sendTextMessage(phone, `❌ Code *${shortCode}* not found.`)
       return
     }
-    if ((group as any).status === 'COMPLETED' || (group as any).status === 'REFUNDED') {
+    if (
+      (group as any).status === 'COMPLETED' ||
+      (group as any).status === 'REFUNDED'
+    ) {
       await sendTextMessage(phone, `⚠️ This pot is already closed.`)
       return
     }
 
-    const existing = await GroupMember.findOne({ groupId: (group as any)._id, phone })
+    const existing = await this.members.findByGroupAndPhone(
+      String((group as any)._id),
+      phone,
+    )
     if (existing) {
       if ((existing as any).hasPaidCurrentCycle) {
-        await sendTextMessage(phone, `ℹ️ You have already paid into *${(group as any).name}*.`)
+        await sendTextMessage(
+          phone,
+          `ℹ️ You have already paid into *${(group as any).name}*.`,
+        )
         return
       }
       // Existing unpaid member (e.g. admin) — fall through to initiate payment
     } else {
-      const count = await GroupMember.countDocuments({ groupId: (group as any)._id })
-      if ((group as any).targetParticipants && count >= (group as any).targetParticipants) {
-        await sendTextMessage(phone, `⚠️ The pot *${(group as any).name}* is full.`)
+      const count = await this.members.countByGroup(String((group as any)._id))
+      if (
+        (group as any).targetParticipants &&
+        count >= (group as any).targetParticipants
+      ) {
+        await sendTextMessage(
+          phone,
+          `⚠️ The pot *${(group as any).name}* is full.`,
+        )
         return
       }
-      await GroupMember.create({ groupId: (group as any)._id, phone })
+      await this.members.create({ groupId: (group as any)._id, phone })
     }
 
-    await User.findOneAndUpdate(
-      { phoneNumber: phone },
-      { momotrustContext: `SPLITCHAT:${(group as any)._id}`, momotrustContextUpdatedAt: new Date() },
-    )
+    await this.users.setContextByPhone(phone, { type: 'SPLITCHAT', groupId: String((group as any)._id) })
 
-    const depositId = pawapayService.generateId()
-    await GroupMember.findOneAndUpdate(
-      { groupId: (group as any)._id, phone },
+    const depositId = this.pawapay.generateId()
+    await this.members.updateByGroupAndPhone(
+      String((group as any)._id),
+      phone,
       { pawapayDepositId: depositId },
     )
 
@@ -113,7 +143,7 @@ export class SplitChatService {
     const joinMsg = `✅ Joined *${(group as any).name}*!\n\n⏳ Payment of ${amount.toLocaleString()} XAF in progress...\nAccept the USSD prompt.`
     await sendTextMessage(phone, joinMsg)
 
-    const result = await pawapayService.initiateDeposit(
+    const result = await this.pawapay.initiateDeposit(
       depositId,
       phone,
       amount,
@@ -122,30 +152,37 @@ export class SplitChatService {
     )
 
     if (result.status === 'REJECTED') {
-      await GroupMember.deleteOne({ groupId: (group as any)._id, phone })
-      await sendTextMessage(phone, `❌ Payment rejected. ${result.rejectionReason ?? ''}\nPlease try again.`)
+      await this.members.deleteByGroupAndPhone(
+        String((group as any)._id),
+        phone,
+      )
+      await sendTextMessage(
+        phone,
+        `❌ Payment rejected. ${result.rejectionReason ?? ''}\nPlease try again.`,
+      )
     }
 
     logger.info(`[SplitChat] ${phone} joined pot ${shortCode}`)
   }
 
   async onContributionReceived(pawapayDepositId: string): Promise<void> {
-    const member = await GroupMember.findOne({ pawapayDepositId })
+    const member = await this.members.findByDepositId(pawapayDepositId)
     if (!member) return
     if ((member as any).hasPaidCurrentCycle) return
 
-    const group = await Group.findById((member as any).groupId)
+    const group = await this.groups.findById(String((member as any).groupId))
     if (!group) return
-
     ;(member as any).hasPaidCurrentCycle = true
     ;(member as any).paidAt = new Date()
     ;(member as any).totalContributed += (group as any).contributionAmount
     await (member as any).save()
 
-    const members = await GroupMember.find({ groupId: (group as any)._id })
+    const members = await this.members.findByGroup(String((group as any)._id))
     const paidCount = members.filter((m: any) => m.hasPaidCurrentCycle).length
     const total = (group as any).contributionAmount * paidCount
-    const target = (group as any).contributionAmount * ((group as any).targetParticipants ?? members.length)
+    const target =
+      (group as any).contributionAmount *
+      ((group as any).targetParticipants ?? members.length)
 
     for (const m of members) {
       if ((m as any).hasPaidCurrentCycle) {
@@ -161,19 +198,21 @@ export class SplitChatService {
       await this.closePot(String((group as any)._id), (group as any).adminPhone)
     }
 
-    logger.info(`[SplitChat] Contribution received from ${(member as any).phone} for pot ${(group as any).shortCode}`)
+    logger.info(
+      `[SplitChat] Contribution received from ${(member as any).phone} for pot ${(group as any).shortCode}`,
+    )
   }
 
   async closePot(groupId: string, organizerPhone: string): Promise<void> {
-    const group = await Group.findById(groupId)
+    const group = await this.groups.findById(groupId)
     if (!group) return
 
-    const members = await GroupMember.find({ groupId, hasPaidCurrentCycle: true })
+    const members = await this.members.findPaid(groupId)
     const total = (group as any).contributionAmount * members.length
     const fee = calculateFee(total)
     const payout = total - fee
 
-    const payoutId = pawapayService.generateId()
+    const payoutId = this.pawapay.generateId()
     ;(group as any).pawapayPayoutId = payoutId
     ;(group as any).status = 'PAYING_OUT'
     await (group as any).save()
@@ -183,7 +222,7 @@ export class SplitChatService {
       `🎉 *Pot closed!*\n\n${payout.toLocaleString()} XAF on its way to your MoMo account.\nPot: *${(group as any).name}*`,
     )
 
-    const result = await pawapayService.initiatePayout(
+    const result = await this.pawapay.initiatePayout(
       payoutId,
       organizerPhone,
       payout,
@@ -195,21 +234,25 @@ export class SplitChatService {
       ;(group as any).status = 'ACTIVE'
       ;(group as any).pawapayPayoutId = undefined
       await (group as any).save()
-      await sendTextMessage(organizerPhone, `❌ Payout rejected. ${result.rejectionReason ?? ''}\nPlease contact support.`)
+      await sendTextMessage(
+        organizerPhone,
+        `❌ Payout rejected. ${result.rejectionReason ?? ''}\nPlease contact support.`,
+      )
     }
 
-    logger.info(`[SplitChat] Pot ${(group as any).shortCode} closed, payout initiated`)
+    logger.info(
+      `[SplitChat] Pot ${(group as any).shortCode} closed, payout initiated`,
+    )
   }
 
   async onPayoutCompleted(pawapayPayoutId: string): Promise<void> {
-    const group = await Group.findOne({ pawapayPayoutId })
+    const group = await this.groups.findByPayoutId(pawapayPayoutId)
     if (!group) return
     if ((group as any).status === 'COMPLETED') return
-
     ;(group as any).status = 'COMPLETED'
     await (group as any).save()
 
-    const members = await GroupMember.find({ groupId: (group as any)._id })
+    const members = await this.members.findByGroup(String((group as any)._id))
     for (const m of members) {
       await sendTextMessage(
         (m as any).phone,
@@ -221,39 +264,45 @@ export class SplitChatService {
     const potTotal = (group as any).contributionAmount * Math.max(paidCount, 1)
     const potFee = calculateFee(potTotal)
     const potPayout = potTotal - potFee
-    sendMoMoReceipt((group as any).adminPhone, {
-      type: 'splitchat',
-      referenceId: (group as any).shortCode,
-      dateTime: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
-      amount: potPayout,
-      fee: potFee,
-      title: (group as any).name,
-      extraLines: [
-        { label: 'Contributors', value: `${paidCount} / ${(group as any).targetParticipants ?? members.length}` },
-      ],
-    }).catch(() => {})
+    appEmitter.emit(EVENTS.RECEIPT_SEND, {
+      phone: (group as any).adminPhone,
+      data: {
+        type: 'splitchat',
+        referenceId: (group as any).shortCode,
+        dateTime: new Date().toLocaleString('en-US', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }),
+        amount: potPayout,
+        fee: potFee,
+        title: (group as any).name,
+        extraLines: [
+          {
+            label: 'Contributors',
+            value: `${paidCount} / ${(group as any).targetParticipants ?? members.length}`,
+          },
+        ],
+      },
+    })
 
     const memberPhones = members.map((m: any) => m.phone)
-    await User.updateMany(
-      { phoneNumber: { $in: memberPhones } },
-      { $unset: { momotrustContext: 1, momotrustContextUpdatedAt: 1 } },
-    )
+    await this.users.clearContextByPhones(memberPhones)
 
     logger.info(`[SplitChat] Pot ${(group as any).shortCode} completed`)
   }
 
   async cancelPot(groupId: string, organizerPhone: string): Promise<void> {
-    const group = await Group.findById(groupId)
+    const group = await this.groups.findById(groupId)
     if (!group || String((group as any).adminPhone) !== organizerPhone) return
 
-    const members = await GroupMember.find({ groupId, hasPaidCurrentCycle: true })
+    const members = await this.members.findPaid(groupId)
     ;(group as any).status = 'REFUNDING'
     await (group as any).save()
 
     for (const member of members) {
       if ((member as any).pawapayDepositId) {
-        const refundId = pawapayService.generateId()
-        await pawapayService.initiateRefund(
+        const refundId = this.pawapay.generateId()
+        await this.pawapay.initiateRefund(
           refundId,
           (member as any).pawapayDepositId,
           (group as any).contributionAmount,
@@ -262,21 +311,38 @@ export class SplitChatService {
       }
     }
 
-    await sendTextMessage(organizerPhone, `↩️ Pot *${(group as any).name}* cancelled. Refunds in progress.`)
-    logger.info(`[SplitChat] Pot ${(group as any).shortCode} cancelled, refunds initiated`)
+    await sendTextMessage(
+      organizerPhone,
+      `↩️ Pot *${(group as any).name}* cancelled. Refunds in progress.`,
+    )
+    logger.info(
+      `[SplitChat] Pot ${(group as any).shortCode} cancelled, refunds initiated`,
+    )
   }
 
-  async handleMessage(phone: string, message: string, contextId: string): Promise<void> {
+  async handleMessage(
+    phone: string,
+    message: string,
+    contextId: string,
+  ): Promise<void> {
     const text = message.trim().toLowerCase()
-    const group = await Group.findById(contextId).catch(() => null)
+    const group = await this.groups.findById(contextId).catch(() => null)
     if (!group || (group as any).type !== 'SPLITCHAT') return
 
     if (text === 'cancel' && String((group as any).adminPhone) === phone) {
       await this.cancelPot(contextId, phone)
-    } else if (text === 'close' && String((group as any).adminPhone) === phone) {
+    } else if (
+      text === 'close' &&
+      String((group as any).adminPhone) === phone
+    ) {
       await this.closePot(contextId, phone)
     }
   }
 }
 
-export const splitchatService = new SplitChatService()
+export const splitchatService = new SplitChatService(
+  new (require('../../payments/pawapay/pawapay.service').PawapayService)(),
+  new (require('../../domain/repositories/group.repository').GroupRepository)(),
+  new (require('../../domain/repositories/group-member.repository').GroupMemberRepository)(),
+  new (require('../../domain/repositories/user.repository').UserRepository)(),
+)

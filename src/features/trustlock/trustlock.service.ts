@@ -1,18 +1,24 @@
 ﻿import { Injectable, OnModuleInit } from '@nestjs/common'
-import { Deal } from './deal.schema'
-import { Dispute } from './dispute.schema'
+import type { Deal } from './deal.schema'
+import type { Dispute } from './dispute.schema'
 import { generateShortCode } from '@common/helpers/short-code'
 import { calculateFee } from '@common/helpers/fee'
 import { GeminiService } from '@shared/gemini.service'
-import { sendTextMessage, sendCtaUrlButton } from '@messaging/whatsapp/whatsapp.service'
-import { sendMoMoReceipt } from '@shared/receipt-generator.service'
-import { User } from '@models/User'
+import {
+  sendTextMessage,
+  sendCtaUrlButton,
+  sendMessage,
+} from '@messaging/whatsapp/whatsapp.service'
+import { appEmitter, EVENTS } from '@shared/app-emitter'
 import { SorobanTrustlockService } from '@blockchain/stellar/soroban-trustlock.service'
 import { StellarAnchorService } from '@blockchain/stellar/stellar-anchor.service'
 import { HorizonIndexerService } from '@blockchain/stellar/horizon-indexer.service'
 import { PawapayService } from '@payments/pawapay/pawapay.service'
 import { PaymentRailService } from '@shared/payment-rail.service'
 import { FxRateService, fxRateService } from '@shared/fx-rate.service'
+import { DealRepository } from '@domain/repositories/deal.repository'
+import { DisputeRepository } from '@domain/repositories/dispute.repository'
+import { UserRepository } from '@domain/repositories/user.repository'
 import type { CreateDealDto, FileDisputeDto } from '@app/types'
 import logger from '@common/utils/logger'
 
@@ -25,6 +31,9 @@ export class TrustLockService implements OnModuleInit {
     private readonly pawapayService: PawapayService,
     private readonly paymentRailService: PaymentRailService,
     private readonly fxRate: FxRateService,
+    private readonly deals: DealRepository,
+    private readonly disputes: DisputeRepository,
+    private readonly users: UserRepository,
     // Optional: not present when manually instantiated outside NestJS DI
     private readonly horizonIndexer?: HorizonIndexerService,
   ) {}
@@ -53,7 +62,7 @@ export class TrustLockService implements OnModuleInit {
     const shortCode = generateShortCode()
     const expiresAt = new Date(Date.now() + 7 * 24 * 3600_000)
 
-    const deal = await Deal.create({
+    const deal = await this.deals.create({
       shortCode,
       buyerPhone,
       sellerPhone: data.sellerPhone,
@@ -80,9 +89,17 @@ export class TrustLockService implements OnModuleInit {
         `Type *PAY ${shortCode}* to secure the funds.`,
     )
 
-    await this._sendDealButtons(buyerPhone, dealId, data.title, amount, shortCode)
+    await this._sendDealButtons(
+      buyerPhone,
+      dealId,
+      data.title,
+      amount,
+      shortCode,
+    )
 
-    logger.info(`[TrustLock] Deal created: ${shortCode} (${buyerPhone} → ${data.sellerPhone})`)
+    logger.info(
+      `[TrustLock] Deal created: ${shortCode} (${buyerPhone} → ${data.sellerPhone})`,
+    )
     return deal
   }
 
@@ -93,8 +110,7 @@ export class TrustLockService implements OnModuleInit {
     amount: number,
     shortCode: string,
   ) {
-    const { WhatsAppService } = await import('@messaging/whatsapp/whatsapp.service')
-    await WhatsAppService.sendMessage({
+    await sendMessage({
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
       to: phone,
@@ -123,16 +139,14 @@ export class TrustLockService implements OnModuleInit {
   // ─── Payment Initiation (Stellar / Circle SEP-24) ─────────────────────────
 
   async initiatePayment(dealId: string, buyerPhone: string): Promise<void> {
-    const deal = await Deal.findById(dealId)
+    const deal = await this.deals.findById(dealId)
     if (!deal || String((deal as any).buyerPhone) !== buyerPhone) return
     if ((deal as any).status !== 'PENDING_PAYMENT') {
       await sendTextMessage(buyerPhone, '⚠️ This deal can no longer be paid.')
       return
     }
 
-    const buyer = await User.findOne({ phoneNumber: buyerPhone }).select(
-      'stellar_public_key operatingRegion',
-    )
+    const buyer = await this.users.findByPhone(buyerPhone)
     if (!buyer) return
 
     const shortCode = (deal as any).shortCode
@@ -164,7 +178,9 @@ export class TrustLockService implements OnModuleInit {
           return
         }
       } catch (err: any) {
-        logger.error(`[TrustLock] pawaPay deposit failed for ${shortCode}: ${err?.message}`)
+        logger.error(
+          `[TrustLock] pawaPay deposit failed for ${shortCode}: ${err?.message}`,
+        )
         ;(deal as any).status = 'PENDING_PAYMENT'
         ;(deal as any).pawapayDepositId = undefined
         await (deal as any).save()
@@ -179,7 +195,9 @@ export class TrustLockService implements OnModuleInit {
         buyerPhone,
         `⏳ *Payment in progress...*\n\nAccept the USSD prompt on your phone.\nAmount: ${(deal as any).amount.toLocaleString()} XAF\nCode: *${shortCode}*`,
       )
-      logger.info(`[TrustLock] pawaPay deposit initiated for deal ${shortCode}: depositId=${depositId}`)
+      logger.info(
+        `[TrustLock] pawaPay deposit initiated for deal ${shortCode}: depositId=${depositId}`,
+      )
       return
     }
 
@@ -193,9 +211,13 @@ export class TrustLockService implements OnModuleInit {
     }
 
     const fallbackRate = await this.fxRate.getUSDtoXAF()
-    const sep38Rate = await this.stellarAnchor.getXafPerUsdc((deal as any).amount / fallbackRate)
+    const sep38Rate = await this.stellarAnchor.getXafPerUsdc(
+      (deal as any).amount / fallbackRate,
+    )
     const xafPerUsdc = sep38Rate ?? fallbackRate
-    const usdcAmount = parseFloat(((deal as any).amount / xafPerUsdc).toFixed(7))
+    const usdcAmount = parseFloat(
+      ((deal as any).amount / xafPerUsdc).toFixed(7),
+    )
     const rateLabel = sep38Rate ? 'live · Stellar' : 'live'
 
     let interactiveUrl: string
@@ -268,7 +290,10 @@ export class TrustLockService implements OnModuleInit {
           sep24Id,
         )
 
-        if (txStatus.status === 'completed' && txStatus.stellar_transaction_id) {
+        if (
+          txStatus.status === 'completed' &&
+          txStatus.stellar_transaction_id
+        ) {
           clearInterval(interval)
           await this.onStellarDepositConfirmed(
             dealId,
@@ -276,7 +301,9 @@ export class TrustLockService implements OnModuleInit {
             txStatus.stellar_transaction_id,
           )
         } else if (
-          ['error', 'expired', 'refunded', 'no_market'].includes(txStatus.status)
+          ['error', 'expired', 'refunded', 'no_market'].includes(
+            txStatus.status,
+          )
         ) {
           clearInterval(interval)
           await this.onStellarDepositFailed(dealId, txStatus.status)
@@ -294,16 +321,16 @@ export class TrustLockService implements OnModuleInit {
     buyerPublicKey: string,
     stellarTxHash: string,
   ): Promise<void> {
-    const deal = await Deal.findById(dealId)
+    const deal = await this.deals.findById(dealId)
     if (!deal || (deal as any).status !== 'PAYMENT_PROCESSING') return
 
-    const seller = await User.findOne({
-      phoneNumber: (deal as any).sellerPhone,
-    }).select('stellar_public_key')
+    const seller = await this.users.findByPhone((deal as any).sellerPhone)
     const sellerPublicKey = seller?.stellar_public_key ?? ''
 
     const xafToUsdcRate = await this.fxRate.getUSDtoXAF()
-    const usdcAmount = parseFloat(((deal as any).amount / xafToUsdcRate).toFixed(7))
+    const usdcAmount = parseFloat(
+      ((deal as any).amount / xafToUsdcRate).toFixed(7),
+    )
     const shortCode = (deal as any).shortCode
 
     ;(deal as any).stellarDepositTxHash = stellarTxHash
@@ -354,7 +381,7 @@ export class TrustLockService implements OnModuleInit {
   }
 
   async onStellarDepositFailed(dealId: string, reason: string): Promise<void> {
-    const deal = await Deal.findById(dealId)
+    const deal = await this.deals.findById(dealId)
     if (!deal || (deal as any).status !== 'PAYMENT_PROCESSING') return
     ;(deal as any).status = 'CANCELLED'
     await (deal as any).save()
@@ -375,7 +402,7 @@ export class TrustLockService implements OnModuleInit {
    * The platform admin wallet converts XAF → USDC and calls contract.lock().
    */
   async lockOnLisk(dealId: string): Promise<void> {
-    const deal = await Deal.findById(dealId)
+    const deal = await this.deals.findById(dealId)
     if (!deal || (deal as any).status !== 'PAYMENT_PROCESSING') return
 
     const shortCode = (deal as any).shortCode
@@ -383,17 +410,25 @@ export class TrustLockService implements OnModuleInit {
     const usdcAmount = ((deal as any).amount / lockRate).toFixed(6)
     const expiresAt = (deal as any).expiresAt as Date
 
-    const seller = await User.findOne({ phoneNumber: (deal as any).sellerPhone }).select('lisk_address evm_address')
+    const seller = await this.users.findByPhone((deal as any).sellerPhone)
     const sellerLiskAddress = seller?.lisk_address ?? seller?.evm_address
     if (!sellerLiskAddress) {
-      logger.info(`[TrustLock] Seller has no Lisk address for deal ${shortCode} — skipping Lisk lock`)
+      logger.info(
+        `[TrustLock] Seller has no Lisk address for deal ${shortCode} — skipping Lisk lock`,
+      )
       return
     }
 
     try {
-      const { LiskTrustlockService } = await import('@blockchain/lisk/lisk-trustlock.service')
+      const { LiskTrustlockService } =
+        await import('@blockchain/lisk/lisk-trustlock.service')
       const liskTrustlock = new LiskTrustlockService()
-      const lockTxHash = await liskTrustlock.lockDeal(shortCode, sellerLiskAddress, usdcAmount, expiresAt)
+      const lockTxHash = await liskTrustlock.lockDeal(
+        shortCode,
+        sellerLiskAddress,
+        usdcAmount,
+        expiresAt,
+      )
       ;(deal as any).liskLockTxHash = lockTxHash
       ;(deal as any).status = 'ACTIVE'
       await (deal as any).save()
@@ -403,14 +438,23 @@ export class TrustLockService implements OnModuleInit {
         (deal as any).buyerPhone,
         `🔒 *Funds secured on Lisk!*\n\n${(deal as any).amount.toLocaleString()} XAF (~${usdcAmount} USDC) locked in smart contract.\nCode: *${shortCode}*\n\n🔗 ${blockscoutUrl}`,
       )
-      await this._sendDeliveryButtons((deal as any).buyerPhone, dealId, (deal as any).title, shortCode)
+      await this._sendDeliveryButtons(
+        (deal as any).buyerPhone,
+        dealId,
+        (deal as any).title,
+        shortCode,
+      )
       await sendTextMessage(
         (deal as any).sellerPhone,
         `🔔 *New TrustLock deal!*\n\nFunds secured on Lisk for: ${(deal as any).title}\nCode: *${shortCode}*\n\nDeliver to receive your payment.`,
       )
-      logger.info(`[TrustLock] Lisk lock confirmed for deal ${shortCode}: ${lockTxHash}`)
+      logger.info(
+        `[TrustLock] Lisk lock confirmed for deal ${shortCode}: ${lockTxHash}`,
+      )
     } catch (err: any) {
-      logger.error(`[TrustLock] Lisk lock failed for deal ${shortCode}: ${err?.message}`)
+      logger.error(
+        `[TrustLock] Lisk lock failed for deal ${shortCode}: ${err?.message}`,
+      )
       ;(deal as any).status = 'MANUAL_REVIEW'
       await (deal as any).save()
       await sendTextMessage(
@@ -423,7 +467,7 @@ export class TrustLockService implements OnModuleInit {
   // ─── Legacy pawaPay deposit handlers (in-flight deals) ────────────────────
 
   async onDepositCompleted(pawapayDepositId: string): Promise<void> {
-    const deal = await Deal.findOne({ pawapayDepositId })
+    const deal = await this.deals.findByDepositId(pawapayDepositId)
     if (!deal || (deal as any).status !== 'PAYMENT_PROCESSING') return
     ;(deal as any).status = 'ACTIVE'
     await (deal as any).save()
@@ -449,7 +493,7 @@ export class TrustLockService implements OnModuleInit {
   }
 
   async onDepositFailed(pawapayDepositId: string, code: string): Promise<void> {
-    const deal = await Deal.findOne({ pawapayDepositId })
+    const deal = await this.deals.findByDepositId(pawapayDepositId)
     if (!deal || (deal as any).status !== 'PAYMENT_PROCESSING') return
     ;(deal as any).status = 'CANCELLED'
     await (deal as any).save()
@@ -470,8 +514,7 @@ export class TrustLockService implements OnModuleInit {
     title: string,
     shortCode: string,
   ) {
-    const { WhatsAppService } = await import('@messaging/whatsapp/whatsapp.service')
-    await WhatsAppService.sendMessage({
+    await sendMessage({
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
       to: phone,
@@ -504,7 +547,7 @@ export class TrustLockService implements OnModuleInit {
   }
 
   async confirmDelivery(dealId: string, buyerPhone: string): Promise<void> {
-    const deal = await Deal.findById(dealId)
+    const deal = await this.deals.findById(dealId)
     if (!deal || String((deal as any).buyerPhone) !== buyerPhone) return
     if ((deal as any).status !== 'ACTIVE') {
       await sendTextMessage(
@@ -514,31 +557,44 @@ export class TrustLockService implements OnModuleInit {
       return
     }
 
-    const buyer = await User.findOne({ phoneNumber: buyerPhone }).select(
-      'stellar_public_key lisk_address evm_address',
-    )
+    const buyer = await this.users.findByPhone(buyerPhone)
 
     // Lisk path: release via TrustLock.sol on Lisk
     if ((deal as any).liskLockTxHash) {
       ;(deal as any).status = 'RELEASING'
       await (deal as any).save()
-      await sendTextMessage(buyerPhone, `✅ Delivery confirmed! Releasing USDC to seller on Lisk...`)
+      await sendTextMessage(
+        buyerPhone,
+        `✅ Delivery confirmed! Releasing USDC to seller on Lisk...`,
+      )
       try {
-        const { LiskTrustlockService } = await import('@blockchain/lisk/lisk-trustlock.service')
+        const { LiskTrustlockService } =
+          await import('@blockchain/lisk/lisk-trustlock.service')
         const liskTrustlock = new LiskTrustlockService()
-        const releaseTxHash = await liskTrustlock.releaseDeal((deal as any).shortCode, buyerPhone)
+        const releaseTxHash = await liskTrustlock.releaseDeal(
+          (deal as any).shortCode,
+          buyerPhone,
+        )
         ;(deal as any).liskReleaseTxHash = releaseTxHash
         ;(deal as any).status = 'COMPLETED'
         ;(deal as any).completedAt = new Date()
         await (deal as any).save()
         const blockscoutUrl = `https://blockscout.lisk.com/tx/${releaseTxHash}`
-        await sendTextMessage(buyerPhone, `🎉 Deal complete! Funds released on Lisk.\n🔗 ${blockscoutUrl}`)
+        await sendTextMessage(
+          buyerPhone,
+          `🎉 Deal complete! Funds released on Lisk.\n🔗 ${blockscoutUrl}`,
+        )
         await this._onDealCompleted(deal as any)
       } catch (err: any) {
-        logger.error(`[TrustLock] Lisk release failed for deal ${(deal as any).shortCode}: ${err?.message}`)
+        logger.error(
+          `[TrustLock] Lisk release failed for deal ${(deal as any).shortCode}: ${err?.message}`,
+        )
         ;(deal as any).status = 'ACTIVE'
         await (deal as any).save()
-        await sendTextMessage(buyerPhone, `❌ Release failed. Please try again or contact support.`)
+        await sendTextMessage(
+          buyerPhone,
+          `❌ Release failed. Please try again or contact support.`,
+        )
       }
       return
     }
@@ -576,14 +632,16 @@ export class TrustLockService implements OnModuleInit {
     }
 
     // Fallback: pawaPay payout for legacy deals without Stellar lock
-    const { pawapayService } = await import('@payments/pawapay/pawapay.service')
-    const payoutId = pawapayService.generateId()
+    const payoutId = this.pawapayService.generateId()
     ;(deal as any).pawapayPayoutId = payoutId
     ;(deal as any).status = 'RELEASING'
     await (deal as any).save()
-    await sendTextMessage(buyerPhone, `✅ Delivery confirmed! Sending payment to seller...`)
+    await sendTextMessage(
+      buyerPhone,
+      `✅ Delivery confirmed! Sending payment to seller...`,
+    )
 
-    const result = await pawapayService.initiatePayout(
+    const result = await this.pawapayService.initiatePayout(
       payoutId,
       (deal as any).sellerPhone,
       (deal as any).amountToSeller,
@@ -603,37 +661,40 @@ export class TrustLockService implements OnModuleInit {
 
   private async _onDealCompleted(deal: any): Promise<void> {
     const amount = deal.amountToSeller
-    await sendTextMessage(deal.buyerPhone, '🎉 Deal complete! Payment released to seller.')
+    await sendTextMessage(
+      deal.buyerPhone,
+      '🎉 Deal complete! Payment released to seller.',
+    )
     await sendTextMessage(
       deal.sellerPhone,
       `💸 ${amount.toLocaleString()} XAF received!\nDeal: *${deal.shortCode}*`,
     )
 
-    sendMoMoReceipt(deal.buyerPhone, {
-      type: 'escrow',
-      referenceId: deal.shortCode,
-      dateTime: new Date().toLocaleString('en-US', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }),
-      amount: deal.amount,
-      fee: deal.fee,
-      netAmount: deal.amountToSeller,
-      recipientPhone: deal.sellerPhone,
-      title: deal.title,
-      category: deal.category,
-    }).catch(() => {})
+    appEmitter.emit(EVENTS.RECEIPT_SEND, {
+      phone: deal.buyerPhone,
+      data: {
+        type: 'escrow',
+        referenceId: deal.shortCode,
+        dateTime: new Date().toLocaleString('en-US', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }),
+        amount: deal.amount,
+        fee: deal.fee,
+        netAmount: deal.amountToSeller,
+        recipientPhone: deal.sellerPhone,
+        title: deal.title,
+        category: deal.category,
+      },
+    })
 
-    await User.findOneAndUpdate(
-      { phoneNumber: deal.buyerPhone },
-      { $unset: { momotrustContext: 1, momotrustContextUpdatedAt: 1 } },
-    )
+    await this.users.setContext(deal.buyerPhone, null)
     logger.info(`[TrustLock] Deal completed: ${deal.shortCode}`)
   }
 
   // Legacy pawaPay payout handler
   async onPayoutCompleted(pawapayPayoutId: string): Promise<void> {
-    const deal = await Deal.findOne({ pawapayPayoutId })
+    const deal = await this.deals.findByPayoutId(pawapayPayoutId)
     if (!deal || (deal as any).status !== 'RELEASING') return
     ;(deal as any).status = 'COMPLETED'
     ;(deal as any).completedAt = new Date()
@@ -650,11 +711,14 @@ export class TrustLockService implements OnModuleInit {
     description: string,
     media: unknown,
   ): Promise<void> {
-    const deal = await Deal.findOne({ shortCode })
+    const deal = await this.deals.findByShortCode(shortCode)
     if (!deal) throw new Error(`Deal not found: ${shortCode}`)
     const dealId = String((deal as any)._id)
 
-    const dispute = await this.fileDispute(dealId, phone, { reason, description })
+    const dispute = await this.fileDispute(dealId, phone, {
+      reason,
+      description,
+    })
     const disputeId = String((dispute as any)._id)
 
     const rawUrls: string[] = []
@@ -675,7 +739,7 @@ export class TrustLockService implements OnModuleInit {
         rawUrls.map((url) => uploadFromUrl(url)),
       )
 
-      const reloaded = await Dispute.findById(disputeId)
+      const reloaded = await this.disputes.findById(disputeId)
       if (reloaded) {
         ;(reloaded as any).evidenceUrls.push(...persistedUrls)
         await (reloaded as any).save()
@@ -689,7 +753,7 @@ export class TrustLockService implements OnModuleInit {
     phone: string,
     data: FileDisputeDto,
   ): Promise<typeof Dispute.prototype> {
-    const deal = await Deal.findById(dealId)
+    const deal = await this.deals.findById(dealId)
     if (
       !deal ||
       (String((deal as any).buyerPhone) !== phone &&
@@ -701,7 +765,7 @@ export class TrustLockService implements OnModuleInit {
     ;(deal as any).status = 'DISPUTED'
     await (deal as any).save()
 
-    const dispute = await Dispute.create({
+    const dispute = await this.disputes.create({
       dealId,
       filedByPhone: phone,
       reason: data.reason,
@@ -710,13 +774,7 @@ export class TrustLockService implements OnModuleInit {
     })
 
     const disputeId = String((dispute as any)._id)
-    await User.findOneAndUpdate(
-      { phoneNumber: phone },
-      {
-        momotrustContext: `DISPUTE:${disputeId}`,
-        momotrustContextUpdatedAt: new Date(),
-      },
-    )
+    await this.users.setContext(phone, { type: 'DISPUTE', disputeId: String(disputeId) })
 
     await sendTextMessage(
       phone,
@@ -731,7 +789,7 @@ export class TrustLockService implements OnModuleInit {
     phone: string,
     mediaIdOrText: string,
   ): Promise<void> {
-    const dispute = await Dispute.findById(disputeId)
+    const dispute = await this.disputes.findById(disputeId)
     if (!dispute) return
 
     if (mediaIdOrText && mediaIdOrText.length > 0) {
@@ -752,10 +810,10 @@ export class TrustLockService implements OnModuleInit {
   }
 
   async adjudicateDispute(disputeId: string): Promise<void> {
-    const dispute = await Dispute.findById(disputeId)
+    const dispute = await this.disputes.findById(disputeId)
     if (!dispute) return
 
-    const deal = await Deal.findById((dispute as any).dealId)
+    const deal = await this.deals.findById(String((dispute as any).dealId))
     if (!deal) return
 
     const verdict = await this.gemini.adjudicateDispute({
@@ -809,27 +867,30 @@ export class TrustLockService implements OnModuleInit {
   // ─── Refund (Soroban refund) ───────────────────────────────────────────────
 
   async refundBuyer(dealId: string): Promise<void> {
-    const deal = await Deal.findById(dealId)
+    const deal = await this.deals.findById(dealId)
     if (!deal) return
 
-    const buyer = await User.findOne({
-      phoneNumber: (deal as any).buyerPhone,
-    }).select('stellar_public_key lisk_address evm_address')
+    const buyer = await this.users.findByPhone((deal as any).buyerPhone)
 
     // Lisk path: refund via TrustLock.sol adminRefund (admin calls this)
     if ((deal as any).liskLockTxHash) {
       ;(deal as any).status = 'REFUNDING'
       await (deal as any).save()
       try {
-        const { LiskTrustlockService } = await import('@blockchain/lisk/lisk-trustlock.service')
+        const { LiskTrustlockService } =
+          await import('@blockchain/lisk/lisk-trustlock.service')
         const liskTrustlock = new LiskTrustlockService()
-        const refundTxHash = await liskTrustlock.adminRefund((deal as any).shortCode)
+        const refundTxHash = await liskTrustlock.adminRefund(
+          (deal as any).shortCode,
+        )
         ;(deal as any).liskRefundTxHash = refundTxHash
         ;(deal as any).status = 'REFUNDED'
         await (deal as any).save()
         await this._onDealRefunded(deal as any)
       } catch (err: any) {
-        logger.error(`[TrustLock] Lisk refund failed for deal ${(deal as any).shortCode}: ${err?.message}`)
+        logger.error(
+          `[TrustLock] Lisk refund failed for deal ${(deal as any).shortCode}: ${err?.message}`,
+        )
         ;(deal as any).status = 'MANUAL_REVIEW'
         await (deal as any).save()
         await sendTextMessage(
@@ -874,18 +935,19 @@ export class TrustLockService implements OnModuleInit {
       )
       return
     }
-    const { pawapayService } = await import('@payments/pawapay/pawapay.service')
-    const refundId = pawapayService.generateId()
+    const refundId = this.pawapayService.generateId()
     ;(deal as any).pawapayRefundId = refundId
     ;(deal as any).status = 'REFUNDING'
     await (deal as any).save()
-    await pawapayService.initiateRefund(
+    await this.pawapayService.initiateRefund(
       refundId,
       (deal as any).pawapayDepositId,
       (deal as any).amount,
       `Refund ${(deal as any).shortCode}`.slice(0, 22),
     )
-    logger.info(`[TrustLock] Refund initiated for deal ${(deal as any).shortCode}`)
+    logger.info(
+      `[TrustLock] Refund initiated for deal ${(deal as any).shortCode}`,
+    )
   }
 
   private async _onDealRefunded(deal: any): Promise<void> {
@@ -893,26 +955,26 @@ export class TrustLockService implements OnModuleInit {
       deal.buyerPhone,
       `↩️ *Refund processed!*\n\n${deal.amount.toLocaleString()} XAF (USDC) refunded on Stellar.\nDeal: *${deal.shortCode}*`,
     )
-    sendMoMoReceipt(deal.buyerPhone, {
-      type: 'refund',
-      referenceId: deal.shortCode,
-      dateTime: new Date().toLocaleString('en-US', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }),
-      amount: deal.amount,
-      title: deal.title,
-    }).catch(() => {})
-    await User.findOneAndUpdate(
-      { phoneNumber: deal.buyerPhone },
-      { $unset: { momotrustContext: 1, momotrustContextUpdatedAt: 1 } },
-    )
+    appEmitter.emit(EVENTS.RECEIPT_SEND, {
+      phone: deal.buyerPhone,
+      data: {
+        type: 'refund',
+        referenceId: deal.shortCode,
+        dateTime: new Date().toLocaleString('en-US', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }),
+        amount: deal.amount,
+        title: deal.title,
+      },
+    })
+    await this.users.setContext(deal.buyerPhone, null)
     logger.info(`[TrustLock] Refund completed for deal ${deal.shortCode}`)
   }
 
   // Legacy pawaPay refund handler
   async onRefundCompleted(pawapayRefundId: string): Promise<void> {
-    const deal = await Deal.findOne({ pawapayRefundId })
+    const deal = await this.deals.findByRefundId(pawapayRefundId)
     if (!deal || (deal as any).status !== 'REFUNDING') return
     ;(deal as any).status = 'REFUNDED'
     await (deal as any).save()
@@ -923,10 +985,7 @@ export class TrustLockService implements OnModuleInit {
 
   private async _handleSorobanReleasedEvent(txHash: string): Promise<void> {
     // Match deals currently in RELEASING state (auto_release fires after 72h)
-    const deal = await Deal.findOne({
-      status: 'RELEASING',
-      stellarReleaseTxHash: { $exists: false },
-    })
+    const deal = await this.deals.findReleasingWithoutReleaseTxHash()
     if (!deal) return
     ;(deal as any).stellarReleaseTxHash = txHash
     ;(deal as any).status = 'COMPLETED'
@@ -943,14 +1002,11 @@ export class TrustLockService implements OnModuleInit {
     contextId: string,
   ): Promise<void> {
     const text = message.trim().toLowerCase()
-    const deal = await Deal.findById(contextId).catch(() => null)
+    const deal = await this.deals.findById(contextId).catch(() => null)
     if (!deal) return
 
     if (text === 'verdict' && String((deal as any).status) === 'DISPUTED') {
-      const dispute = await Dispute.findOne({
-        dealId: contextId,
-        filedByPhone: phone,
-      })
+      const dispute = await this.disputes.findByDealIdAndPhone(contextId, phone)
       if (dispute) await this.adjudicateDispute(String((dispute as any)._id))
     }
   }
@@ -958,15 +1014,15 @@ export class TrustLockService implements OnModuleInit {
   // ─── Lookups ──────────────────────────────────────────────────────────────
 
   async getDealByDepositId(id: string): Promise<typeof Deal.prototype | null> {
-    return Deal.findOne({ pawapayDepositId: id })
+    return this.deals.findByDepositId(id)
   }
 
   async getDealByPayoutId(id: string): Promise<typeof Deal.prototype | null> {
-    return Deal.findOne({ pawapayPayoutId: id })
+    return this.deals.findByPayoutId(id)
   }
 
   async getDealByRefundId(id: string): Promise<typeof Deal.prototype | null> {
-    return Deal.findOne({ pawapayRefundId: id })
+    return this.deals.findByRefundId(id)
   }
 }
 
@@ -977,5 +1033,8 @@ export const trustlockService = new TrustLockService(
   new (require('../../payments/pawapay/pawapay.service').PawapayService)(),
   new (require('../../shared/services/payment-rail.service').PaymentRailService)(),
   fxRateService,
+  new (require('../../domain/repositories/deal.repository').DealRepository)(),
+  new (require('../../domain/repositories/dispute.repository').DisputeRepository)(),
+  new (require('../../domain/repositories/user.repository').UserRepository)(),
   // HorizonIndexerService omitted — onModuleInit not called outside NestJS DI
 )

@@ -1,7 +1,9 @@
-import { Controller, HttpCode, Post, Req, Res } from '@nestjs/common'
+import { Controller, HttpCode, Post, Req, Res, UseInterceptors } from '@nestjs/common'
 import type { Request, Response } from 'express'
 import { FlowDataExchangeService } from './flow-data-exchange.service'
+import { LoggingInterceptor } from '@core/interceptors/logging.interceptor'
 
+@UseInterceptors(LoggingInterceptor)
 @Controller('api')
 export class FlowController {
   constructor(private readonly flowDataExchange: FlowDataExchangeService) {}

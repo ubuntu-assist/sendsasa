@@ -2,19 +2,11 @@
 import { SafiPayService } from './safipay.service'
 import { SafiPayFlowService } from './safipay-flow.service'
 import { SafiPayRedirectController } from './safipay-redirect.controller'
-import { GeminiService } from '@shared/gemini.service'
-import { StellarService } from '@blockchain/stellar/stellar.service'
-import { StellarAnchorService } from '@blockchain/stellar/stellar-anchor.service'
+import { PawapayService } from '@payments/pawapay/pawapay.service'
 
 @Module({
   controllers: [SafiPayRedirectController],
-  providers: [
-    SafiPayService,
-    SafiPayFlowService,
-    GeminiService,
-    StellarService,
-    StellarAnchorService,
-  ],
+  providers: [SafiPayService, SafiPayFlowService, PawapayService],
   exports: [SafiPayService, SafiPayFlowService],
 })
 export class SafiPayModule {}

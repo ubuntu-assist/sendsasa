@@ -20,14 +20,15 @@
       "@config/*":     ["./src/config/*"],
       "@core/*":       ["./src/core/*"],
       "@shared/*":     ["./src/shared/services/*"],
-      "@models/*":     ["./src/models/*"],
+      "@models/*":     ["./src/domain/models/*"],
       "@blockchain/*": ["./src/blockchain/*"],
       "@messaging/*":  ["./src/messaging/*"],
       "@onramp/*":     ["./src/onramp/*"],
       "@payments/*":   ["./src/payments/*"],
       "@features/*":   ["./src/features/*"],
+      "@domain/*":     ["./src/domain/*"],
       "@app/types":    ["./src/types/index.ts"],
-      "@models/index": ["./src/models/index.ts"]
+      "@models/index": ["./src/domain/models/index.ts"]
     }
   },
   "include": ["src/**/*"],

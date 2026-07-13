@@ -10,7 +10,7 @@ const WHATSAPP_TOKEN = config.ACCESS_TOKEN
 
 @Injectable()
 export class WhatsAppService {
-  static async sendMessage(payload: any): Promise<void> {
+  async sendMessage(payload: any): Promise<void> {
     try {
       await axios.post(WHATSAPP_API_URL, payload, {
         headers: {
@@ -30,22 +30,17 @@ export class WhatsAppService {
     }
   }
 
-  static async sendTextMessage(to: string, message: string): Promise<void> {
-    const payload = {
+  async sendTextMessage(to: string, message: string): Promise<void> {
+    await this.sendMessage({
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
       to,
       type: 'text',
-      text: {
-        preview_url: false,
-        body: message,
-      },
-    }
-
-    await WhatsAppService.sendMessage(payload)
+      text: { preview_url: false, body: message },
+    })
   }
 
-  static async markAsReadWithTyping(messageId: string): Promise<void> {
+  async markAsReadWithTyping(messageId: string): Promise<void> {
     try {
       await axios.post(
         WHATSAPP_API_URL,
@@ -53,9 +48,7 @@ export class WhatsAppService {
           messaging_product: 'whatsapp',
           status: 'read',
           message_id: messageId,
-          typing_indicator: {
-            type: 'text',
-          },
+          typing_indicator: { type: 'text' },
         },
         {
           headers: {
@@ -73,9 +66,6 @@ export class WhatsAppService {
     }
   }
 
-  sendMessage(payload: any) { return WhatsAppService.sendMessage(payload) }
-  sendTextMessage(to: string, message: string) { return WhatsAppService.sendTextMessage(to, message) }
-  markAsReadWithTyping(messageId: string) { return WhatsAppService.markAsReadWithTyping(messageId) }
   sendCardPaymentTypeButtons(to: string) { return sendCardPaymentTypeButtons(to) }
   sendPaymentRequestButtons(to: string, requester: string, amount: number, requestId: string, currency?: string) { return sendPaymentRequestButtons(to, requester, amount, requestId, currency) }
   sendDocumentByMediaId(to: string, mediaId: string, filename: string, caption: string) { return sendDocumentByMediaId(to, mediaId, filename, caption) }
@@ -84,11 +74,13 @@ export class WhatsAppService {
   sendCtaUrlButton(to: string, bodyText: string, buttonLabel: string, url: string) { return sendCtaUrlButton(to, bodyText, buttonLabel, url) }
 }
 
-export const sendTextMessage =
-  WhatsAppService.sendTextMessage.bind(WhatsAppService)
-export const sendMessage = WhatsAppService.sendMessage.bind(WhatsAppService)
-export const markAsReadWithTyping =
-  WhatsAppService.markAsReadWithTyping.bind(WhatsAppService)
+// Module-level instance for top-level function aliases.
+// Phase 4 (God Service split) will remove these when all callers are converted
+// to inject WhatsAppService via NestJS DI.
+const _whatsapp = new WhatsAppService()
+export const sendTextMessage = _whatsapp.sendTextMessage.bind(_whatsapp)
+export const sendMessage = _whatsapp.sendMessage.bind(_whatsapp)
+export const markAsReadWithTyping = _whatsapp.markAsReadWithTyping.bind(_whatsapp)
 
 export async function sendCardPaymentTypeButtons(to: string): Promise<void> {
   const payload = {
@@ -115,7 +107,7 @@ export async function sendCardPaymentTypeButtons(to: string): Promise<void> {
       },
     },
   }
-  await WhatsAppService.sendMessage(payload)
+  await _whatsapp.sendMessage(payload)
 }
 
 export async function sendPaymentRequestButtons(
@@ -162,7 +154,7 @@ export async function sendPaymentRequestButtons(
     },
   }
 
-  await WhatsAppService.sendMessage(payload)
+  await _whatsapp.sendMessage(payload)
 }
 
 export async function sendDocumentByMediaId(
@@ -183,7 +175,7 @@ export async function sendDocumentByMediaId(
     },
   }
 
-  await WhatsAppService.sendMessage(payload)
+  await _whatsapp.sendMessage(payload)
 }
 
 export async function sendDocumentByUrl(
@@ -204,7 +196,7 @@ export async function sendDocumentByUrl(
     },
   }
 
-  await WhatsAppService.sendMessage(payload)
+  await _whatsapp.sendMessage(payload)
 }
 
 export async function sendImageByMediaId(
@@ -223,7 +215,7 @@ export async function sendImageByMediaId(
     },
   }
 
-  await WhatsAppService.sendMessage(payload)
+  await _whatsapp.sendMessage(payload)
 }
 
 export async function sendCtaUrlButton(
@@ -250,11 +242,11 @@ export async function sendCtaUrlButton(
     },
   }
 
-  await WhatsAppService.sendMessage(payload)
+  await _whatsapp.sendMessage(payload)
 }
 
 export async function sendSupportContact(to: string): Promise<void> {
-  await WhatsAppService.sendMessage({
+  await _whatsapp.sendMessage({
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
     to,

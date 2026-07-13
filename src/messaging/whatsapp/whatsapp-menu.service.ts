@@ -1,5 +1,5 @@
 ﻿import { Injectable } from '@nestjs/common'
-import { WhatsAppService } from './whatsapp.service'
+import { sendMessage } from './whatsapp.service'
 import config from '@common/utils/config'
 
 export interface MenuBalances {
@@ -64,7 +64,7 @@ export async function sendMainMenu(
     },
   }
 
-  await WhatsAppService.sendMessage(payload)
+  await sendMessage(payload)
 }
 
 export async function sendWelcomeMessage(
@@ -108,7 +108,7 @@ export async function sendWelcomeMessage(
     },
   }
 
-  await WhatsAppService.sendMessage(payload)
+  await sendMessage(payload)
 }
 
 export async function sendFundingMessage(
@@ -116,7 +116,7 @@ export async function sendFundingMessage(
   xrplAddress: string,
 ): Promise<void> {
   // Address alone so the user can tap to copy it
-  await WhatsAppService.sendMessage({
+  await sendMessage({
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
     to,
@@ -124,7 +124,7 @@ export async function sendFundingMessage(
     text: { preview_url: false, body: xrplAddress },
   })
 
-  await WhatsAppService.sendMessage({
+  await sendMessage({
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
     to,
@@ -195,7 +195,7 @@ export async function sendCurrencySelectionMenu(
     },
   }
 
-  await WhatsAppService.sendMessage(payload)
+  await sendMessage(payload)
 }
 
 export async function sendRecipientTypeMenu(
@@ -241,7 +241,7 @@ export async function sendRecipientTypeMenu(
     },
   }
 
-  await WhatsAppService.sendMessage(payload)
+  await sendMessage(payload)
 }
 
 export async function sendWalletMenu(
@@ -307,7 +307,7 @@ export async function sendWalletMenu(
     },
   }
 
-  await WhatsAppService.sendMessage(payload)
+  await sendMessage(payload)
 }
 
 export async function sendSaveContactPrompt(
@@ -335,7 +335,7 @@ export async function sendSaveContactPrompt(
       },
     },
   }
-  await WhatsAppService.sendMessage(payload)
+  await sendMessage(payload)
 }
 
 export async function sendSendMoneyTypeList(to: string): Promise<void> {
@@ -366,7 +366,7 @@ export async function sendSendMoneyTypeList(to: string): Promise<void> {
       },
     },
   }
-  await WhatsAppService.sendMessage(payload)
+  await sendMessage(payload)
 }
 
 export async function sendRequestTypeButtons(to: string): Promise<void> {
@@ -394,11 +394,11 @@ export async function sendRequestTypeButtons(to: string): Promise<void> {
       },
     },
   }
-  await WhatsAppService.sendMessage(payload)
+  await sendMessage(payload)
 }
 
 export async function sendMoneySection(to: string): Promise<void> {
-  await WhatsAppService.sendMessage({
+  await sendMessage({
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
     to,
@@ -452,7 +452,7 @@ export async function sendMoneySection(to: string): Promise<void> {
 }
 
 export async function sendAccountSection(to: string): Promise<void> {
-  await WhatsAppService.sendMessage({
+  await sendMessage({
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
     to,
@@ -501,7 +501,7 @@ export async function sendAccountSection(to: string): Promise<void> {
 }
 
 export async function sendMomotrustSection(to: string): Promise<void> {
-  await WhatsAppService.sendMessage({
+  await sendMessage({
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
     to,
@@ -555,7 +555,7 @@ export async function sendMomotrustSection(to: string): Promise<void> {
 }
 
 export async function sendSellCryptoAssetMenu(to: string): Promise<void> {
-  await WhatsAppService.sendMessage({
+  await sendMessage({
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
     to,
@@ -615,7 +615,7 @@ export async function sendBackToMenuButton(
     },
   }
 
-  await WhatsAppService.sendMessage(payload)
+  await sendMessage(payload)
 }
 
 @Injectable()

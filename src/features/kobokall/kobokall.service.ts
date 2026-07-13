@@ -1,11 +1,15 @@
 ﻿import { Injectable } from '@nestjs/common'
 import { LocalTransfer } from './kobokall-remittance.schema'
-import { pawapayService } from '@payments/pawapay/pawapay.service'
+import { PawapayService } from '@payments/pawapay/pawapay.service'
 import { calculateFee } from '@common/helpers/fee'
-import { sendTextMessage, sendCtaUrlButton, WhatsAppService } from '@messaging/whatsapp/whatsapp.service'
-import { sendMoMoReceipt } from '@shared/receipt-generator.service'
-import { User } from '@models/User'
+import {
+  sendTextMessage,
+  sendCtaUrlButton,
+  sendMessage,
+} from '@messaging/whatsapp/whatsapp.service'
+import { appEmitter, EVENTS } from '@shared/app-emitter'
 import { StellarService } from '@blockchain/stellar/stellar.service'
+import { UserRepository } from '@domain/repositories/user.repository'
 import { StellarAnchorService } from '@blockchain/stellar/stellar-anchor.service'
 import { PaymentRailService } from '@shared/payment-rail.service'
 import { FxRateService, fxRateService } from '@shared/fx-rate.service'
@@ -28,12 +32,15 @@ export class KoboKallService {
     private readonly stellarAnchor: StellarAnchorService,
     private readonly paymentRailService: PaymentRailService,
     private readonly fxRate: FxRateService,
+    private readonly pawapay: PawapayService,
+    private readonly users: UserRepository,
   ) {}
 
-  async initiateTransfer(senderPhone: string, dto: CreateKoboKallDto): Promise<void> {
-    const sender = await User.findOne({ phoneNumber: senderPhone }).select(
-      'stellar_public_key operatingRegion',
-    )
+  async initiateTransfer(
+    senderPhone: string,
+    dto: CreateKoboKallDto,
+  ): Promise<void> {
+    const sender = await this.users.findByPhone(senderPhone)
     if (!sender) return
 
     if (this.paymentRailService.getRail(sender) === 'stellar') {
@@ -42,14 +49,14 @@ export class KoboKallService {
     }
 
     const [senderOperator, recipientOperator] = await Promise.all([
-      pawapayService.predictCorrespondent(senderPhone),
-      pawapayService.predictCorrespondent(dto.recipientPhone),
+      this.pawapay.predictCorrespondent(senderPhone),
+      this.pawapay.predictCorrespondent(dto.recipientPhone),
     ])
 
     const amount = Math.round(dto.amount)
     const fee = calculateFee(amount)
     const netAmount = amount - fee
-    const transferId = pawapayService.generateId()
+    const transferId = this.pawapay.generateId()
 
     await LocalTransfer.create({
       transferId,
@@ -63,12 +70,9 @@ export class KoboKallService {
       status: 'INITIATED',
     })
 
-    await User.findOneAndUpdate(
-      { phoneNumber: senderPhone },
-      { momotrustContext: `KOBOKALL:${transferId}`, momotrustContextUpdatedAt: new Date() },
-    )
+    await this.users.setContext(senderPhone, { type: 'KOBOKALL', id: String(transferId) })
 
-    await WhatsAppService.sendMessage({
+    await sendMessage({
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
       to: senderPhone,
@@ -86,29 +90,50 @@ export class KoboKallService {
         },
         action: {
           buttons: [
-            { type: 'reply', reply: { id: `kobokall_confirm:${transferId}`, title: '✅ Confirm' } },
-            { type: 'reply', reply: { id: `kobokall_cancel:${transferId}`, title: '❌ Cancel' } },
+            {
+              type: 'reply',
+              reply: {
+                id: `kobokall_confirm:${transferId}`,
+                title: '✅ Confirm',
+              },
+            },
+            {
+              type: 'reply',
+              reply: {
+                id: `kobokall_cancel:${transferId}`,
+                title: '❌ Cancel',
+              },
+            },
           ],
         },
       },
     })
 
-    logger.info(`[KoboKall] Transfer ${transferId} initiated: ${senderPhone} → ${dto.recipientPhone}`)
+    logger.info(
+      `[KoboKall] Transfer ${transferId} initiated: ${senderPhone} → ${dto.recipientPhone}`,
+    )
   }
 
   async confirmTransfer(transferId: string, phone: string): Promise<void> {
     const transfer = await LocalTransfer.findOne({ transferId })
-    if (!transfer || (transfer as any).senderPhone !== phone) { return }
-    if ((transfer as any).status !== 'INITIATED') { return }
+    if (!transfer || (transfer as any).senderPhone !== phone) {
+      return
+    }
+    if ((transfer as any).status !== 'INITIATED') {
+      return
+    }
 
-    const depositId = pawapayService.generateId()
+    const depositId = this.pawapay.generateId()
     ;(transfer as any).depositId = depositId
     ;(transfer as any).status = 'PROCESSING'
     await (transfer as any).save()
 
-    await sendTextMessage(phone, `⏳ *Transfer in progress...*\n\nAccept the USSD prompt on your phone.`)
+    await sendTextMessage(
+      phone,
+      `⏳ *Transfer in progress...*\n\nAccept the USSD prompt on your phone.`,
+    )
 
-    const result = await pawapayService.initiateDeposit(
+    const result = await this.pawapay.initiateDeposit(
       depositId,
       phone,
       (transfer as any).amount,
@@ -120,23 +145,32 @@ export class KoboKallService {
       ;(transfer as any).status = 'FAILED'
       ;(transfer as any).failureCode = result.rejectionReason ?? 'REJECTED'
       await (transfer as any).save()
-      await sendTextMessage(phone, `❌ *Transfer rejected*\n\n${result.rejectionReason ?? ''}\nPlease try again.`)
+      await sendTextMessage(
+        phone,
+        `❌ *Transfer rejected*\n\n${result.rejectionReason ?? ''}\nPlease try again.`,
+      )
     }
 
-    logger.info(`[KoboKall] Transfer ${transferId} deposit initiated, status: ${result.status}`)
+    logger.info(
+      `[KoboKall] Transfer ${transferId} deposit initiated, status: ${result.status}`,
+    )
   }
 
   async onDepositCompleted(depositId: string): Promise<void> {
     const transfer = await LocalTransfer.findOne({ depositId })
-    if (!transfer) { return }
-    if ((transfer as any).status !== 'PROCESSING') { return }
+    if (!transfer) {
+      return
+    }
+    if ((transfer as any).status !== 'PROCESSING') {
+      return
+    }
 
     ;(transfer as any).status = 'DEPOSIT_CONFIRMED'
-    const payoutId = pawapayService.generateId()
+    const payoutId = this.pawapay.generateId()
     ;(transfer as any).payoutId = payoutId
     await (transfer as any).save()
 
-    const result = await pawapayService.initiatePayout(
+    const result = await this.pawapay.initiatePayout(
       payoutId,
       (transfer as any).recipientPhone,
       (transfer as any).netAmount,
@@ -146,11 +180,12 @@ export class KoboKallService {
 
     if (result.status === 'REJECTED') {
       ;(transfer as any).status = 'FAILED'
-      ;(transfer as any).failureCode = result.rejectionReason ?? 'PAYOUT_REJECTED'
+      ;(transfer as any).failureCode =
+        result.rejectionReason ?? 'PAYOUT_REJECTED'
       await (transfer as any).save()
 
-      const refundId = pawapayService.generateId()
-      await pawapayService.initiateRefund(
+      const refundId = this.pawapay.generateId()
+      await this.pawapay.initiateRefund(
         refundId,
         depositId,
         (transfer as any).amount,
@@ -163,13 +198,19 @@ export class KoboKallService {
       )
     }
 
-    logger.info(`[KoboKall] Payout initiated for transfer ${(transfer as any).transferId}, status: ${result.status}`)
+    logger.info(
+      `[KoboKall] Payout initiated for transfer ${(transfer as any).transferId}, status: ${result.status}`,
+    )
   }
 
   async onDepositFailed(depositId: string, failureCode: string): Promise<void> {
     const transfer = await LocalTransfer.findOne({ depositId })
-    if (!transfer) { return }
-    if ((transfer as any).status !== 'PROCESSING') { return }
+    if (!transfer) {
+      return
+    }
+    if ((transfer as any).status !== 'PROCESSING') {
+      return
+    }
 
     ;(transfer as any).status = 'FAILED'
     ;(transfer as any).failureCode = failureCode
@@ -180,13 +221,19 @@ export class KoboKallService {
       `❌ *Transfer failed*\n\nCode: ${failureCode}\nPlease try again.`,
     )
 
-    logger.info(`[KoboKall] Deposit failed for transfer ${(transfer as any).transferId}: ${failureCode}`)
+    logger.info(
+      `[KoboKall] Deposit failed for transfer ${(transfer as any).transferId}: ${failureCode}`,
+    )
   }
 
   async onPayoutCompleted(payoutId: string): Promise<void> {
     const transfer = await LocalTransfer.findOne({ payoutId })
-    if (!transfer) { return }
-    if ((transfer as any).status !== 'DEPOSIT_CONFIRMED') { return }
+    if (!transfer) {
+      return
+    }
+    if ((transfer as any).status !== 'DEPOSIT_CONFIRMED') {
+      return
+    }
 
     ;(transfer as any).status = 'COMPLETED'
     await (transfer as any).save()
@@ -201,38 +248,45 @@ export class KoboKallService {
       `💰 *You received ${(transfer as any).netAmount.toLocaleString()} XAF* from ****${String((transfer as any).senderPhone).slice(-4)} via SendSasa.`,
     )
 
-    sendMoMoReceipt((transfer as any).senderPhone, {
-      type: 'transfer',
-      referenceId: (transfer as any).transferId,
-      dateTime: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
-      amount: (transfer as any).amount,
-      fee: (transfer as any).fee,
-      netAmount: (transfer as any).netAmount,
-      senderPhone: (transfer as any).senderPhone,
-      recipientPhone: (transfer as any).recipientPhone,
-      senderOperator: (transfer as any).senderOperator,
-      recipientOperator: (transfer as any).recipientOperator,
-    }).catch(() => {})
+    appEmitter.emit(EVENTS.RECEIPT_SEND, {
+      phone: (transfer as any).senderPhone,
+      data: {
+        type: 'transfer',
+        referenceId: (transfer as any).transferId,
+        dateTime: new Date().toLocaleString('en-US', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }),
+        amount: (transfer as any).amount,
+        fee: (transfer as any).fee,
+        netAmount: (transfer as any).netAmount,
+        senderPhone: (transfer as any).senderPhone,
+        recipientPhone: (transfer as any).recipientPhone,
+        senderOperator: (transfer as any).senderOperator,
+        recipientOperator: (transfer as any).recipientOperator,
+      },
+    })
 
-    await User.findOneAndUpdate(
-      { phoneNumber: (transfer as any).senderPhone },
-      { $unset: { momotrustContext: 1, momotrustContextUpdatedAt: 1 } },
-    )
+    await this.users.setContext((transfer as any).senderPhone, null)
 
     logger.info(`[KoboKall] Transfer ${(transfer as any).transferId} completed`)
   }
 
   async onPayoutFailed(payoutId: string, failureCode: string): Promise<void> {
     const transfer = await LocalTransfer.findOne({ payoutId })
-    if (!transfer) { return }
-    if ((transfer as any).status !== 'DEPOSIT_CONFIRMED') { return }
+    if (!transfer) {
+      return
+    }
+    if ((transfer as any).status !== 'DEPOSIT_CONFIRMED') {
+      return
+    }
 
     ;(transfer as any).status = 'FAILED'
     ;(transfer as any).failureCode = failureCode
     await (transfer as any).save()
 
-    const refundId = pawapayService.generateId()
-    await pawapayService.initiateRefund(
+    const refundId = this.pawapay.generateId()
+    await this.pawapay.initiateRefund(
       refundId,
       (transfer as any).depositId,
       (transfer as any).amount,
@@ -244,13 +298,19 @@ export class KoboKallService {
       `❌ *Transfer failed*\n\nCode: ${failureCode}\nA refund of ${(transfer as any).amount.toLocaleString()} XAF will be returned to your account.`,
     )
 
-    logger.info(`[KoboKall] Payout failed for transfer ${(transfer as any).transferId}: ${failureCode}`)
+    logger.info(
+      `[KoboKall] Payout failed for transfer ${(transfer as any).transferId}: ${failureCode}`,
+    )
   }
 
   async cancelTransfer(transferId: string, phone: string): Promise<void> {
     const transfer = await LocalTransfer.findOne({ transferId })
-    if (!transfer || (transfer as any).senderPhone !== phone) { return }
-    if ((transfer as any).status !== 'INITIATED') { return }
+    if (!transfer || (transfer as any).senderPhone !== phone) {
+      return
+    }
+    if ((transfer as any).status !== 'INITIATED') {
+      return
+    }
 
     ;(transfer as any).status = 'CANCELLED'
     await (transfer as any).save()
@@ -267,17 +327,21 @@ export class KoboKallService {
     return LocalTransfer.findOne({ payoutId })
   }
 
-  async executeTransfer(senderPhone: string, recipientPhone: string, amount: number): Promise<void> {
+  async executeTransfer(
+    senderPhone: string,
+    recipientPhone: string,
+    amount: number,
+  ): Promise<void> {
     const [senderOperator, recipientOperator] = await Promise.all([
-      pawapayService.predictCorrespondent(senderPhone),
-      pawapayService.predictCorrespondent(recipientPhone),
+      this.pawapay.predictCorrespondent(senderPhone),
+      this.pawapay.predictCorrespondent(recipientPhone),
     ])
 
     const roundedAmount = Math.round(amount)
     const fee = calculateFee(roundedAmount)
     const netAmount = roundedAmount - fee
-    const transferId = pawapayService.generateId()
-    const depositId = pawapayService.generateId()
+    const transferId = this.pawapay.generateId()
+    const depositId = this.pawapay.generateId()
 
     await LocalTransfer.create({
       transferId,
@@ -292,14 +356,14 @@ export class KoboKallService {
       status: 'PROCESSING',
     })
 
-    await User.findOneAndUpdate(
-      { phoneNumber: senderPhone },
-      { momotrustContext: `KOBOKALL:${transferId}`, momotrustContextUpdatedAt: new Date() },
+    await this.users.setContext(senderPhone, { type: 'KOBOKALL', id: String(transferId) })
+
+    await sendTextMessage(
+      senderPhone,
+      `⏳ *Transfer in progress...*\n\nAccept the USSD prompt on your phone.`,
     )
 
-    await sendTextMessage(senderPhone, `⏳ *Transfer in progress...*\n\nAccept the USSD prompt on your phone.`)
-
-    const result = await pawapayService.initiateDeposit(
+    const result = await this.pawapay.initiateDeposit(
       depositId,
       senderPhone,
       roundedAmount,
@@ -312,13 +376,22 @@ export class KoboKallService {
         { transferId },
         { status: 'FAILED', failureCode: result.rejectionReason ?? 'REJECTED' },
       )
-      await sendTextMessage(senderPhone, `❌ *Transfer rejected*\n\n${result.rejectionReason ?? ''}\nPlease try again.`)
+      await sendTextMessage(
+        senderPhone,
+        `❌ *Transfer rejected*\n\n${result.rejectionReason ?? ''}\nPlease try again.`,
+      )
     }
 
-    logger.info(`[KoboKall] Transfer ${transferId} executing: ${senderPhone} → ${recipientPhone}`)
+    logger.info(
+      `[KoboKall] Transfer ${transferId} executing: ${senderPhone} → ${recipientPhone}`,
+    )
   }
 
-  async handleMessage(phone: string, message: string, transferId: string): Promise<void> {
+  async handleMessage(
+    phone: string,
+    message: string,
+    transferId: string,
+  ): Promise<void> {
     if (message.trim().toLowerCase() === 'cancel') {
       await this.cancelTransfer(transferId, phone)
     }
@@ -332,7 +405,10 @@ export class KoboKallService {
     sender: { stellar_public_key?: string },
   ): Promise<void> {
     if (!sender.stellar_public_key) {
-      await sendTextMessage(senderPhone, '⚠️ No Stellar wallet found. Please set up your wallet first.')
+      await sendTextMessage(
+        senderPhone,
+        '⚠️ No Stellar wallet found. Please set up your wallet first.',
+      )
       return
     }
 
@@ -340,11 +416,13 @@ export class KoboKallService {
     const fee = calculateFee(amount)
     const netAmount = amount - fee
     const fallbackRate = await this.fxRate.getUSDtoXAF()
-    const sep38Rate = await this.stellarAnchor.getXafPerUsdc(amount / fallbackRate)
+    const sep38Rate = await this.stellarAnchor.getXafPerUsdc(
+      amount / fallbackRate,
+    )
     const xafPerUsdc = sep38Rate ?? fallbackRate
     const usdcAmount = parseFloat((amount / xafPerUsdc).toFixed(7))
     const rateLabel = sep38Rate ? 'live · Stellar' : 'live'
-    const transferId = pawapayService.generateId()
+    const transferId = this.pawapay.generateId()
 
     const transfer = await LocalTransfer.create({
       transferId,
@@ -368,10 +446,15 @@ export class KoboKallService {
       interactiveUrl = result.interactiveUrl
       sep24Id = result.sep24Id
     } catch (err: any) {
-      logger.error(`[KoboKall] SEP-24 initiation failed for ${transferId}: ${err?.message}`)
+      logger.error(
+        `[KoboKall] SEP-24 initiation failed for ${transferId}: ${err?.message}`,
+      )
       ;(transfer as any).status = 'FAILED'
       await (transfer as any).save()
-      await sendTextMessage(senderPhone, '❌ Payment initiation failed. Please try again.')
+      await sendTextMessage(
+        senderPhone,
+        '❌ Payment initiation failed. Please try again.',
+      )
       return
     }
 
@@ -390,7 +473,9 @@ export class KoboKallService {
       interactiveUrl,
     )
 
-    logger.info(`[KoboKall] Stellar SEP-24 initiated for transfer ${transferId}: sep24Id=${sep24Id}`)
+    logger.info(
+      `[KoboKall] Stellar SEP-24 initiated for transfer ${transferId}: sep24Id=${sep24Id}`,
+    )
 
     this._pollStellarSep24(String((transfer as any)._id), sep24Id, senderPhone)
   }
@@ -412,7 +497,9 @@ export class KoboKallService {
       }
 
       try {
-        const jwt = await this.stellarAnchor.getSep10Jwt(this.stellarAnchor.circleAnchorUrl)
+        const jwt = await this.stellarAnchor.getSep10Jwt(
+          this.stellarAnchor.circleAnchorUrl,
+        )
         const txStatus = await this.stellarAnchor.getSep24TransactionStatus(
           this.stellarAnchor.circleAnchorUrl,
           jwt,
@@ -422,13 +509,25 @@ export class KoboKallService {
         if (txStatus.status === 'completed') {
           clearInterval(interval)
           await this._executeOnafriqOffRamp(transferMongoId, senderPhone)
-        } else if (['error', 'expired', 'refunded', 'no_market'].includes(txStatus.status)) {
+        } else if (
+          ['error', 'expired', 'refunded', 'no_market'].includes(
+            txStatus.status,
+          )
+        ) {
           clearInterval(interval)
-          await LocalTransfer.findByIdAndUpdate(transferMongoId, { status: 'FAILED', failureCode: txStatus.status })
-          await sendTextMessage(senderPhone, `❌ Payment ${txStatus.status}. Please try again.`)
+          await LocalTransfer.findByIdAndUpdate(transferMongoId, {
+            status: 'FAILED',
+            failureCode: txStatus.status,
+          })
+          await sendTextMessage(
+            senderPhone,
+            `❌ Payment ${txStatus.status}. Please try again.`,
+          )
         }
       } catch (err: any) {
-        logger.error(`[KoboKall] SEP-24 poll error for ${sep24Id}: ${err?.message}`)
+        logger.error(
+          `[KoboKall] SEP-24 poll error for ${sep24Id}: ${err?.message}`,
+        )
       }
     }, 30_000)
   }
@@ -441,9 +540,15 @@ export class KoboKallService {
     if (!transfer) return
 
     const offRampRate = await this.fxRate.getUSDtoXAF()
-    const netUsdcAmount = parseFloat(((transfer as any).netAmount / offRampRate).toFixed(7))
+    const netUsdcAmount = parseFloat(
+      ((transfer as any).netAmount / offRampRate).toFixed(7),
+    )
 
-    let offRamp: { sep31TransactionId: string; onafriqStellarAccount: string; stellarMemo: string }
+    let offRamp: {
+      sep31TransactionId: string
+      onafriqStellarAccount: string
+      stellarMemo: string
+    }
     try {
       offRamp = await this.stellarAnchor.prepareOnafriqOffRamp({
         recipientPhone: (transfer as any).recipientPhone,
@@ -455,7 +560,10 @@ export class KoboKallService {
       logger.error(`[KoboKall] Onafriq off-ramp prep failed: ${err?.message}`)
       ;(transfer as any).status = 'FAILED'
       await (transfer as any).save()
-      await sendTextMessage(senderPhone, '❌ Transfer routing failed. Please contact support.')
+      await sendTextMessage(
+        senderPhone,
+        '❌ Transfer routing failed. Please contact support.',
+      )
       return
     }
 
@@ -474,11 +582,18 @@ export class KoboKallService {
       logger.error(`[KoboKall] pathPaymentStrictSend failed: ${err?.message}`)
       ;(transfer as any).status = 'FAILED'
       await (transfer as any).save()
-      await sendTextMessage(senderPhone, '❌ Transfer submission failed. Please contact support.')
+      await sendTextMessage(
+        senderPhone,
+        '❌ Transfer submission failed. Please contact support.',
+      )
       return
     }
 
-    this._pollStellarSep31(transferMongoId, offRamp.sep31TransactionId, senderPhone)
+    this._pollStellarSep31(
+      transferMongoId,
+      offRamp.sep31TransactionId,
+      senderPhone,
+    )
   }
 
   private _pollStellarSep31(
@@ -515,14 +630,24 @@ export class KoboKallService {
             (transfer as any).recipientPhone,
             `💰 *You received ${(transfer as any).netAmount.toLocaleString()} XAF* from ****${String(senderPhone).slice(-4)} via SendSasa.`,
           )
-          logger.info(`[KoboKall] Stellar transfer ${(transfer as any).transferId} completed`)
+          logger.info(
+            `[KoboKall] Stellar transfer ${(transfer as any).transferId} completed`,
+          )
         } else if (['error', 'refunded'].includes(status.status)) {
           clearInterval(interval)
-          await LocalTransfer.findByIdAndUpdate(transferMongoId, { status: 'FAILED', failureCode: status.status })
-          await sendTextMessage(senderPhone, `❌ Transfer failed (${status.status}). Please contact support.`)
+          await LocalTransfer.findByIdAndUpdate(transferMongoId, {
+            status: 'FAILED',
+            failureCode: status.status,
+          })
+          await sendTextMessage(
+            senderPhone,
+            `❌ Transfer failed (${status.status}). Please contact support.`,
+          )
         }
       } catch (err: any) {
-        logger.error(`[KoboKall] SEP-31 poll error for ${sep31Id}: ${err?.message}`)
+        logger.error(
+          `[KoboKall] SEP-31 poll error for ${sep31Id}: ${err?.message}`,
+        )
       }
     }, 30_000)
   }
@@ -533,4 +658,6 @@ export const kobokallService = new KoboKallService(
   new (require('../../blockchain/stellar/stellar-anchor.service').StellarAnchorService)(),
   new (require('../../shared/services/payment-rail.service').PaymentRailService)(),
   fxRateService,
+  new (require('../../payments/pawapay/pawapay.service').PawapayService)(),
+  new (require('../../domain/repositories/user.repository').UserRepository)(),
 )

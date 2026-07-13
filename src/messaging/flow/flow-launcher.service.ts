@@ -3,7 +3,7 @@ import { FlowDataExchangeService } from './flow-data-exchange.service'
 import { getAllBalances } from '@blockchain/chains/xrpl.service'
 import { evmService } from '@blockchain/chains/evm.service'
 import { getAllBalances as getSolanaBalances } from '@blockchain/chains/solana.service'
-import { WhatsAppService } from '@messaging/whatsapp/whatsapp.service'
+import { sendMessage } from '@messaging/whatsapp/whatsapp.service'
 import { IUser } from '@app/types'
 
 import config from '@common/utils/config'
@@ -89,7 +89,7 @@ export class FlowLauncherService {
         },
       }
 
-      await WhatsAppService.sendMessage(flowMessage)
+      await sendMessage(flowMessage)
     } catch (error) {
       console.error('Failed to launch Send Money flow:', error)
       throw error
@@ -129,7 +129,7 @@ export class FlowLauncherService {
         },
       }
 
-      await WhatsAppService.sendMessage(flowMessage)
+      await sendMessage(flowMessage)
     } catch (error) {
       console.error('Failed to launch Request Money flow:', error)
       throw error
@@ -176,7 +176,7 @@ export class FlowLauncherService {
         },
       }
 
-      await WhatsAppService.sendMessage(flowMessage)
+      await sendMessage(flowMessage)
     } catch (error) {
       console.error('Failed to launch Request Card flow:', error)
       throw error
@@ -190,7 +190,7 @@ export class FlowLauncherService {
     description: string,
   ): Promise<void> {
     const flowToken = FlowDataExchangeService.generateFlowToken(phone)
-    await WhatsAppService.sendMessage({
+    await sendMessage({
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
       to: phone,
@@ -263,7 +263,7 @@ export class FlowLauncherService {
         },
       }
 
-      await WhatsAppService.sendMessage(flowMessage)
+      await sendMessage(flowMessage)
     } catch (error) {
       console.error('Failed to launch PIN Setup flow:', error)
       throw error
@@ -334,7 +334,7 @@ export class FlowLauncherService {
         },
       }
 
-      await WhatsAppService.sendMessage(flowMessage)
+      await sendMessage(flowMessage)
     } catch (error) {
       console.error('Failed to launch Off-Ramp flow:', error)
       throw error
@@ -395,7 +395,7 @@ export class FlowLauncherService {
         },
       }
 
-      await WhatsAppService.sendMessage(flowMessage)
+      await sendMessage(flowMessage)
     } catch (error) {
       console.error('Failed to launch Card Payment flow:', error)
       throw error
@@ -454,7 +454,7 @@ export class FlowLauncherService {
         },
       }
 
-      await WhatsAppService.sendMessage(flowMessage)
+      await sendMessage(flowMessage)
     } catch (error) {
       console.error('Failed to launch Manage Contacts flow:', error)
       throw error
@@ -494,7 +494,7 @@ export class FlowLauncherService {
         },
       }
 
-      await WhatsAppService.sendMessage(flowMessage)
+      await sendMessage(flowMessage)
     } catch (error) {
       console.error('Failed to launch Import Wallet flow:', error)
       throw error
@@ -503,7 +503,7 @@ export class FlowLauncherService {
 
   static async launchStatementFlow(user: IUser): Promise<void> {
     const flowToken = FlowDataExchangeService.generateFlowToken(user.whatsappId)
-    await WhatsAppService.sendMessage({
+    await sendMessage({
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
       to: user.whatsappId,
@@ -511,7 +511,9 @@ export class FlowLauncherService {
       interactive: {
         type: 'flow',
         header: { type: 'text', text: '📄 Transaction Statement' },
-        body: { text: 'Select a date range to receive a PDF of all your transactions.' },
+        body: {
+          text: 'Select a date range to receive a PDF of all your transactions.',
+        },
         footer: { text: 'Powered by SendSasa' },
         action: {
           name: 'flow',
@@ -559,7 +561,7 @@ export class FlowLauncherService {
 
   static async launchCryptoSwapFlow(user: IUser): Promise<void> {
     const flowToken = FlowDataExchangeService.generateFlowToken(user.whatsappId)
-    await WhatsAppService.sendMessage({
+    await sendMessage({
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
       to: user.whatsappId,
@@ -567,7 +569,9 @@ export class FlowLauncherService {
       interactive: {
         type: 'flow',
         header: { type: 'text', text: '🔄 Swap Crypto' },
-        body: { text: 'Exchange crypto between chains instantly. Select your assets to begin.' },
+        body: {
+          text: 'Exchange crypto between chains instantly. Select your assets to begin.',
+        },
         footer: { text: 'Powered by SendSasa' },
         action: {
           name: 'flow',

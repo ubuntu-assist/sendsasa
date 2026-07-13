@@ -1,15 +1,24 @@
 import { Injectable } from '@nestjs/common'
 import { Asset } from '@stellar/stellar-sdk'
-import { Invoice } from './invoice.schema'
+import type { Invoice } from './invoice.schema'
+import { InvoiceRepository } from '@domain/repositories/invoice.repository'
+import { UserRepository } from '@domain/repositories/user.repository'
 import { generateShortCode } from '@common/helpers/short-code'
 import { GeminiService } from '@shared/gemini.service'
 import { StellarAnchorService } from '@blockchain/stellar/stellar-anchor.service'
-import { StellarService, STELLAR_USDC, EURT_ISSUER } from '@blockchain/stellar/stellar.service'
+import {
+  StellarService,
+  STELLAR_USDC,
+  EURT_ISSUER,
+} from '@blockchain/stellar/stellar.service'
 import { PaymentRailService } from '@shared/payment-rail.service'
 import { FxRateService, fxRateService } from '@shared/fx-rate.service'
-import { sendTextMessage, sendCtaUrlButton } from '@messaging/whatsapp/whatsapp.service'
-import { sendMoMoReceipt } from '@shared/receipt-generator.service'
-import { User } from '@models/User'
+import { PawapayService } from '@payments/pawapay/pawapay.service'
+import {
+  sendTextMessage,
+  sendCtaUrlButton,
+} from '@messaging/whatsapp/whatsapp.service'
+import { appEmitter, EVENTS } from '@shared/app-emitter'
 import type { CreateInvoiceDto } from '@app/types'
 import logger from '@common/utils/logger'
 
@@ -21,6 +30,9 @@ export class SafiPayService {
     private readonly stellar: StellarService,
     private readonly paymentRailService: PaymentRailService,
     private readonly fxRate: FxRateService,
+    private readonly pawapay: PawapayService,
+    private readonly invoices: InvoiceRepository,
+    private readonly users: UserRepository,
   ) {}
 
   async createInvoice(
@@ -38,43 +50,50 @@ export class SafiPayService {
     // ── EUR path: B2B export invoice — Tempo SEPA on-ramp ────────────────────
     if (currency === 'EUR') {
       try {
-        const { interactiveUrl, sep24Id } = await this.stellarAnchor.initiateTempoDeposit(
-          data.total,
-        )
+        const { interactiveUrl, sep24Id } =
+          await this.stellarAnchor.initiateTempoDeposit(data.total)
         paymentPageUrl = interactiveUrl
         tempoSep24Id = sep24Id
-        logger.info(`[SafiPay] Tempo EUR deposit initiated for ${shortCode}: sep24Id=${sep24Id}`)
+        logger.info(
+          `[SafiPay] Tempo EUR deposit initiated for ${shortCode}: sep24Id=${sep24Id}`,
+        )
       } catch (err: any) {
-        logger.error(`[SafiPay] Tempo deposit failed for ${shortCode}: ${err?.message}`)
+        logger.error(
+          `[SafiPay] Tempo deposit failed for ${shortCode}: ${err?.message}`,
+        )
       }
     } else {
       // ── USD / XAF path: existing Stellar Circle or pawaPay logic ───────────
-      const client = await User.findOne({ phoneNumber: data.clientPhone }).select(
-        'stellar_public_key operatingRegion',
-      )
+      const client = await this.users.findByPhone(data.clientPhone)
       const rate = await this.fxRate.getUSDtoXAF()
       const usdcAmount = parseFloat((data.total / rate).toFixed(7))
-      const clientRail = client ? this.paymentRailService.getRail(client) : 'pawapay'
+      const clientRail = client
+        ? this.paymentRailService.getRail(client)
+        : 'pawapay'
 
       if (clientRail === 'stellar' && client?.stellar_public_key) {
         try {
-          const { interactiveUrl, sep24Id } = await this.stellarAnchor.initiateCircleDeposit(
-            client.stellar_public_key,
-            'USD',
-            usdcAmount,
-          )
+          const { interactiveUrl, sep24Id } =
+            await this.stellarAnchor.initiateCircleDeposit(
+              client.stellar_public_key,
+              'USD',
+              usdcAmount,
+            )
           paymentPageUrl = interactiveUrl
           sep24TransactionId = sep24Id
-          logger.info(`[SafiPay] SEP-24 deposit initiated for ${shortCode}: sep24Id=${sep24Id}`)
+          logger.info(
+            `[SafiPay] SEP-24 deposit initiated for ${shortCode}: sep24Id=${sep24Id}`,
+          )
         } catch (err: any) {
-          logger.error(`[SafiPay] SEP-24 initiation failed for ${shortCode}: ${err?.message}`)
+          logger.error(
+            `[SafiPay] SEP-24 initiation failed for ${shortCode}: ${err?.message}`,
+          )
         }
       }
 
       if (!paymentPageUrl) {
         try {
-          const { pawapayService } = await import('@payments/pawapay/pawapay.service')
-          const page = await pawapayService.createPaymentPage(
+          const page = await this.pawapay.createPaymentPage(
             data.total,
             data.description,
             `https://api.sendsasa.com/safipay/paid/${shortCode}`,
@@ -89,7 +108,7 @@ export class SafiPayService {
       }
     }
 
-    const invoice = await Invoice.create({
+    const invoice = await this.invoices.create({
       shortCode,
       merchantPhone,
       clientPhone: data.clientPhone,
@@ -105,13 +124,7 @@ export class SafiPayService {
       status: paymentPageUrl ? 'SENT' : 'DRAFT',
     })
 
-    await User.findOneAndUpdate(
-      { phoneNumber: merchantPhone },
-      {
-        momotrustContext: `SAFIPAY:${(invoice as any)._id}`,
-        momotrustContextUpdatedAt: new Date(),
-      },
-    )
+    await this.users.setContext(merchantPhone, { type: 'SAFIPAY', invoiceId: String((invoice as any)._id) })
 
     // ── Send notifications ────────────────────────────────────────────────────
     if (currency === 'EUR') {
@@ -129,7 +142,12 @@ export class SafiPayService {
         `Pay by SEPA. Funds are converted and sent directly to the exporter's mobile wallet.`
 
       if (paymentPageUrl) {
-        await sendCtaUrlButton(data.clientPhone, invoiceBody, 'Pay via SEPA', paymentPageUrl)
+        await sendCtaUrlButton(
+          data.clientPhone,
+          invoiceBody,
+          'Pay via SEPA',
+          paymentPageUrl,
+        )
       } else {
         await sendTextMessage(data.clientPhone, invoiceBody)
       }
@@ -163,7 +181,12 @@ export class SafiPayService {
         const shortUrl = sep24TransactionId
           ? paymentPageUrl
           : `https://api.sendsasa.com/r/${shortCode}`
-        await sendCtaUrlButton(data.clientPhone, invoiceBody, 'Pay Now', shortUrl)
+        await sendCtaUrlButton(
+          data.clientPhone,
+          invoiceBody,
+          'Pay Now',
+          shortUrl,
+        )
       } else {
         await sendTextMessage(data.clientPhone, invoiceBody)
       }
@@ -194,7 +217,8 @@ export class SafiPayService {
         sep24TransactionId,
         this.stellarAnchor.circleAnchorUrl,
         async (stellarTxId) => {
-          if (stellarTxId) await this.onStellarInvoicePaid(sep24TransactionId, stellarTxId)
+          if (stellarTxId)
+            await this.onStellarInvoicePaid(sep24TransactionId, stellarTxId)
         },
       )
     }
@@ -232,13 +256,19 @@ export class SafiPayService {
           clearInterval(interval)
           await onCompleted(txStatus.stellar_transaction_id)
         } else if (
-          ['error', 'expired', 'refunded', 'no_market'].includes(txStatus.status)
+          ['error', 'expired', 'refunded', 'no_market'].includes(
+            txStatus.status,
+          )
         ) {
           clearInterval(interval)
-          logger.error(`[SafiPay] SEP-24 ${txStatus.status} for sep24Id=${sep24Id}`)
+          logger.error(
+            `[SafiPay] SEP-24 ${txStatus.status} for sep24Id=${sep24Id}`,
+          )
         }
       } catch (err: any) {
-        logger.error(`[SafiPay] SEP-24 poll error for ${sep24Id}: ${err?.message}`)
+        logger.error(
+          `[SafiPay] SEP-24 poll error for ${sep24Id}: ${err?.message}`,
+        )
       }
     }, 30_000)
   }
@@ -252,7 +282,7 @@ export class SafiPayService {
    * exporter's MTN MoMo wallet.
    */
   private async _executeEurtToXafPayout(invoiceId: string): Promise<void> {
-    const invoice = await Invoice.findById(invoiceId)
+    const invoice = await this.invoices.findById(invoiceId)
     if (!invoice || (invoice as any).status === 'PAID') return
 
     const eurAmount = (invoice as any).total as number
@@ -264,13 +294,17 @@ export class SafiPayService {
       const usdcEstimate = await this.stellar.queryEurtToUsdc(eurAmount)
 
       // 2. Get firm SEP-38 quote + register SEP-31 transaction with Onafriq
-      const { sep31TransactionId, onafriqStellarAccount, stellarMemo, firmQuote } =
-        await this.stellarAnchor.prepareOnafriqOffRamp({
-          recipientPhone: merchantPhone,
-          recipientCountryCode: 'CM',
-          usdcAmount: usdcEstimate,
-          localCurrencyCode: 'XAF',
-        })
+      const {
+        sep31TransactionId,
+        onafriqStellarAccount,
+        stellarMemo,
+        firmQuote,
+      } = await this.stellarAnchor.prepareOnafriqOffRamp({
+        recipientPhone: merchantPhone,
+        recipientCountryCode: 'CM',
+        usdcAmount: usdcEstimate,
+        localCurrencyCode: 'XAF',
+      })
 
       ;(invoice as any).sep31TransactionId = sep31TransactionId
       await (invoice as any).save()
@@ -291,7 +325,8 @@ export class SafiPayService {
       )
 
       // `buy_amount` in the firm quote is the expected XAF (from Onafriq's SEP-38)
-      const xafExpected = parseFloat(firmQuote.buy_amount ?? '0') ||
+      const xafExpected =
+        parseFloat(firmQuote.buy_amount ?? '0') ||
         Math.round(usdcEstimate * 620)
 
       ;(invoice as any).status = 'PAID'
@@ -315,7 +350,10 @@ export class SafiPayService {
     }
   }
 
-  private async _notifyEurPaid(invoice: any, xafExpected: number): Promise<void> {
+  private async _notifyEurPaid(
+    invoice: any,
+    xafExpected: number,
+  ): Promise<void> {
     await sendTextMessage(
       invoice.merchantPhone,
       `💶 *EUR payment received!*\n\n` +
@@ -335,24 +373,31 @@ export class SafiPayService {
       { label: 'EUR Amount', value: `€${invoice.total.toLocaleString()}` },
       { label: 'XAF Payout', value: `~${xafExpected.toLocaleString()} XAF` },
     ]
-    if (invoice.clientName) extraLines.unshift({ label: 'Buyer', value: invoice.clientName })
+    if (invoice.clientName)
+      extraLines.unshift({ label: 'Buyer', value: invoice.clientName })
     if (invoice.stellarDepositTxHash) {
-      extraLines.push({ label: 'Stellar Tx', value: `${invoice.stellarDepositTxHash.slice(0, 16)}…` })
+      extraLines.push({
+        label: 'Stellar Tx',
+        value: `${invoice.stellarDepositTxHash.slice(0, 16)}…`,
+      })
     }
 
-    sendMoMoReceipt(invoice.merchantPhone, {
-      type: 'invoice',
-      referenceId: invoice.shortCode,
-      dateTime: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
-      amount: xafExpected,
-      title: invoice.description,
-      extraLines,
-    }).catch(() => {})
+    appEmitter.emit(EVENTS.RECEIPT_SEND, {
+      phone: invoice.merchantPhone,
+      data: {
+        type: 'invoice',
+        referenceId: invoice.shortCode,
+        dateTime: new Date().toLocaleString('en-US', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }),
+        amount: xafExpected,
+        title: invoice.description,
+        extraLines,
+      },
+    })
 
-    await User.findOneAndUpdate(
-      { phoneNumber: invoice.merchantPhone },
-      { $unset: { momotrustContext: 1, momotrustContextUpdatedAt: 1 } },
-    )
+    await this.users.setContext(invoice.merchantPhone, null)
   }
 
   async parseInvoiceFromText(text: string): Promise<Partial<CreateInvoiceDto>> {
@@ -362,10 +407,12 @@ export class SafiPayService {
   // ─── Payment confirmation handlers ────────────────────────────────────────
 
   /** Called when the Circle SEP-24 deposit for a USD invoice completes on-chain. */
-  async onStellarInvoicePaid(sep24Id: string, stellarTxHash: string): Promise<void> {
-    const invoice = await Invoice.findOne({ sep24TransactionId: sep24Id })
+  async onStellarInvoicePaid(
+    sep24Id: string,
+    stellarTxHash: string,
+  ): Promise<void> {
+    const invoice = await this.invoices.findBySep24Id(sep24Id)
     if (!invoice || (invoice as any).status === 'PAID') return
-
     ;(invoice as any).status = 'PAID'
     ;(invoice as any).paidAt = new Date()
     ;(invoice as any).stellarDepositTxHash = stellarTxHash
@@ -379,15 +426,16 @@ export class SafiPayService {
 
   /** Called via pawaPay webhook for XAF invoices. */
   async onInvoicePaid(pawapayDepositId: string): Promise<void> {
-    const invoice = await Invoice.findOne({ pawapayDepositId })
+    const invoice = await this.invoices.findByDepositId(pawapayDepositId)
     if (!invoice || (invoice as any).status === 'PAID') return
-
     ;(invoice as any).status = 'PAID'
     ;(invoice as any).paidAt = new Date()
     await (invoice as any).save()
 
     await this._notifyPaid(invoice as any)
-    logger.info(`[SafiPay] Invoice ${(invoice as any).shortCode} paid via pawaPay`)
+    logger.info(
+      `[SafiPay] Invoice ${(invoice as any).shortCode} paid via pawaPay`,
+    )
   }
 
   private async _notifyPaid(invoice: any): Promise<void> {
@@ -432,19 +480,16 @@ export class SafiPayService {
       title: invoice.description,
       extraLines,
     }
-    sendMoMoReceipt(invoice.merchantPhone, receiptData).catch(() => {})
-    sendMoMoReceipt(invoice.clientPhone, receiptData).catch(() => {})
+    appEmitter.emit(EVENTS.RECEIPT_SEND, { phone: invoice.merchantPhone, data: receiptData })
+    appEmitter.emit(EVENTS.RECEIPT_SEND, { phone: invoice.clientPhone, data: receiptData })
 
-    await User.findOneAndUpdate(
-      { phoneNumber: invoice.merchantPhone },
-      { $unset: { momotrustContext: 1, momotrustContextUpdatedAt: 1 } },
-    )
+    await this.users.setContext(invoice.merchantPhone, null)
   }
 
   // ─── Reminders & overdue management ───────────────────────────────────────
 
   async sendReminder(invoiceId: string): Promise<void> {
-    const invoice = await Invoice.findById(invoiceId)
+    const invoice = await this.invoices.findById(invoiceId)
     if (
       !invoice ||
       (invoice as any).status === 'PAID' ||
@@ -479,17 +524,14 @@ export class SafiPayService {
     )
   }
 
-  async listInvoices(merchantPhone: string): Promise<(typeof Invoice.prototype)[]> {
-    return Invoice.find({ merchantPhone }).sort({ createdAt: -1 }).limit(10)
+  async listInvoices(
+    merchantPhone: string,
+  ): Promise<(typeof Invoice.prototype)[]> {
+    return this.invoices.findByMerchantSorted(merchantPhone)
   }
 
   async sendAllOverdueReminders(): Promise<void> {
-    const now = new Date()
-    const overdueInvoices = await Invoice.find({
-      status: { $in: ['SENT', 'REMINDER_SENT', 'OVERDUE'] },
-      dueDate: { $lt: now },
-      reminderCount: { $lt: 3 },
-    })
+    const overdueInvoices = await this.invoices.findPendingReminders()
 
     for (const invoice of overdueInvoices) {
       if ((invoice as any).status !== 'OVERDUE') {
@@ -500,12 +542,19 @@ export class SafiPayService {
     }
   }
 
-  async handleMessage(phone: string, message: string, contextId: string): Promise<void> {
+  async handleMessage(
+    phone: string,
+    message: string,
+    contextId: string,
+  ): Promise<void> {
     const text = message.trim().toLowerCase()
-    const invoice = await Invoice.findById(contextId).catch(() => null)
+    const invoice = await this.invoices.findById(contextId).catch(() => null)
     if (!invoice) return
 
-    if (text === 'invoices' && String((invoice as any).merchantPhone) === phone) {
+    if (
+      text === 'invoices' &&
+      String((invoice as any).merchantPhone) === phone
+    ) {
       const invoices = await this.listInvoices(phone)
       const lines = invoices.map((inv: any, i: number) => {
         const curr = inv.currency === 'EUR' ? '€' : ''
@@ -523,4 +572,7 @@ export const safipayService = new SafiPayService(
   new (require('../../blockchain/stellar/stellar.service').StellarService)(),
   new (require('../../shared/services/payment-rail.service').PaymentRailService)(),
   fxRateService,
+  new (require('../../payments/pawapay/pawapay.service').PawapayService)(),
+  new (require('../../domain/repositories/invoice.repository').InvoiceRepository)(),
+  new (require('../../domain/repositories/user.repository').UserRepository)(),
 )

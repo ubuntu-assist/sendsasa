@@ -6,29 +6,32 @@ import { safipayService } from '@features/safipay/safipay.service'
 import { kobokallService } from '@features/kobokall/kobokall.service'
 import { sendTextMessage } from '@messaging/whatsapp/whatsapp.service'
 import { Group } from '@features/njangi/group.schema'
+import type { UserContext } from '@app/types'
 
 export async function handleMomotrustMessage(
-  feature: string,
-  contextId: string,
+  ctx: UserContext,
   phone: string,
   text: string,
 ): Promise<void> {
-  // Njangi PAY requires PIN — launch flow instead of executing directly
-  if (feature === 'NJANGI' && text.trim().toLowerCase() === 'pay') {
-    const { FlowLauncherService } = await import('@messaging/flow/flow-launcher.service')
+  const normalizedText = text.trim().toLowerCase()
+
+  if (ctx.type === 'NJANGI' && normalizedText === 'pay') {
+    const { FlowLauncherService } =
+      await import('@messaging/flow/flow-launcher.service')
     await FlowLauncherService.launchPinConfirmFlow(
       phone.replace(/^\+/, ''),
       'njangi_pay',
-      contextId,
+      ctx.groupId,
       'Confirm your Njangi contribution. Accept the USSD prompt after PIN verification.',
     )
     return
   }
 
-  if (feature === 'SPLITCHAT' && text.trim().toLowerCase() === 'pay') {
-    const group = await Group.findById(contextId)
+  if (ctx.type === 'SPLITCHAT' && normalizedText === 'pay') {
+    const group = await Group.findById(ctx.groupId)
     if (group && (group as any).mode === 'SPLIT') {
-      const { FlowLauncherService } = await import('@messaging/flow/flow-launcher.service')
+      const { FlowLauncherService } =
+        await import('@messaging/flow/flow-launcher.service')
       await FlowLauncherService.launchPinConfirmFlow(
         phone.replace(/^\+/, ''),
         'splitchat_join',
@@ -36,72 +39,88 @@ export async function handleMomotrustMessage(
         `Pay ${(group as any).contributionAmount.toLocaleString()} XAF to contribute to *${(group as any).name}*.`,
       )
     } else if (group) {
-      await sendTextMessage(phone, `ℹ️ As the organizer, you receive the pot — you don't need to contribute.`)
+      await sendTextMessage(
+        phone,
+        `ℹ️ As the organizer, you receive the pot — you don't need to contribute.`,
+      )
     }
     return
   }
 
-  switch (feature) {
-    case 'TRUSTLOCK':
-      return trustlockService.handleMessage(phone, text, contextId)
+  switch (ctx.type) {
     case 'NJANGI':
-      return njangiService.handleMessage(phone, text, contextId)
+      return njangiService.handleMessage(phone, text, ctx.groupId)
     case 'SPLITCHAT':
-      return splitchatService.handleMessage(phone, text, contextId)
+      return splitchatService.handleMessage(phone, text, ctx.groupId)
     case 'PAYDAY':
-      return paydayService.handleMessage(phone, text, contextId)
+      return paydayService.handleMessage(phone, text, ctx.payrollId)
     case 'SAFIPAY':
-      return safipayService.handleMessage(phone, text, contextId)
+      return safipayService.handleMessage(phone, text, ctx.invoiceId)
     case 'DISPUTE':
-      return trustlockService.receiveEvidence(contextId, phone, text)
+      return trustlockService.receiveEvidence(ctx.disputeId, phone, text)
     case 'KOBOKALL':
-      return kobokallService.handleMessage(phone, text, contextId)
+      return kobokallService.handleMessage(phone, text, ctx.id)
     case 'CRYPTO_SELL':
-      return handleCryptoSellMessage(phone, text, contextId)
+      return handleCryptoSellMessage(phone, text, ctx)
   }
 }
 
 async function handleCryptoSellMessage(
   phone: string,
   text: string,
-  contextId: string,
+  ctx: { type: 'CRYPTO_SELL'; asset: string; amount?: string },
 ): Promise<void> {
-  // contextId = "BNB" or "BNB:50" (after amount entered)
-  const parts = contextId.split(':')
-  const asset = parts[0]
+  const { asset } = ctx
 
-  // If we already have an amount, this message is the MoMo provider choice
-  // But since provider is asked via interactive button, we just wait for the amount first
   const amount = parseFloat(text.trim())
   if (Number.isNaN(amount) || amount <= 0) {
-    await sendTextMessage(phone, `❌ Invalid amount. Please reply with a number (e.g. 50).`)
+    await sendTextMessage(
+      phone,
+      `❌ Invalid amount. Please reply with a number (e.g. 50).`,
+    )
     return
   }
 
-  // Ask which MoMo provider to receive the payment
-  const { WhatsAppService } = await import('@messaging/whatsapp/whatsapp.service')
-  await WhatsAppService.sendMessage({
+  const { sendMessage } = await import('@messaging/whatsapp/whatsapp.service')
+  await sendMessage({
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
     to: phone,
     type: 'interactive',
     interactive: {
       type: 'button',
-      body: { text: `Send ${amount} ${asset} XAF equivalent to which account?` },
+      body: {
+        text: `Send ${amount} ${asset} XAF equivalent to which account?`,
+      },
       action: {
         buttons: [
-          { type: 'reply', reply: { id: `sell_confirm:${asset}:${amount}:mtn`, title: '📱 MTN MoMo' } },
-          { type: 'reply', reply: { id: `sell_confirm:${asset}:${amount}:orange`, title: '🟠 Orange Money' } },
+          {
+            type: 'reply',
+            reply: {
+              id: `sell_confirm:${asset}:${amount}:mtn`,
+              title: '📱 MTN MoMo',
+            },
+          },
+          {
+            type: 'reply',
+            reply: {
+              id: `sell_confirm:${asset}:${amount}:orange`,
+              title: '🟠 Orange Money',
+            },
+          },
         ],
       },
     },
   })
 
-  // Update context with amount so next step knows
+  // Persist amount into context so the next step knows
   const { User } = await import('@models/User')
   await User.updateOne(
     { phoneNumber: phone },
-    { momotrustContext: `CRYPTO_SELL:${asset}:${amount}`, momotrustContextUpdatedAt: new Date() },
+    {
+      momotrustContext: JSON.stringify({ type: 'CRYPTO_SELL', asset, amount: String(amount) }),
+      momotrustContextUpdatedAt: new Date(),
+    },
   )
 }
 
@@ -121,7 +140,8 @@ export async function tryJoinGroup(
     return njangiService.joinGroup(phone, shortCode)
   if ((group as any).type === 'SPLITCHAT') {
     // Payment is triggered on join — require PIN first via flow
-    const { FlowLauncherService } = await import('@messaging/flow/flow-launcher.service')
+    const { FlowLauncherService } =
+      await import('@messaging/flow/flow-launcher.service')
     await FlowLauncherService.launchPinConfirmFlow(
       phone.replace(/^\+/, ''),
       'splitchat_join',

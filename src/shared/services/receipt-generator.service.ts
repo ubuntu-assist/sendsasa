@@ -643,6 +643,19 @@ export async function sendMoMoReceipt(phone: string, data: MoMoReceiptData): Pro
   }
 }
 
+// ─── Observer: subscribe to receipt events emitted by feature services ────────
+
+import { appEmitter, EVENTS } from '@shared/app-emitter'
+
+appEmitter.on(
+  EVENTS.RECEIPT_SEND,
+  ({ phone, data }: { phone: string; data: MoMoReceiptData }) => {
+    sendMoMoReceipt(phone, data).catch((err) =>
+      logger.error(`[ReceiptEvent] Failed to send receipt to ${phone}: ${err}`),
+    )
+  },
+)
+
 // ─── NestJS service class ─────────────────────────────────────────────────────
 
 @Injectable()

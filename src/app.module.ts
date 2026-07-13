@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
+import { EventEmitterModule } from '@nestjs/event-emitter'
 import configuration from '@config/configuration'
 import { SharedModule } from './shared/shared.module'
+import { DomainModule } from './domain/domain.module'
 import { ChainsModule } from '@blockchain/chains/chains.module'
 import { StellarModule } from '@blockchain/stellar/stellar.module'
 import { LiskModule } from '@blockchain/lisk/lisk.module'
+import { BlockchainModule } from '@blockchain/blockchain.module'
 import { DatabaseModule } from '@core/database/database.module'
 import { HealthController } from '@core/health/health.controller'
 import { JwksModule } from '@core/jwks/jwks.module'
@@ -27,10 +30,13 @@ import { CryptoExchangeModule } from '@features/crypto-exchange/crypto-exchange.
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
+    EventEmitterModule.forRoot(),
+    DomainModule,
     SharedModule,
     ChainsModule,
     StellarModule,
     LiskModule,
+    BlockchainModule,
     DatabaseModule,
     WhatsAppModule,
     WebhookModule,

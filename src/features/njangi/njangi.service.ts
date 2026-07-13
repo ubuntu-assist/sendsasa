@@ -1,16 +1,22 @@
 import { Injectable } from '@nestjs/common'
-import { Group } from './group.schema'
-import { GroupMember } from './group-member.schema'
+import type { Group } from './group.schema'
+import type { GroupMember } from './group-member.schema'
 import { generateShortCode } from '@common/helpers/short-code'
 import { calculateFee } from '@common/helpers/fee'
-import { pawapayService } from '@payments/pawapay/pawapay.service'
-import { sendTextMessage, sendCtaUrlButton } from '@messaging/whatsapp/whatsapp.service'
-import { sendMoMoReceipt } from '@shared/receipt-generator.service'
+import { PawapayService } from '@payments/pawapay/pawapay.service'
+import {
+  sendTextMessage,
+  sendCtaUrlButton,
+  sendMessage,
+} from '@messaging/whatsapp/whatsapp.service'
+import { appEmitter, EVENTS } from '@shared/app-emitter'
 import { StellarAnchorService } from '@blockchain/stellar/stellar-anchor.service'
 import { StellarService } from '@blockchain/stellar/stellar.service'
 import { PaymentRailService } from '@shared/payment-rail.service'
 import { FxRateService, fxRateService } from '@shared/fx-rate.service'
-import { User } from '@models/User'
+import { GroupRepository } from '@domain/repositories/group.repository'
+import { GroupMemberRepository } from '@domain/repositories/group-member.repository'
+import { UserRepository } from '@domain/repositories/user.repository'
 import type { CreateGroupDto } from '@app/types'
 import logger from '@common/utils/logger'
 
@@ -21,14 +27,20 @@ export class NjangiService {
     private readonly stellar: StellarService,
     private readonly paymentRailService: PaymentRailService,
     private readonly fxRate: FxRateService,
+    private readonly pawapay: PawapayService,
+    private readonly groups: GroupRepository,
+    private readonly members: GroupMemberRepository,
+    private readonly users: UserRepository,
   ) {}
 
   async createGroup(
     adminPhone: string,
     data: CreateGroupDto,
   ): Promise<typeof Group.prototype | null> {
-    const admin = await User.findOne({ phoneNumber: adminPhone }).select('operatingRegion stellar_public_key')
-    const adminRail = admin ? this.paymentRailService.getRail(admin as any) : 'pawapay'
+    const admin = await this.users.findByPhone(adminPhone)
+    const adminRail = admin
+      ? this.paymentRailService.getRail(admin as any)
+      : 'pawapay'
 
     if (adminRail === 'stellar' && !data.allowDiaspora) {
       await sendTextMessage(
@@ -41,7 +53,7 @@ export class NjangiService {
     const shortCode = generateShortCode()
     const fee = calculateFee(data.contributionAmount)
 
-    const group = await Group.create({
+    const group = await this.groups.create({
       shortCode,
       type: 'NJANGI',
       adminPhone,
@@ -57,28 +69,24 @@ export class NjangiService {
       stellarUsdcPool: 0,
     })
 
-    await GroupMember.create({
+    await this.members.create({
       groupId: (group as any)._id,
       phone: adminPhone,
       rotationPosition: 1,
       railType: adminRail,
     })
 
-    await User.findOneAndUpdate(
-      { phoneNumber: adminPhone },
-      {
-        momotrustContext: `NJANGI:${(group as any)._id}`,
-        momotrustContextUpdatedAt: new Date(),
-      },
+    await this.users.setContextByPhone(
+      adminPhone,
+      { type: 'NJANGI', groupId: String((group as any)._id) },
     )
 
     const diasporaNote = data.allowDiaspora
       ? `\n🌍 Cross-border enabled — diaspora members pay via Stellar/Circle.`
       : ''
 
-    const { WhatsAppService } = await import('@messaging/whatsapp/whatsapp.service')
     const groupId = String((group as any)._id)
-    await WhatsAppService.sendMessage({
+    await sendMessage({
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
       to: adminPhone,
@@ -118,52 +126,66 @@ export class NjangiService {
       },
     })
 
-    logger.info(`[Njangi] Group created: ${shortCode} by ${adminPhone} (allowDiaspora=${data.allowDiaspora ?? false})`)
+    logger.info(
+      `[Njangi] Group created: ${shortCode} by ${adminPhone} (allowDiaspora=${data.allowDiaspora ?? false})`,
+    )
     return group
   }
 
   async joinGroup(phone: string, shortCode: string): Promise<void> {
-    const group = await Group.findOne({ shortCode, type: 'NJANGI' })
+    const group = await this.groups.findByShortCode(shortCode, 'NJANGI')
     if (!group) {
-      await sendTextMessage(phone, `❌ Code *${shortCode}* not found. Please check and try again.`)
+      await sendTextMessage(
+        phone,
+        `❌ Code *${shortCode}* not found. Please check and try again.`,
+      )
       return
     }
     if ((group as any).status !== 'SETUP') {
-      await sendTextMessage(phone, `⚠️ This njangi has already started. You cannot join now.`)
+      await sendTextMessage(
+        phone,
+        `⚠️ This njangi has already started. You cannot join now.`,
+      )
       return
     }
 
-    const joiner = await User.findOne({ phoneNumber: phone }).select('operatingRegion stellar_public_key')
-    const joinerRail = joiner ? this.paymentRailService.getRail(joiner as any) : 'pawapay'
+    const joiner = await this.users.findByPhone(phone)
+    const joinerRail = joiner
+      ? this.paymentRailService.getRail(joiner as any)
+      : 'pawapay'
 
     if (joinerRail === 'stellar' && !(group as any).allowDiaspora) {
-      await sendTextMessage(phone, '🇨🇲 This njangi is only for Cameroon MoMo users.')
+      await sendTextMessage(
+        phone,
+        '🇨🇲 This njangi is only for Cameroon MoMo users.',
+      )
       return
     }
 
-    const existing = await GroupMember.findOne({ groupId: (group as any)._id, phone })
+    const existing = await this.members.findByGroupAndPhone(
+      String((group as any)._id),
+      phone,
+    )
     if (existing) {
-      await sendTextMessage(phone, `ℹ️ You are already a member of *${(group as any).name}*.`)
+      await sendTextMessage(
+        phone,
+        `ℹ️ You are already a member of *${(group as any).name}*.`,
+      )
       return
     }
 
-    const count = await GroupMember.countDocuments({ groupId: (group as any)._id })
-    await GroupMember.create({
+    const count = await this.members.countByGroup(String((group as any)._id))
+    await this.members.create({
       groupId: (group as any)._id,
       phone,
       rotationPosition: count + 1,
       railType: joinerRail,
     })
 
-    await User.findOneAndUpdate(
-      { phoneNumber: phone },
-      {
-        momotrustContext: `NJANGI:${(group as any)._id}`,
-        momotrustContextUpdatedAt: new Date(),
-      },
-    )
+    await this.users.setContextByPhone(phone, { type: 'NJANGI', groupId: String((group as any)._id) })
 
-    const railLabel = joinerRail === 'stellar' ? ' · 🌍 Diaspora (Circle)' : ' · 🇨🇲 MoMo'
+    const railLabel =
+      joinerRail === 'stellar' ? ' · 🌍 Diaspora (Circle)' : ' · 🇨🇲 MoMo'
     await sendTextMessage(
       phone,
       `✅ You joined *${(group as any).name}*!${railLabel}\n\n` +
@@ -176,14 +198,16 @@ export class NjangiService {
       `👤 *${phone}* joined *${(group as any).name}*${railLabel}. Total: ${count + 1} member(s).`,
     )
 
-    logger.info(`[Njangi] ${phone} (rail=${joinerRail}) joined group ${shortCode}`)
+    logger.info(
+      `[Njangi] ${phone} (rail=${joinerRail}) joined group ${shortCode}`,
+    )
   }
 
   async startCycle(groupId: string): Promise<void> {
-    const group = await Group.findById(groupId)
+    const group = await this.groups.findById(groupId)
     if (!group) return
 
-    const members = await GroupMember.find({ groupId })
+    const members = await this.members.findByGroup(groupId)
     if (members.length === 0) return
     ;(group as any).currentCycle = ((group as any).currentCycle ?? 0) + 1
     ;(group as any).status = 'COLLECTING'
@@ -195,13 +219,14 @@ export class NjangiService {
       recipient = unpaid[Math.floor(Math.random() * unpaid.length)]
     } else {
       const cycle = (group as any).currentCycle
-      recipient = members.find((m: any) => m.rotationPosition === cycle) ?? members[0]
+      recipient =
+        members.find((m: any) => m.rotationPosition === cycle) ?? members[0]
     }
 
     ;(group as any).currentRecipientPhone = (recipient as any).phone
     await (group as any).save()
 
-    await GroupMember.updateMany({ groupId }, { hasPaidCurrentCycle: false, paidAt: null })
+    await this.members.resetCyclePaid(groupId)
 
     const amount = (group as any).contributionAmount
     const fallbackRate = await this.fxRate.getUSDtoXAF()
@@ -221,16 +246,24 @@ export class NjangiService {
       )
     }
 
-    logger.info(`[Njangi] Cycle ${(group as any).currentCycle} started for ${groupId}`)
+    logger.info(
+      `[Njangi] Cycle ${(group as any).currentCycle} started for ${groupId}`,
+    )
   }
 
-  async collectContribution(groupId: string, memberPhone: string): Promise<void> {
-    const group = await Group.findById(groupId)
+  async collectContribution(
+    groupId: string,
+    memberPhone: string,
+  ): Promise<void> {
+    const group = await this.groups.findById(groupId)
     if (!group || (group as any).status !== 'COLLECTING') return
 
-    const member = await GroupMember.findOne({ groupId, phone: memberPhone })
+    const member = await this.members.findByGroupAndPhone(groupId, memberPhone)
     if (!member || (member as any).hasPaidCurrentCycle) {
-      await sendTextMessage(memberPhone, `ℹ️ You have already contributed for this cycle.`)
+      await sendTextMessage(
+        memberPhone,
+        `ℹ️ You have already contributed for this cycle.`,
+      )
       return
     }
 
@@ -241,8 +274,11 @@ export class NjangiService {
     }
   }
 
-  private async _initiatePawapayContribution(group: any, member: any): Promise<void> {
-    const depositId = pawapayService.generateId()
+  private async _initiatePawapayContribution(
+    group: any,
+    member: any,
+  ): Promise<void> {
+    const depositId = this.pawapay.generateId()
     member.pawapayDepositId = depositId
     await member.save()
 
@@ -252,7 +288,7 @@ export class NjangiService {
       `⏳ *Contribution in progress...*\n\nAccept the USSD prompt.\nAmount: ${amount.toLocaleString()} XAF`,
     )
 
-    const result = await pawapayService.initiateDeposit(
+    const result = await this.pawapay.initiateDeposit(
       depositId,
       member.phone,
       amount,
@@ -270,8 +306,11 @@ export class NjangiService {
     }
   }
 
-  private async _initiateCircleContribution(group: any, member: any): Promise<void> {
-    const user = await User.findOne({ phoneNumber: member.phone }).select('stellar_public_key')
+  private async _initiateCircleContribution(
+    group: any,
+    member: any,
+  ): Promise<void> {
+    const user = await this.users.findByPhone(member.phone)
     if (!user?.stellar_public_key) {
       await sendTextMessage(
         member.phone,
@@ -282,16 +321,21 @@ export class NjangiService {
 
     try {
       const fallbackRate = await this.fxRate.getUSDtoXAF()
-      const sep38Rate = await this.stellarAnchor.getXafPerUsdc(group.contributionAmount / fallbackRate)
+      const sep38Rate = await this.stellarAnchor.getXafPerUsdc(
+        group.contributionAmount / fallbackRate,
+      )
       const xafPerUsdc = sep38Rate ?? fallbackRate
-      const usdcAmount = parseFloat((group.contributionAmount / xafPerUsdc).toFixed(7))
+      const usdcAmount = parseFloat(
+        (group.contributionAmount / xafPerUsdc).toFixed(7),
+      )
       const rateLabel = sep38Rate ? 'live · Stellar' : 'live'
 
-      const { interactiveUrl, sep24Id } = await this.stellarAnchor.initiateCircleDeposit(
-        user.stellar_public_key,
-        'USD',
-        usdcAmount,
-      )
+      const { interactiveUrl, sep24Id } =
+        await this.stellarAnchor.initiateCircleDeposit(
+          user.stellar_public_key,
+          'USD',
+          usdcAmount,
+        )
 
       member.sep24TransactionId = sep24Id
       member.sep24UsdcAmount = usdcAmount
@@ -312,9 +356,13 @@ export class NjangiService {
       // Background poll — does not block the reply
       this._pollSep24Contribution(String(group._id), member.phone, sep24Id)
 
-      logger.info(`[Njangi] Circle deposit initiated for ${member.phone} sep24Id=${sep24Id}`)
+      logger.info(
+        `[Njangi] Circle deposit initiated for ${member.phone} sep24Id=${sep24Id}`,
+      )
     } catch (err: any) {
-      logger.error(`[Njangi] Circle deposit failed for ${member.phone}: ${err?.message}`)
+      logger.error(
+        `[Njangi] Circle deposit failed for ${member.phone}: ${err?.message}`,
+      )
       await sendTextMessage(
         member.phone,
         `❌ Failed to generate payment link. Please try again or contact support.`,
@@ -322,7 +370,11 @@ export class NjangiService {
     }
   }
 
-  private _pollSep24Contribution(groupId: string, memberPhone: string, sep24Id: string): void {
+  private _pollSep24Contribution(
+    groupId: string,
+    memberPhone: string,
+    sep24Id: string,
+  ): void {
     let attempts = 0
     const MAX_ATTEMPTS = 120 // 120 × 30s = 1 hour
 
@@ -330,13 +382,20 @@ export class NjangiService {
       attempts++
       if (attempts > MAX_ATTEMPTS) {
         clearInterval(interval)
-        logger.error(`[Njangi] SEP-24 poll timeout for ${memberPhone} sep24Id=${sep24Id}`)
-        sendTextMessage(memberPhone, `⏰ Your contribution payment timed out. Send *PAY* to try again.`).catch(() => {})
+        logger.error(
+          `[Njangi] SEP-24 poll timeout for ${memberPhone} sep24Id=${sep24Id}`,
+        )
+        sendTextMessage(
+          memberPhone,
+          `⏰ Your contribution payment timed out. Send *PAY* to try again.`,
+        ).catch(() => {})
         return
       }
 
       try {
-        const jwt = await this.stellarAnchor.getSep10Jwt(this.stellarAnchor.circleAnchorUrl)
+        const jwt = await this.stellarAnchor.getSep10Jwt(
+          this.stellarAnchor.circleAnchorUrl,
+        )
         const txStatus = await this.stellarAnchor.getSep24TransactionStatus(
           this.stellarAnchor.circleAnchorUrl,
           jwt,
@@ -346,25 +405,36 @@ export class NjangiService {
         if (txStatus.status === 'completed') {
           clearInterval(interval)
           await this.onStellarMemberContributed(groupId, memberPhone)
-        } else if (['error', 'expired', 'refunded', 'no_market'].includes(txStatus.status)) {
+        } else if (
+          ['error', 'expired', 'refunded', 'no_market'].includes(
+            txStatus.status,
+          )
+        ) {
           clearInterval(interval)
-          logger.error(`[Njangi] SEP-24 ${txStatus.status} for ${memberPhone} sep24Id=${sep24Id}`)
+          logger.error(
+            `[Njangi] SEP-24 ${txStatus.status} for ${memberPhone} sep24Id=${sep24Id}`,
+          )
           sendTextMessage(
             memberPhone,
             `❌ Contribution payment ${txStatus.status}. Send *PAY* to try again.`,
           ).catch(() => {})
         }
       } catch (err: any) {
-        logger.error(`[Njangi] SEP-24 poll error for ${sep24Id}: ${err?.message}`)
+        logger.error(
+          `[Njangi] SEP-24 poll error for ${sep24Id}: ${err?.message}`,
+        )
       }
     }, 30_000)
   }
 
-  async onStellarMemberContributed(groupId: string, memberPhone: string): Promise<void> {
-    const member = await GroupMember.findOne({ groupId, phone: memberPhone })
+  async onStellarMemberContributed(
+    groupId: string,
+    memberPhone: string,
+  ): Promise<void> {
+    const member = await this.members.findByGroupAndPhone(groupId, memberPhone)
     if (!member || (member as any).hasPaidCurrentCycle) return
 
-    const group = await Group.findById(groupId)
+    const group = await this.groups.findById(groupId)
     if (!group || (group as any).status !== 'COLLECTING') return
 
     const usdcAmount = (member as any).sep24UsdcAmount ?? 0
@@ -372,34 +442,40 @@ export class NjangiService {
     ;(member as any).paidAt = new Date()
     ;(member as any).cyclesPaid = ((member as any).cyclesPaid ?? 0) + 1
     await (member as any).save()
-
-    ;(group as any).stellarUsdcPool = ((group as any).stellarUsdcPool ?? 0) + usdcAmount
+    ;(group as any).stellarUsdcPool =
+      ((group as any).stellarUsdcPool ?? 0) + usdcAmount
     await (group as any).save()
 
-    await sendTextMessage(memberPhone, `✅ Contribution received! $${usdcAmount.toFixed(2)} USDC. Thank you!`)
+    await sendTextMessage(
+      memberPhone,
+      `✅ Contribution received! $${usdcAmount.toFixed(2)} USDC. Thank you!`,
+    )
 
-    const allMembers = await GroupMember.find({ groupId })
+    const allMembers = await this.members.findByGroup(groupId)
     const allPaid = allMembers.every((m: any) => m.hasPaidCurrentCycle)
     if (allPaid) await this.onAllContributed(groupId)
 
-    logger.info(`[Njangi] Stellar member ${memberPhone} contributed ${usdcAmount} USDC to ${(group as any).shortCode}`)
+    logger.info(
+      `[Njangi] Stellar member ${memberPhone} contributed ${usdcAmount} USDC to ${(group as any).shortCode}`,
+    )
   }
 
   async onMemberContributed(pawapayDepositId: string): Promise<void> {
-    const member = await GroupMember.findOne({ pawapayDepositId })
+    const member = await this.members.findByDepositId(pawapayDepositId)
     if (!member || (member as any).hasPaidCurrentCycle) return
 
-    const group = await Group.findById((member as any).groupId)
+    const group = await this.groups.findById(String((member as any).groupId))
     if (!group) return
 
     const contributionAmount = (group as any).contributionAmount
     ;(member as any).hasPaidCurrentCycle = true
     ;(member as any).paidAt = new Date()
-    ;(member as any).totalContributed = ((member as any).totalContributed ?? 0) + contributionAmount
+    ;(member as any).totalContributed =
+      ((member as any).totalContributed ?? 0) + contributionAmount
     ;(member as any).cyclesPaid = ((member as any).cyclesPaid ?? 0) + 1
     await (member as any).save()
-
-    ;(group as any).localXafPool = ((group as any).localXafPool ?? 0) + contributionAmount
+    ;(group as any).localXafPool =
+      ((group as any).localXafPool ?? 0) + contributionAmount
     await (group as any).save()
 
     await sendTextMessage(
@@ -407,25 +483,30 @@ export class NjangiService {
       `✅ Contribution received! ${contributionAmount.toLocaleString()} XAF. Thank you!`,
     )
 
-    const allMembers = await GroupMember.find({ groupId: (member as any).groupId })
+    const allMembers = await this.members.findByGroup(
+      String((member as any).groupId),
+    )
     const allPaid = allMembers.every((m: any) => m.hasPaidCurrentCycle)
     if (allPaid) await this.onAllContributed(String((group as any)._id))
 
-    logger.info(`[Njangi] Member ${(member as any).phone} contributed to group ${(group as any).shortCode}`)
+    logger.info(
+      `[Njangi] Member ${(member as any).phone} contributed to group ${(group as any).shortCode}`,
+    )
   }
 
-  async getMemberByDepositId(depositId: string): Promise<typeof GroupMember.prototype | null> {
-    return GroupMember.findOne({ pawapayDepositId: depositId })
+  async getMemberByDepositId(
+    depositId: string,
+  ): Promise<typeof GroupMember.prototype | null> {
+    return this.members.findByDepositId(depositId)
   }
 
   async onAllContributed(groupId: string): Promise<void> {
-    const group = await Group.findById(groupId)
+    const group = await this.groups.findById(groupId)
     if (!group) return
 
     const localXafPool = (group as any).localXafPool as number
     const stellarUsdcPool = (group as any).stellarUsdcPool as number
     if (localXafPool === 0 && stellarUsdcPool === 0) return
-
     ;(group as any).status = 'PAYING_OUT'
     ;(group as any).localXafPayoutDone = localXafPool === 0
     ;(group as any).stellarUsdcPayoutDone = stellarUsdcPool === 0
@@ -439,7 +520,7 @@ export class NjangiService {
     if (localXafPool > 0) {
       const fee = calculateFee(localXafPool)
       const localPayout = Math.max(0, localXafPool - fee)
-      const payoutId = pawapayService.generateId()
+      const payoutId = this.pawapay.generateId()
       ;(group as any).pawapayPayoutId = payoutId
       await (group as any).save()
 
@@ -448,7 +529,7 @@ export class NjangiService {
         `🎊 *All contributed!*\n\n${localPayout.toLocaleString()} XAF on its way to your MoMo account.\nGroup: *${(group as any).name}*`,
       )
 
-      const result = await pawapayService.initiatePayout(
+      const result = await this.pawapay.initiatePayout(
         payoutId,
         recipientPhone,
         localPayout,
@@ -489,7 +570,6 @@ export class NjangiService {
           stellarUsdcPool * 0.98, // 2% slippage tolerance
           stellarMemo,
         )
-
         ;(group as any).stellarUsdcPayoutDone = true
         await (group as any).save()
 
@@ -497,7 +577,9 @@ export class NjangiService {
           `[Njangi] Onafriq off-ramp complete for ${shortCode} C${cycle}: ${stellarUsdcPool} USDC → ${recipientPhone}`,
         )
       } catch (err: any) {
-        logger.error(`[Njangi] Stellar off-ramp failed for ${shortCode}: ${err?.message}`)
+        logger.error(
+          `[Njangi] Stellar off-ramp failed for ${shortCode}: ${err?.message}`,
+        )
         ;(group as any).stellarUsdcPayoutDone = false
         ;(group as any).status = localXafPool > 0 ? 'PAYING_OUT' : 'COLLECTING'
         await (group as any).save()
@@ -512,20 +594,30 @@ export class NjangiService {
     // Advance cycle if both payouts already resolved (e.g. Stellar-only group)
     await this._tryAdvanceCycle(groupId)
 
-    logger.info(`[Njangi] Payouts initiated for group ${shortCode} cycle ${cycle}`)
+    logger.info(
+      `[Njangi] Payouts initiated for group ${shortCode} cycle ${cycle}`,
+    )
   }
 
   async onPayoutCompleted(pawapayPayoutId: string): Promise<void> {
-    const group = await Group.findOne({ pawapayPayoutId })
+    const group = await this.groups.findByPayoutId(pawapayPayoutId)
     if (!group) return
-    if ((group as any).status === 'COMPLETED' || (group as any).status === 'CYCLE_COMPLETE') return
+    if (
+      (group as any).status === 'COMPLETED' ||
+      (group as any).status === 'CYCLE_COMPLETE'
+    )
+      return
 
     const recipientPhone = (group as any).currentRecipientPhone as string
     const localXafPool = (group as any).localXafPool as number
 
-    const member = await GroupMember.findOne({ groupId: (group as any)._id, phone: recipientPhone })
+    const member = await this.members.findByGroupAndPhone(
+      String((group as any)._id),
+      recipientPhone,
+    )
     if (member) {
-      ;(member as any).totalReceived = ((member as any).totalReceived ?? 0) + localXafPool
+      ;(member as any).totalReceived =
+        ((member as any).totalReceived ?? 0) + localXafPool
       await (member as any).save()
     }
 
@@ -540,9 +632,13 @@ export class NjangiService {
   }
 
   private async _tryAdvanceCycle(groupId: string): Promise<void> {
-    const group = await Group.findById(groupId)
+    const group = await this.groups.findById(groupId)
     if (!group || (group as any).status !== 'PAYING_OUT') return
-    if (!(group as any).localXafPayoutDone || !(group as any).stellarUsdcPayoutDone) return
+    if (
+      !(group as any).localXafPayoutDone ||
+      !(group as any).stellarUsdcPayoutDone
+    )
+      return
 
     // Capture pool values for receipt before resetting
     const localXafPool = (group as any).localXafPool as number
@@ -552,7 +648,8 @@ export class NjangiService {
     const cycleFee = calculateFee(localXafPool)
     const xafPaidOut = Math.max(0, localXafPool - cycleFee)
 
-    const isLastCycle = (group as any).currentCycle >= (group as any).totalCycles
+    const isLastCycle =
+      (group as any).currentCycle >= (group as any).totalCycles
     ;(group as any).status = isLastCycle ? 'COMPLETED' : 'CYCLE_COMPLETE'
     ;(group as any).localXafPool = 0
     ;(group as any).stellarUsdcPool = 0
@@ -560,7 +657,7 @@ export class NjangiService {
     ;(group as any).stellarUsdcPayoutDone = false
     await (group as any).save()
 
-    const members = await GroupMember.find({ groupId: (group as any)._id })
+    const members = await this.members.findByGroup(String((group as any)._id))
     for (const m of members) {
       await sendTextMessage(
         (m as any).phone,
@@ -571,7 +668,10 @@ export class NjangiService {
     }
 
     const extraLines: { label: string; value: string }[] = [
-      { label: 'Cycle', value: `${(group as any).currentCycle} / ${(group as any).totalCycles}` },
+      {
+        label: 'Cycle',
+        value: `${(group as any).currentCycle} / ${(group as any).totalCycles}`,
+      },
       { label: 'Contributors', value: String(members.length) },
     ]
     if (stellarUsdcPool > 0) {
@@ -582,30 +682,35 @@ export class NjangiService {
     }
 
     const recipientPhone = (group as any).currentRecipientPhone as string
-    sendMoMoReceipt(recipientPhone, {
-      type: 'njangi',
-      referenceId: (group as any).shortCode,
-      dateTime: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }),
-      amount: xafPaidOut + stellarPoolXafEquiv,
-      fee: cycleFee,
-      title: (group as any).name,
-      extraLines,
-    }).catch(() => {})
+    appEmitter.emit(EVENTS.RECEIPT_SEND, {
+      phone: recipientPhone,
+      data: {
+        type: 'njangi',
+        referenceId: (group as any).shortCode,
+        dateTime: new Date().toLocaleString('en-US', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }),
+        amount: xafPaidOut + stellarPoolXafEquiv,
+        fee: cycleFee,
+        title: (group as any).name,
+        extraLines,
+      },
+    })
 
     const memberPhones = members.map((m: any) => m.phone)
-    await User.updateMany(
-      { phoneNumber: { $in: memberPhones } },
-      { $unset: { momotrustContext: 1, momotrustContextUpdatedAt: 1 } },
-    )
+    await this.users.clearContextByPhones(memberPhones)
 
-    logger.info(`[Njangi] Cycle ${(group as any).currentCycle} complete for group ${(group as any).shortCode}`)
+    logger.info(
+      `[Njangi] Cycle ${(group as any).currentCycle} complete for group ${(group as any).shortCode}`,
+    )
   }
 
   async getLedger(groupId: string, phone: string): Promise<void> {
-    const group = await Group.findById(groupId)
+    const group = await this.groups.findById(groupId)
     if (!group) return
 
-    const members = await GroupMember.find({ groupId })
+    const members = await this.members.findByGroup(groupId)
     const member = members.find((m: any) => m.phone === phone)
     if (!member) return
 
@@ -623,12 +728,11 @@ export class NjangiService {
   }
 
   async sendAllPendingReminders(): Promise<void> {
-    const groups = await Group.find({ status: 'COLLECTING' })
+    const groups = await this.groups.findCollecting('NJANGI')
     for (const group of groups) {
-      const unpaidMembers = await GroupMember.find({
-        groupId: (group as any)._id,
-        hasPaidCurrentCycle: false,
-      })
+      const unpaidMembers = await this.members.findUnpaid(
+        String((group as any)._id),
+      )
       for (const member of unpaidMembers) {
         const isStellar = (member as any).railType === 'stellar'
         const prompt = isStellar
@@ -643,12 +747,17 @@ export class NjangiService {
     }
   }
 
-  async handleMessage(phone: string, _message: string, contextId: string): Promise<void> {
-    const group = await Group.findById(contextId).catch(() => null)
+  async handleMessage(
+    phone: string,
+    _message: string,
+    contextId: string,
+  ): Promise<void> {
+    const group = await this.groups.findById(contextId).catch(() => null)
     if (!group) {
-      const { sendMainMenu } = await import('@messaging/whatsapp/whatsapp-menu.service')
-      const user = await (await import('@models/User')).User.findOne({ phoneNumber: phone })
-      await sendMainMenu(phone, user?.username ?? '')
+      const { sendMainMenu } =
+        await import('@messaging/whatsapp/whatsapp-menu.service')
+      const user = await this.users.findByPhone(phone)
+      await sendMainMenu(phone, (user as any)?.username ?? '')
       return
     }
 
@@ -656,7 +765,6 @@ export class NjangiService {
   }
 
   async sendGroupButtons(phone: string, group: any): Promise<void> {
-    const { WhatsAppService } = await import('@messaging/whatsapp/whatsapp.service')
     const groupId = String(group._id)
     const status = group.status
     const rows: any[] = []
@@ -672,7 +780,9 @@ export class NjangiService {
       rows.push({
         id: `njangi_pay:${groupId}`,
         title: '💰 Pay contribution',
-        description: group.allowDiaspora ? 'MoMo or Circle (auto-detected)' : `${group.contributionAmount?.toLocaleString()} XAF`,
+        description: group.allowDiaspora
+          ? 'MoMo or Circle (auto-detected)'
+          : `${group.contributionAmount?.toLocaleString()} XAF`,
       })
     }
     rows.push({
@@ -682,7 +792,7 @@ export class NjangiService {
     })
 
     const diasporaBadge = group.allowDiaspora ? ' · 🌍 Cross-border' : ''
-    await WhatsAppService.sendMessage({
+    await sendMessage({
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
       to: phone,
@@ -706,4 +816,8 @@ export const njangiService = new NjangiService(
   new (require('../../blockchain/stellar/stellar.service').StellarService)(),
   new (require('../../shared/services/payment-rail.service').PaymentRailService)(),
   fxRateService,
+  new (require('../../payments/pawapay/pawapay.service').PawapayService)(),
+  new (require('../../domain/repositories/group.repository').GroupRepository)(),
+  new (require('../../domain/repositories/group-member.repository').GroupMemberRepository)(),
+  new (require('../../domain/repositories/user.repository').UserRepository)(),
 )

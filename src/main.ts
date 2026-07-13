@@ -5,7 +5,7 @@ import express from 'express'
 import helmet from 'helmet'
 import cors from 'cors'
 import { AppModule } from './app.module'
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter'
+import { AllExceptionsFilter } from '@core/filters/all-exceptions.filter'
 import {
   apiLimiter,
   webhookLimiter,

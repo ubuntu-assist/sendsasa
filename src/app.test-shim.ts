@@ -14,7 +14,7 @@ import { JwksModule } from '@core/jwks/jwks.module'
 import { CoinbaseModule } from '@onramp/coinbase/coinbase.module'
 import { PaymentModule } from '@payments/payment/payment.module'
 import { OnramperModule } from '@onramp/onramper/onramper.module'
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter'
+import { AllExceptionsFilter } from '@core/filters/all-exceptions.filter'
 
 // Excludes DatabaseModule and XrplModule — tests manage their own DB lifecycle
 // via mongodb-memory-server (startTestDB/stopTestDB) and don't need XRPL.

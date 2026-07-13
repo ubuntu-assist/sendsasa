@@ -1,11 +1,10 @@
 ﻿import { Module } from '@nestjs/common'
 import { PayDayService } from './payday.service'
 import { PayDayFlowService } from './payday-flow.service'
-import { GeminiService } from '@shared/gemini.service'
-import { StellarService } from '@blockchain/stellar/stellar.service'
+import { PawapayService } from '@payments/pawapay/pawapay.service'
 
 @Module({
-  providers: [PayDayService, PayDayFlowService, GeminiService, StellarService],
+  providers: [PayDayService, PayDayFlowService, PawapayService],
   exports: [PayDayService, PayDayFlowService],
 })
 export class PayDayModule {}

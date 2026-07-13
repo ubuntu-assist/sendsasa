@@ -1,14 +1,16 @@
 ﻿import { Injectable } from '@nestjs/common'
-import { Payroll } from './payroll.schema'
+import type { Payroll } from './payroll.schema'
 import { generateShortCode } from '@common/helpers/short-code'
 import { calculateFee } from '@common/helpers/fee'
 import { GeminiService } from '@shared/gemini.service'
 import { StellarService } from '@blockchain/stellar/stellar.service'
 import { PaymentRailService } from '@shared/payment-rail.service'
 import { FxRateService, fxRateService } from '@shared/fx-rate.service'
+import { PawapayService } from '@payments/pawapay/pawapay.service'
 import { sendTextMessage } from '@messaging/whatsapp/whatsapp.service'
-import { sendMoMoReceipt } from '@shared/receipt-generator.service'
-import { User } from '@models/User'
+import { appEmitter, EVENTS } from '@shared/app-emitter'
+import { PayrollRepository } from '@domain/repositories/payroll.repository'
+import { UserRepository } from '@domain/repositories/user.repository'
 import type { CreatePayrollDto, PayrollItem } from '@app/types'
 import logger from '@common/utils/logger'
 
@@ -23,6 +25,9 @@ export class PayDayService {
     private readonly stellar: StellarService,
     private readonly paymentRailService: PaymentRailService,
     private readonly fxRate: FxRateService,
+    private readonly pawapay: PawapayService,
+    private readonly payrolls: PayrollRepository,
+    private readonly users: UserRepository,
   ) {}
 
   async createPayroll(
@@ -33,7 +38,7 @@ export class PayDayService {
     const fee = calculateFee(totalAmount)
     const shortCode = generateShortCode()
 
-    const payroll = await Payroll.create({
+    const payroll = await this.payrolls.create({
       shortCode,
       employerPhone,
       name: data.name,
@@ -44,13 +49,7 @@ export class PayDayService {
       items: data.items.map((item) => ({ ...item, status: 'PENDING' })),
     })
 
-    await User.findOneAndUpdate(
-      { phoneNumber: employerPhone },
-      {
-        momotrustContext: `PAYDAY:${(payroll as any)._id}`,
-        momotrustContextUpdatedAt: new Date(),
-      },
-    )
+    await this.users.setContext(employerPhone, { type: 'PAYDAY', payrollId: String((payroll as any)._id) })
 
     const lines = data.items
       .slice(0, 5)
@@ -88,7 +87,7 @@ export class PayDayService {
     payrollId: string,
     employerPhone: string,
   ): Promise<void> {
-    const payroll = await Payroll.findById(payrollId)
+    const payroll = await this.payrolls.findById(payrollId)
     if (!payroll || String((payroll as any).employerPhone) !== employerPhone)
       return
     if ((payroll as any).status !== 'DRAFT') {
@@ -121,7 +120,7 @@ export class PayDayService {
    * is not configured (e.g. during local development).
    */
   async disburse(payrollId: string): Promise<void> {
-    const payroll = await Payroll.findById(payrollId)
+    const payroll = await this.payrolls.findById(payrollId)
     if (!payroll) return
     ;(payroll as any).status = 'DISBURSING'
     await (payroll as any).save()
@@ -130,11 +129,13 @@ export class PayDayService {
       (item) => item.status === 'PENDING',
     )
 
-    const employer = await User.findOne({
-      phoneNumber: (payroll as any).employerPhone,
-    }).select('operatingRegion')
+    const employer = await this.users.findByPhone(
+      (payroll as any).employerPhone,
+    )
 
-    const rail = employer ? this.paymentRailService.getRail(employer) : 'pawapay'
+    const rail = employer
+      ? this.paymentRailService.getRail(employer)
+      : 'pawapay'
 
     if (rail === 'stellar' && ONAFRIQ_DIST_ACCOUNT) {
       await this._disburseStellar(payroll as any, pendingItems)
@@ -144,7 +145,10 @@ export class PayDayService {
     await this._disbursePawapay(payroll as any, pendingItems)
   }
 
-  private async _disburseStellar(payroll: any, pendingItems: any[]): Promise<void> {
+  private async _disburseStellar(
+    payroll: any,
+    pendingItems: any[],
+  ): Promise<void> {
     const rate = await this.fxRate.getUSDtoXAF()
     const recipients = pendingItems.map((item, index) => ({
       phone: item.recipientPhone,
@@ -214,11 +218,12 @@ export class PayDayService {
     }
   }
 
-  private async _disbursePawapay(payroll: any, pendingItems: any[]): Promise<void> {
-    const { pawapayService } = await import('@payments/pawapay/pawapay.service')
-
+  private async _disbursePawapay(
+    payroll: any,
+    pendingItems: any[],
+  ): Promise<void> {
     const recipients = pendingItems.map((item) => ({
-      payoutId: pawapayService.generateId(),
+      payoutId: this.pawapay.generateId(),
       phone: item.recipientPhone,
       amount: item.amount,
       description: `Salary ${payroll.shortCode}`.slice(0, 22),
@@ -232,7 +237,7 @@ export class PayDayService {
     }
     await payroll.save()
 
-    const results = await pawapayService.bulkPayout(recipients)
+    const results = await this.pawapay.bulkPayout(recipients)
     for (const result of results) {
       const item = (payroll.items as any[]).find(
         (i) => i.pawapayPayoutId === result.payoutId,
@@ -252,9 +257,7 @@ export class PayDayService {
   // ─── Legacy pawaPay per-item callbacks ────────────────────────────────────
 
   async onItemPaid(pawapayPayoutId: string): Promise<void> {
-    const payroll = await Payroll.findOne({
-      'items.pawapayPayoutId': pawapayPayoutId,
-    })
+    const payroll = await this.payrolls.findByPayoutItemId(pawapayPayoutId)
     if (!payroll) return
 
     const item = ((payroll as any).items as any[]).find(
@@ -279,9 +282,7 @@ export class PayDayService {
   }
 
   async onItemFailed(pawapayPayoutId: string, code: string): Promise<void> {
-    const payroll = await Payroll.findOne({
-      'items.pawapayPayoutId': pawapayPayoutId,
-    })
+    const payroll = await this.payrolls.findByPayoutItemId(pawapayPayoutId)
     if (!payroll) return
 
     const item = ((payroll as any).items as any[]).find(
@@ -319,29 +320,36 @@ export class PayDayService {
     )
 
     const extraLines: { label: string; value: string }[] = [
-      { label: 'Recipients', value: `${paidCount} / ${payroll.recipientCount}` },
+      {
+        label: 'Recipients',
+        value: `${paidCount} / ${payroll.recipientCount}`,
+      },
     ]
-    if (anyFailed) extraLines.push({ label: 'Failed', value: String(failedCount) })
+    if (anyFailed)
+      extraLines.push({ label: 'Failed', value: String(failedCount) })
     if (payroll.stellarBatchTxHash) {
-      extraLines.push({ label: 'Stellar Tx', value: payroll.stellarBatchTxHash.slice(0, 16) + '…' })
+      extraLines.push({
+        label: 'Stellar Tx',
+        value: payroll.stellarBatchTxHash.slice(0, 16) + '…',
+      })
     }
-    sendMoMoReceipt(payroll.employerPhone, {
-      type: 'payroll',
-      referenceId: payroll.shortCode,
-      dateTime: new Date().toLocaleString('en-US', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }),
-      amount: payroll.totalAmount,
-      fee: payroll.fee,
-      title: payroll.name,
-      extraLines,
-    }).catch(() => {})
+    appEmitter.emit(EVENTS.RECEIPT_SEND, {
+      phone: payroll.employerPhone,
+      data: {
+        type: 'payroll',
+        referenceId: payroll.shortCode,
+        dateTime: new Date().toLocaleString('en-US', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }),
+        amount: payroll.totalAmount,
+        fee: payroll.fee,
+        title: payroll.name,
+        extraLines,
+      },
+    })
 
-    await User.findOneAndUpdate(
-      { phoneNumber: payroll.employerPhone },
-      { $unset: { momotrustContext: 1, momotrustContextUpdatedAt: 1 } },
-    )
+    await this.users.setContext(payroll.employerPhone, null)
   }
 
   async handleMessage(
@@ -350,7 +358,7 @@ export class PayDayService {
     contextId: string,
   ): Promise<void> {
     const text = message.trim().toLowerCase()
-    const payroll = await Payroll.findById(contextId).catch(() => null)
+    const payroll = await this.payrolls.findById(contextId).catch(() => null)
     if (!payroll) return
 
     if (
@@ -368,4 +376,7 @@ export const paydayService = new PayDayService(
   new (require('../../blockchain/stellar/stellar.service').StellarService)(),
   new (require('../../shared/services/payment-rail.service').PaymentRailService)(),
   fxRateService,
+  new (require('../../payments/pawapay/pawapay.service').PawapayService)(),
+  new (require('../../domain/repositories/payroll.repository').PayrollRepository)(),
+  new (require('../../domain/repositories/user.repository').UserRepository)(),
 )

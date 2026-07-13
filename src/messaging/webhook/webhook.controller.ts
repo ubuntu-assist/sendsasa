@@ -1,10 +1,13 @@
-﻿import { Controller, Get, Post, Req, Res } from '@nestjs/common'
+﻿import { Controller, Get, Post, Req, Res, UseGuards, UseInterceptors } from '@nestjs/common'
 import type { Request, Response } from 'express'
 import { MessageHandlerService } from './message-handler.service'
 import { WhatsAppService } from '@messaging/whatsapp/whatsapp.service'
 import { consumeUserToken } from '@common/middleware/rate-limiter'
 import config from '@common/utils/config'
+import { WebhookSignatureGuard } from '@core/guards/webhook-signature.guard'
+import { LoggingInterceptor } from '@core/interceptors/logging.interceptor'
 
+@UseInterceptors(LoggingInterceptor)
 @Controller('webhook')
 export class WebhookController {
   constructor(
@@ -28,6 +31,7 @@ export class WebhookController {
   }
 
   @Post()
+  @UseGuards(WebhookSignatureGuard)
   async receive(@Req() req: Request, @Res() res: Response) {
     try {
       const body = req.body
