@@ -66,8 +66,7 @@
           </p>
 
           <p class="text-secondary mt-5">
-            Last updated: June 2026. Questions? Message us on WhatsApp at +237
-            656 123 456 or email support@sendsasa.com.
+            Last updated: June 2026. Questions? Email us at support@sendsasa.com.
           </p>
         </div>
       </div>
