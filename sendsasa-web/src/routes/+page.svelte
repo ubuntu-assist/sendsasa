@@ -120,15 +120,18 @@
             class="banner-img transform-unset reveal"
             style="max-width:83%;margin:0 auto;"
           >
-            <img
-              src="/assets/images/banner-img.png"
-              alt="SendSasa app on WhatsApp"
-              fetchpriority="high"
-              loading="eager"
-              width="528"
-              height="620"
-              style="max-width:100%;height:auto;display:block;margin:0 auto;"
-            />
+            <picture>
+              <source srcset="/assets/images/banner-img.webp" type="image/webp" />
+              <img
+                src="/assets/images/banner-img.png"
+                alt="SendSasa app on WhatsApp"
+                fetchpriority="high"
+                loading="eager"
+                width="528"
+                height="620"
+                style="max-width:100%;height:auto;display:block;margin:0 auto;"
+              />
+            </picture>
           </div>
         </div>
       </div>
@@ -153,7 +156,7 @@
               rel="noopener noreferrer"
               class="d-flex align-items-center text-decoration-none play gap-12"
             >
-              <img src="/assets/images/play-circle.svg" alt="WhatsApp" />
+              <img src="/assets/images/play-circle.svg" alt="WhatsApp" loading="lazy" width="48" height="48" />
               <span class="text-secondary">{$_('home.hero.cta_secondary')}</span
               >
             </a>
@@ -199,19 +202,22 @@
         <div class="swiper partner-slide text-center text-lg-end">
           <div class="swiper-wrapper align-items-center">
             <div class="swiper-slide">
-              <img src="/assets/images/xrpl-commons.svg" alt="XRPL Commons" height="40" style="height:40px;width:auto;" />
+              <img src="/assets/images/xrpl-commons.svg" alt="XRPL Commons" height="40" width="120" style="height:40px;width:auto;" loading="lazy" />
             </div>
             <div class="swiper-slide">
-              <img src="/assets/images/pawapay.svg" alt="PawaPay" height="40" style="height:40px;width:auto;" />
+              <img src="/assets/images/pawapay.svg" alt="PawaPay" height="40" width="120" style="height:40px;width:auto;" loading="lazy" />
             </div>
             <div class="swiper-slide">
-              <img src="/assets/images/onafriq-logo.webp" alt="Onafriq" height="40" style="height:40px;width:auto;" />
+              <img src="/assets/images/onafriq-logo.webp" alt="Onafriq" height="40" width="120" style="height:40px;width:auto;" loading="lazy" />
             </div>
             <div class="swiper-slide">
-              <img src="/assets/images/ayahq.png" alt="AyahQ" width="137" height="40" style="height:40px;width:auto;" />
+              <picture>
+                <source srcset="/assets/images/ayahq.webp" type="image/webp" />
+                <img src="/assets/images/ayahq.png" alt="AyahQ" width="137" height="40" style="height:40px;width:auto;" loading="lazy" />
+              </picture>
             </div>
             <div class="swiper-slide">
-              <img src="/assets/images/circle.png" alt="Circle" width="157" height="40" style="height:40px;width:auto;" />
+              <img src="/assets/images/circle.png" alt="Circle" width="157" height="40" style="height:40px;width:auto;" loading="lazy" />
             </div>
           </div>
         </div>
@@ -260,6 +266,7 @@
                     alt="send money"
                     width="35"
                     height="35"
+                    loading="lazy"
                   />
                 </div>
               </div>
@@ -273,18 +280,25 @@
             class="mt-auto text-center"
             style="height:380px;display:flex;align-items:flex-end;justify-content:center;"
           >
-            <img
-              src="/assets/images/feature1.png"
-              alt="send money feature"
-              width="347"
-              height="325"
-              style="max-height:380px;width:auto;max-width:100%;object-fit:contain;"
-            />
+            <picture>
+              <source srcset="/assets/images/feature1.webp" type="image/webp" />
+              <img
+                src="/assets/images/feature1.png"
+                alt="send money feature"
+                width="347"
+                height="325"
+                style="max-height:380px;width:auto;max-width:100%;object-fit:contain;"
+                loading="lazy"
+              />
+            </picture>
           </div>
           <img
             src="/assets/images/shape16.png"
             class="position-absolute bottom-0 end-0 p-5 m-3 d-none d-xxl-inline-block"
             alt="shape"
+            loading="lazy"
+            width="120"
+            height="120"
           />
         </div>
       </div>
@@ -294,7 +308,7 @@
             <div class="d-flex align-items-center gap-25 mb-4">
               <div class="flex-shrink-0">
                 <div class="icon">
-                  <img src="/assets/images/feature-icon2.png" alt="payday" width="35" height="35" />
+                  <img src="/assets/images/feature-icon2.png" alt="payday" width="35" height="35" loading="lazy" />
                 </div>
               </div>
               <div class="flex-grow-1">
@@ -307,13 +321,17 @@
             class="mt-auto text-center"
             style="height:380px;display:flex;align-items:flex-end;justify-content:center;"
           >
-            <img
-              src="/assets/images/feature2.png"
-              alt="payday feature"
-              width="277"
-              height="380"
-              style="max-height:380px;width:auto;max-width:100%;object-fit:contain;"
-            />
+            <picture>
+              <source srcset="/assets/images/feature2.webp" type="image/webp" />
+              <img
+                src="/assets/images/feature2.png"
+                alt="payday feature"
+                width="277"
+                height="380"
+                style="max-height:380px;width:auto;max-width:100%;object-fit:contain;"
+                loading="lazy"
+              />
+            </picture>
           </div>
         </div>
       </div>
@@ -323,7 +341,7 @@
             <div class="d-flex align-items-center gap-25 mb-4">
               <div class="flex-shrink-0">
                 <div class="icon">
-                  <img src="/assets/images/feature-icon3.png" alt="safipay" width="35" height="35" />
+                  <img src="/assets/images/feature-icon3.png" alt="safipay" width="35" height="35" loading="lazy" />
                 </div>
               </div>
               <div class="flex-grow-1">
@@ -336,13 +354,17 @@
             class="mt-auto text-center"
             style="height:380px;display:flex;align-items:flex-end;justify-content:center;"
           >
-            <img
-              src="/assets/images/feature3.png"
-              alt="safipay feature"
-              width="356"
-              height="380"
-              style="max-height:380px;width:auto;max-width:100%;object-fit:contain;"
-            />
+            <picture>
+              <source srcset="/assets/images/feature3.webp" type="image/webp" />
+              <img
+                src="/assets/images/feature3.png"
+                alt="safipay feature"
+                width="356"
+                height="380"
+                style="max-height:380px;width:auto;max-width:100%;object-fit:contain;"
+                loading="lazy"
+              />
+            </picture>
           </div>
         </div>
       </div>
@@ -453,14 +475,18 @@
             <div class="row g-4">
               <div class="col-lg-4">
                 <div class="about-img-wrap h-100">
-                  <img
-                    src="/assets/images/about-img.jpeg"
-                    class="ukiyo"
-                    alt="sending money"
-                    width="1155"
-                    height="1470"
-                    style="width:100%;height:100%;object-fit:cover;border-radius:30px;"
-                  />
+                  <picture>
+                    <source srcset="/assets/images/about-img.webp" type="image/webp" />
+                    <img
+                      src="/assets/images/about-img.jpeg"
+                      class="ukiyo"
+                      alt="sending money"
+                      width="1155"
+                      height="1470"
+                      style="width:100%;height:100%;object-fit:cover;border-radius:30px;"
+                      loading="lazy"
+                    />
+                  </picture>
                 </div>
               </div>
               <div class="col-lg-8">
@@ -470,19 +496,19 @@
                   <ul class="p-0 mb-0 list-unstyled">
                     <li>
                       <span class="d-inline-flex align-items-center gap-12"
-                        ><img src="/assets/images/check2.svg" alt="check" />
+                        ><img src="/assets/images/check2.svg" alt="check" width="20" height="20" loading="lazy" />
                         {$_('home.about.send.check1')}</span
                       >
                     </li>
                     <li>
                       <span class="d-inline-flex align-items-center gap-12"
-                        ><img src="/assets/images/check2.svg" alt="check" />
+                        ><img src="/assets/images/check2.svg" alt="check" width="20" height="20" loading="lazy" />
                         {$_('home.about.send.check2')}</span
                       >
                     </li>
                     <li>
                       <span class="d-inline-flex align-items-center gap-12"
-                        ><img src="/assets/images/check2.svg" alt="check" />
+                        ><img src="/assets/images/check2.svg" alt="check" width="20" height="20" loading="lazy" />
                         {$_('home.about.send.check3')}</span
                       >
                     </li>
@@ -491,6 +517,9 @@
                     src="/assets/images/shape4.png"
                     class="position-absolute bottom-0 end-0 for-about-shape d-none d-lg-inline-block transform-unset"
                     alt="shape"
+                    loading="lazy"
+                    width="120"
+                    height="120"
                   />
                 </div>
               </div>
@@ -511,19 +540,19 @@
                   <ul class="p-0 mb-0 list-unstyled">
                     <li>
                       <span class="d-inline-flex align-items-center gap-12"
-                        ><img src="/assets/images/check2.svg" alt="check" />
+                        ><img src="/assets/images/check2.svg" alt="check" width="20" height="20" loading="lazy" />
                         {$_('home.about.escrow.check1')}</span
                       >
                     </li>
                     <li>
                       <span class="d-inline-flex align-items-center gap-12"
-                        ><img src="/assets/images/check2.svg" alt="check" />
+                        ><img src="/assets/images/check2.svg" alt="check" width="20" height="20" loading="lazy" />
                         {$_('home.about.escrow.check2')}</span
                       >
                     </li>
                     <li>
                       <span class="d-inline-flex align-items-center gap-12"
-                        ><img src="/assets/images/check2.svg" alt="check" />
+                        ><img src="/assets/images/check2.svg" alt="check" width="20" height="20" loading="lazy" />
                         {$_('home.about.escrow.check3')}</span
                       >
                     </li>
@@ -532,13 +561,17 @@
               </div>
               <div class="col-lg-4">
                 <div class="about-img-wrap h-100">
-                  <img
-                    src="/assets/images/about-img.jpeg"
-                    alt="trustlock escrow"
-                    width="1155"
-                    height="1470"
-                    style="width:100%;height:100%;object-fit:cover;border-radius:30px;"
-                  />
+                  <picture>
+                    <source srcset="/assets/images/about-img.webp" type="image/webp" />
+                    <img
+                      src="/assets/images/about-img.jpeg"
+                      alt="trustlock escrow"
+                      width="1155"
+                      height="1470"
+                      style="width:100%;height:100%;object-fit:cover;border-radius:30px;"
+                      loading="lazy"
+                    />
+                  </picture>
                 </div>
               </div>
             </div>
@@ -553,13 +586,17 @@
             <div class="row g-4">
               <div class="col-lg-4">
                 <div class="about-img-wrap h-100">
-                  <img
-                    src="/assets/images/about-img.jpeg"
-                    alt="payday payroll"
-                    width="1155"
-                    height="1470"
-                    style="width:100%;height:100%;object-fit:cover;border-radius:30px;"
-                  />
+                  <picture>
+                    <source srcset="/assets/images/about-img.webp" type="image/webp" />
+                    <img
+                      src="/assets/images/about-img.jpeg"
+                      alt="payday payroll"
+                      width="1155"
+                      height="1470"
+                      style="width:100%;height:100%;object-fit:cover;border-radius:30px;"
+                      loading="lazy"
+                    />
+                  </picture>
                 </div>
               </div>
               <div class="col-lg-8">
@@ -569,19 +606,19 @@
                   <ul class="p-0 mb-0 list-unstyled">
                     <li>
                       <span class="d-inline-flex align-items-center gap-12"
-                        ><img src="/assets/images/check2.svg" alt="check" />
+                        ><img src="/assets/images/check2.svg" alt="check" width="20" height="20" loading="lazy" />
                         {$_('home.about.payroll.check1')}</span
                       >
                     </li>
                     <li>
                       <span class="d-inline-flex align-items-center gap-12"
-                        ><img src="/assets/images/check2.svg" alt="check" />
+                        ><img src="/assets/images/check2.svg" alt="check" width="20" height="20" loading="lazy" />
                         {$_('home.about.payroll.check2')}</span
                       >
                     </li>
                     <li>
                       <span class="d-inline-flex align-items-center gap-12"
-                        ><img src="/assets/images/check2.svg" alt="check" />
+                        ><img src="/assets/images/check2.svg" alt="check" width="20" height="20" loading="lazy" />
                         {$_('home.about.payroll.check3')}</span
                       >
                     </li>
@@ -605,19 +642,19 @@
                   <ul class="p-0 mb-0 list-unstyled">
                     <li>
                       <span class="d-inline-flex align-items-center gap-12"
-                        ><img src="/assets/images/check2.svg" alt="check" />
+                        ><img src="/assets/images/check2.svg" alt="check" width="20" height="20" loading="lazy" />
                         {$_('home.about.invoice.check1')}</span
                       >
                     </li>
                     <li>
                       <span class="d-inline-flex align-items-center gap-12"
-                        ><img src="/assets/images/check2.svg" alt="check" />
+                        ><img src="/assets/images/check2.svg" alt="check" width="20" height="20" loading="lazy" />
                         {$_('home.about.invoice.check2')}</span
                       >
                     </li>
                     <li>
                       <span class="d-inline-flex align-items-center gap-12"
-                        ><img src="/assets/images/check2.svg" alt="check" />
+                        ><img src="/assets/images/check2.svg" alt="check" width="20" height="20" loading="lazy" />
                         {$_('home.about.invoice.check3')}</span
                       >
                     </li>
@@ -626,13 +663,17 @@
               </div>
               <div class="col-lg-4">
                 <div class="about-img-wrap h-100">
-                  <img
-                    src="/assets/images/about-img.jpeg"
-                    alt="safipay invoicing"
-                    width="1155"
-                    height="1470"
-                    style="width:100%;height:100%;object-fit:cover;border-radius:30px;"
-                  />
+                  <picture>
+                    <source srcset="/assets/images/about-img.webp" type="image/webp" />
+                    <img
+                      src="/assets/images/about-img.jpeg"
+                      alt="safipay invoicing"
+                      width="1155"
+                      height="1470"
+                      style="width:100%;height:100%;object-fit:cover;border-radius:30px;"
+                      loading="lazy"
+                    />
+                  </picture>
                 </div>
               </div>
             </div>
@@ -672,7 +713,7 @@
         <div class="working-process-single-item">
           <div class="icon">
             <div class="d-flex justify-content-between align-items-center">
-              <img src="/assets/images/process1.png" alt="step 1" width="68" height="68" />
+              <img src="/assets/images/process1.png" alt="step 1" width="68" height="68" loading="lazy" />
               <span class="step">{$_('home.how_it_works.step1.label')}</span>
             </div>
           </div>
@@ -684,7 +725,7 @@
         <div class="working-process-single-item">
           <div class="icon">
             <div class="d-flex justify-content-between align-items-center">
-              <img src="/assets/images/process2.png" alt="step 2" width="68" height="68" />
+              <img src="/assets/images/process2.png" alt="step 2" width="68" height="68" loading="lazy" />
               <span class="step">{$_('home.how_it_works.step2.label')}</span>
             </div>
           </div>
@@ -696,7 +737,7 @@
         <div class="working-process-single-item">
           <div class="icon">
             <div class="d-flex justify-content-between align-items-center">
-              <img src="/assets/images/process3.png" alt="step 3" width="68" height="68" />
+              <img src="/assets/images/process3.png" alt="step 3" width="68" height="68" loading="lazy" />
               <span class="step">{$_('home.how_it_works.step3.label')}</span>
             </div>
           </div>
@@ -762,6 +803,7 @@
                   alt="instant transfers"
                   width="32"
                   height="32"
+                  loading="lazy"
                 />
               </div>
             </div>
@@ -773,7 +815,7 @@
           <div class="d-flex why-choose-single-item">
             <div class="flex-shrink-0">
               <div class="icon">
-                <img src="/assets/images/why-choose2.png" alt="1% fee" width="30" height="30" />
+                <img src="/assets/images/why-choose2.png" alt="1% fee" width="30" height="30" loading="lazy" />
               </div>
             </div>
             <div class="flex-grow-1">
@@ -786,14 +828,18 @@
       <div class="col-xl-6">
         <div class="why-choose-us-img position-relative z-1 text-center">
           <div class="reveal">
-            <img
-              src="/assets/images/no-app-needed.jpg"
-              class="img"
-              alt="sendsasa on mobile"
-              width="600"
-              height="400"
-              style="max-width:100%;height:auto;"
-            />
+            <picture>
+              <source srcset="/assets/images/no-app-needed.webp" type="image/webp" />
+              <img
+                src="/assets/images/no-app-needed.jpg"
+                class="img"
+                alt="sendsasa on mobile"
+                width="600"
+                height="400"
+                style="max-width:100%;height:auto;"
+                loading="lazy"
+              />
+            </picture>
           </div>
         </div>
       </div>
@@ -832,6 +878,7 @@
                 width="56"
                 height="56"
                 style="width:56px;height:56px;object-fit:cover;border-radius:50%;"
+                loading="lazy"
               />
             </div>
             <div class="flex-grow-1">
@@ -851,6 +898,7 @@
                 width="56"
                 height="56"
                 style="width:56px;height:56px;object-fit:cover;border-radius:50%;"
+                loading="lazy"
               />
             </div>
             <div class="flex-grow-1">
@@ -870,6 +918,7 @@
                 width="56"
                 height="56"
                 style="width:56px;height:56px;object-fit:cover;border-radius:50%;"
+                loading="lazy"
               />
             </div>
             <div class="flex-grow-1">
@@ -889,6 +938,7 @@
                 width="56"
                 height="56"
                 style="width:56px;height:56px;object-fit:cover;border-radius:50%;"
+                loading="lazy"
               />
             </div>
             <div class="flex-grow-1">
@@ -908,6 +958,7 @@
                 width="50"
                 height="50"
                 style="width:50px;height:50px;object-fit:cover;border-radius:50%;"
+                loading="lazy"
               />
             </div>
             <div class="flex-grow-1">
@@ -927,6 +978,7 @@
                 width="56"
                 height="56"
                 style="width:56px;height:56px;object-fit:cover;border-radius:50%;"
+                loading="lazy"
               />
             </div>
             <div class="flex-grow-1">
@@ -946,6 +998,7 @@
                 width="56"
                 height="56"
                 style="width:56px;height:56px;object-fit:cover;border-radius:50%;"
+                loading="lazy"
               />
             </div>
             <div class="flex-grow-1">
@@ -965,6 +1018,7 @@
                 width="56"
                 height="56"
                 style="width:56px;height:56px;object-fit:cover;border-radius:50%;"
+                loading="lazy"
               />
             </div>
             <div class="flex-grow-1">
@@ -1007,6 +1061,9 @@
             src="/assets/images/shape4.png"
             class="position-absolute shape4 d-none d-xl-inline-block"
             alt="shape"
+            loading="lazy"
+            width="120"
+            height="120"
           />
         </div>
       </div>
@@ -1022,14 +1079,20 @@
                   <img
                     src="/assets/images/logo-white.png"
                     alt="SendSasa"
+                    width="160"
+                    height="40"
                     style="max-width: 160px; height: auto;"
+                    loading="lazy"
                   />
                 </td>
                 <td class="text-center bg-gray2 rounded-top-5">
                   <img
                     src="/assets/images/western-union.svg"
                     alt="traditional bank"
+                    width="220"
+                    height="40"
                     style="max-width: 220px; height: auto;"
+                    loading="lazy"
                   />
                 </td>
               </tr>
@@ -1339,11 +1402,17 @@
     <div class="row g-4">
       <div class="col-lg-6 overflow-hidden">
         <div class="apps-img h-100 reveal">
-          <img
-            src="/assets/images/apps-img.jpeg"
-            class="object-fit-cover h-100 rounded-5"
-            alt="sendsasa on whatsapp"
-          />
+          <picture>
+            <source srcset="/assets/images/apps-img.webp" type="image/webp" />
+            <img
+              src="/assets/images/apps-img.jpeg"
+              class="object-fit-cover h-100 rounded-5"
+              alt="sendsasa on whatsapp"
+              width="600"
+              height="700"
+              loading="lazy"
+            />
+          </picture>
         </div>
       </div>
       <div class="col-lg-6">
@@ -1358,22 +1427,22 @@
             <p>{$_('home.cta.body')}</p>
             <ul class="px-0 mt-4 pt-xl-3 mb-xl-5 mb-4 list-unstyled">
               <li class="d-flex align-items-center gap-12 mb-lg-4 mb-3">
-                <img src="/assets/images/check2.svg" alt="check" />
+                <img src="/assets/images/check2.svg" alt="check" width="20" height="20" loading="lazy" />
                 <span class="fs-18 text-secondary">{$_('home.cta.check1')}</span
                 >
               </li>
               <li class="d-flex align-items-center gap-12 mb-lg-4 mb-3">
-                <img src="/assets/images/check2.svg" alt="check" />
+                <img src="/assets/images/check2.svg" alt="check" width="20" height="20" loading="lazy" />
                 <span class="fs-18 text-secondary">{$_('home.cta.check2')}</span
                 >
               </li>
               <li class="d-flex align-items-center gap-12 mb-lg-4 mb-3">
-                <img src="/assets/images/check2.svg" alt="check" />
+                <img src="/assets/images/check2.svg" alt="check" width="20" height="20" loading="lazy" />
                 <span class="fs-18 text-secondary">{$_('home.cta.check3')}</span
                 >
               </li>
               <li class="d-flex align-items-center gap-12">
-                <img src="/assets/images/check2.svg" alt="check" />
+                <img src="/assets/images/check2.svg" alt="check" width="20" height="20" loading="lazy" />
                 <span class="fs-18 text-secondary">{$_('home.cta.check4')}</span
                 >
               </li>
@@ -1396,6 +1465,9 @@
             src="/assets/images/shape4.png"
             class="position-absolute top-50 end-0 translate-middle-y shape4 d-none d-xl-inline-block"
             alt="shape"
+            loading="lazy"
+            width="120"
+            height="120"
           />
         </div>
       </div>

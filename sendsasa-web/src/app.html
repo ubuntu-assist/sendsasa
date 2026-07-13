@@ -16,11 +16,17 @@
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" /></noscript>
     <!-- Preload LCP background image so the browser discovers it before CSS is parsed -->
     <link rel="preload" as="image" href="/assets/images/banner-bg.jpeg" fetchpriority="high" />
-    <link rel="stylesheet" href="/assets/css/swiper-bundle.min.css" />
-    <link rel="stylesheet" href="/assets/css/scrollCue.css" />
+    <!-- Tabler icons font — preload woff2 so it arrives with the CSS -->
+    <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/tabler-icons.woff2" crossorigin />
+    <!-- Critical CSS: blocks render (needed for above-fold layout + icons) -->
     <link rel="stylesheet" href="/assets/css/tabler-icons.min.css" />
     <link rel="stylesheet" href="/assets/css/britti-sans-trial.css" />
     <link rel="stylesheet" href="/assets/css/style.css" />
+    <!-- Non-critical CSS: loads async, only needed below the fold -->
+    <link rel="preload" as="style" href="/assets/css/swiper-bundle.min.css" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="/assets/css/swiper-bundle.min.css" /></noscript>
+    <link rel="preload" as="style" href="/assets/css/scrollCue.css" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="/assets/css/scrollCue.css" /></noscript>
     <style>
       /* Sticky navbar must outrank the fixed-top wrapper (z-index 1030) */
       .navbar.sticky {
@@ -91,10 +97,10 @@
   </head>
   <body data-sveltekit-preload-data="hover">
     <div style="display: contents">%sveltekit.body%</div>
-    <script src="/assets/js/bootstrap.bundle.min.js"></script>
-    <script src="/assets/js/swiper-bundle.min.js"></script>
-    <script src="/assets/js/scrollCue.min.js"></script>
-    <script src="/assets/js/fslightbox.js"></script>
-    <script src="/assets/js/ukiyo.min.js"></script>
+    <script defer src="/assets/js/bootstrap.bundle.min.js"></script>
+    <script defer src="/assets/js/swiper-bundle.min.js"></script>
+    <script defer src="/assets/js/scrollCue.min.js"></script>
+    <script defer src="/assets/js/fslightbox.js"></script>
+    <script defer src="/assets/js/ukiyo.min.js"></script>
   </body>
 </html>

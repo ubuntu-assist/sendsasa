@@ -146,7 +146,7 @@
 		if (navbar) {
 			window.addEventListener('scroll', () => {
 				navbar.classList.toggle('sticky', window.scrollY >= 200);
-			});
+			}, { passive: true });
 		}
 
 		// ── Back to top ────────────────────────────────────────────────────
@@ -155,7 +155,7 @@
 			topBtn.onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 			window.addEventListener('scroll', () => {
 				topBtn.style.opacity = window.scrollY > 200 ? '1' : '0';
-			});
+			}, { passive: true });
 		}
 
 		// ── Swiper carousels ───────────────────────────────────────────────
@@ -168,8 +168,11 @@
 		// Isolated in try/catch: a chunk-load failure (e.g. stale hash after a
 		// redeploy) must not prevent the page from being usable.
 		try {
-			const { gsap } = await import('gsap');
-			const { ScrollTrigger } = await import('gsap/ScrollTrigger');
+			const [{ gsap }, { ScrollTrigger }, { default: LenisLib }] = await Promise.all([
+				import('gsap'),
+				import('gsap/ScrollTrigger'),
+				import('lenis'),
+			]);
 			gsap.registerPlugin(ScrollTrigger);
 			gsapRef = gsap;
 			w._ScrollTrigger = ScrollTrigger;
@@ -193,14 +196,18 @@
 			window.addEventListener('scroll', forceRevealGSAP, { passive: true });
 
 			// ── Lenis smooth scroll ────────────────────────────────────────────
-			const { default: Lenis } = await import('lenis');
-			const lenis = new Lenis({ duration: 0.75, smoothWheel: true, smoothTouch: false });
+			const lenis = new LenisLib({ duration: 0.75, smoothWheel: true, smoothTouch: false });
+			let rafId: number;
 			const raf = (time: number) => {
 				lenis.raf(time);
 				if (ukiyoRef) ukiyoRef.animate();
-				requestAnimationFrame(raf);
+				rafId = requestAnimationFrame(raf);
 			};
-			requestAnimationFrame(raf);
+			rafId = requestAnimationFrame(raf);
+			document.addEventListener('visibilitychange', () => {
+				if (document.hidden) cancelAnimationFrame(rafId);
+				else rafId = requestAnimationFrame(raf);
+			});
 
 			// ── Hero text animation ────────────────────────────────────────────
 			const container = document.getElementById('text');
